@@ -1,10 +1,19 @@
+/* Custom Pixel Font */
+@font-face {
+  font-family: 'Galmuri';
+  src: url('/assets/fonts/Galmuri11-Bold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block; /* Wait for font to load before showing text */
+}
+
 :root {
-  font-family: "Pretendard", "Noto Sans KR", system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Galmuri', 'Pretendard', 'Noto Sans KR', monospace;
   color: #f3ead1;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeSpeed; /* Better for pixel fonts */
+  -webkit-font-smoothing: none; /* Disable antialiasing for crisp pixel font */
   -moz-osx-font-smoothing: grayscale;
+  image-rendering: pixelated; /* Crisp rendering for pixel art */
 }
 
 * {

@@ -1,0 +1,206 @@
+﻿import React, { useEffect, useState, useRef } from "react";
+import Phaser from "phaser";
+import MiniGameModal from "./components/MiniGameModal";
+import ExitConfirmModal from "./components/ExitConfirmModal";
+
+const canvasWidth = 800;
+const canvasHeight = 600;
+const directionOrder = ["down", "right", "up", "left"];
+const spriteFrame = {
+  size: 16,
+  spacing: 4,
+  margin: 2,
+};
+
+function App() {
+  const [showMiniGame, setShowMiniGame] = useState(false);
+  const [showLocationBanner, setShowLocationBanner] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  const gameStateRef = useRef({
+    isMiniGameOpen: false,
+    setShowMiniGame: setShowMiniGame,
+    setShowExitConfirm: setShowExitConfirm,
+  });
+
+  useEffect(() => {
+    gameStateRef.current.isMiniGameOpen = showMiniGame;
+  }, [showMiniGame]);
+
+  // Show location banner on mount
+  useEffect(() => {
+    const showTimer = setTimeout(() => {
+      setShowLocationBanner(true);
+    }, 500);
+
+    const hideTimer = setTimeout(() => {
+      setShowLocationBanner(false);
+    }, 4000);
+
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
+      #game-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
+    `;
+    document.head.appendChild(style);
+
+    const config = {
+      type: Phaser.AUTO,
+      width: canvasWidth,
+      height: canvasHeight,
+      parent: "game-container",
+      pixelArt: true,
+      backgroundColor: "#000000",
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      physics: {
+        default: "arcade",
+        arcade: {
+          gravity: { y: 0 },
+          debug: false,
+        },
+      },
+      scene: {
+        preload: preload,
+        create: create,
+        update: update,
+      },
+    };
+
+    function preload() {
+      const dormitoryPath = "/assets/dormitory/";
+      const commonPath = "/assets/common/";
+
+      this.load.image("floor", `tile.png`);
+      this.load.image("wall", `wall.png`);
+      this.load.image("outline_top", `outline_top.png`);
+      this.load.image("outline_side", `outline_side.png`);
+      this.load.image("bed", `bed.png`);
+      this.load.image("closet", `closet.png`);
+      this.load.image("deskl", `deskl.png`);
+      this.load.image("deskr", `deskr.png`);
+      this.load.image("window", `window.png`);
+      this.load.image("door", `door.png`);
+      this.load.image("tile2", `tile2.png`);
+
+      const characterPath = `character/`;
+      const spriteConfig = {
+        frameWidth: spriteFrame.size,
+        frameHeight: spriteFrame.size,
+        margin: spriteFrame.margin,
+        spacing: spriteFrame.spacing,
+      };
+
+      this.load.spritesheet("player_walk", `16x16 Walk-Sheet.png`, spriteConfig);
+      this.load.spritesheet("player_run", `16x16 Run-Sheet.png`, spriteConfig);
+      this.load.spritesheet("player_jump", `16x16 Jump-Sheet.png`, spriteConfig);
+      this.load.spritesheet("player_idle", `16x16 Idle-Sheet.png`, spriteConfig);
+    }
+
+    function create() {
+      const pixelScale = 3;
+      const roomW = 480;
+      const roomH = 500;
+      const centerX = canvasWidth / 2;
+      const centerY = canvasHeight / 2;
+      const startX = centerX - roomW / 2;
+      const startY = centerY - roomH / 2;
+
+      this.physics.world.setBounds(startX, startY, roomW, roomH);
+
+      this.add
+        .tileSprite(centerX, centerY, roomW, roomH, "floor")
+        .setTileScale(pixelScale)
+        .setDepth(0);
+
+      this.add
+        .tileSprite(centerX, startY + 65, roomW, 120, "wall")
+        .setTileScale(pixelScale)
+        .setDepth(1);
+
+      // Shoe rack area with tile2 at bottom center
+      const shoeRackW = 120;
+      const shoeRackH = 40;
+      this.add
+        .tileSprite(centerX, startY + roomH - 20, shoeRackW, shoeRackH, "tile2")
+        .setTileScale(pixelScale)
+        .setDepth(0);
+
+      // Door at bottom center
+      this.door = this.add
+        .image(centerX, startY + roomH - 20, "door")
+        .setScale(pixelScale)
+        .setDepth(startY + roomH - 20);
+
+      // Create wall collision barriers (all 4 sides)
+      const walls = this.physics.add.staticGroup();
+
+      // Top wall
+      const topWall = walls.create(centerX, startY + 60, null);
+      topWall.setSize(roomW, 120).setVisible(false).refreshBody();
+
+      // Bottom wall (except door area)
+      const bottomWallLeft = walls.create(centerX - 100, startY + roomH, null);
+      bottomWallLeft.setSize(roomW / 2 - 50, 10).setVisible(false).refreshBody();
+
+      const bottomWallRight = walls.create(centerX + 100, startY + roomH, null);
+      bottomWallRight.setSize(roomW / 2 - 50, 10).setVisible(false).refreshBody();
+
+      // Left wall
+      const leftWall = walls.create(startX, centerY, null);
+      leftWall.setSize(10, roomH).setVisible(false).refreshBody();
+
+      // Right wall
+      const rightWall = walls.create(startX + roomW, centerY, null);
+      rightWall.setSize(10, roomH).setVisible(false).refreshBody();
+
+      this.add
+        .image(startX + 180, startY + 55, "window")
+        .setScale(pixelScale)
+        .setDepth(startY + 55);
+
+      const obstacles = this.physics.add.staticGroup();
+      const createFurniture = ({ x, y, texture, scaleX = 1, scaleY = 1 }) => {
+        const furniture = obstacles.create(x, y, texture);
+        furniture.setScale(pixelScale * scaleX, pixelScale * scaleY);
+        furniture.refreshBody();
+        furniture.setDepth(Math.round(furniture.y));
+        return furniture;
+      };
+
+      createFurniture({ x: startX + 50, y: startY + 150, texture: "bed", scaleX: 0.85 });
+      createFurniture({ x: startX + 312, y: startY + 300, texture: "bed", scaleX: 0.85 });
+      createFurniture({ x: startX + 25, y: startY + 200, texture: "deskl", scaleX: 1 });
+      createFurniture({ x: startX + 335, y: startY + 130, texture: "deskr", scaleX: 1 });
+      createFurniture({ x: startX + 335, y: startY + 180, texture: "deskr", scaleX: 1 });
+      createFurniture({ x: startX + 19, y: startY + 305, texture: "closet", scaleX: 1 });
+
+      const outlineTopH =
+        this.textures.get("outline_top").getSourceImage().height * pixelScale;
+      const outlineSideW =
+        this.textures.get("outline_side").getSourceImage().width * pixelScale;
+      const outlineW = roomW + outlineSideW * 2;
+      const outlineDepth = 9999;
+
+      this.add
+        .tileSprite(centerX, startY, outlineW, outlineTopH, "outline_top")
+        .setOrigin(0.5, 1)
+        .setTileScale(pixelScale)
+        .setDepth(outlineDepth);
+      this.add
+        .tileSprite(centerX, startY + roomH, outlineW, outlineTopH, "outline_top")
+        .setOrigin(0.5, 0)
+        .setTileScale(pixelScale)
+        .setFlipY(true)
+        .setDepth(outlineDepth);
+      this.add
+        .tileSprite(startX, centerY, outlineSideW, roomH, "outline_side")
