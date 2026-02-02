@@ -6,8 +6,8 @@ import ExitConfirmModal from "./components/ExitConfirmModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 
-const canvasWidth = 480;
-const canvasHeight = 360;
+const canvasWidth = 600;
+const canvasHeight = 400;
 const directionOrder = ["down", "right", "up", "left"];
 const rowIndexByDir = {
   down: 0,
@@ -42,7 +42,10 @@ function App() {
   const [showLetterRead, setShowLetterRead] = useState(false);
   const [readIndex, setReadIndex] = useState(0);
   const writtenLettersRef = useRef([]);
+  const accumulatedTimeRef = useRef(0);
   const gameRef = useRef(null);
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+  const [isHolding, setIsHolding] = useState(false);
 
   const inventoryConfig = {
     slots: 7,
@@ -73,6 +76,35 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleMove = (event) => {
+      setCursorPos({ x: event.clientX, y: event.clientY });
+    };
+    const handleDown = () => setIsHolding(true);
+    const handleUp = () => setIsHolding(false);
+    const handleBlur = () => setIsHolding(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mousedown", handleDown);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mousedown", handleDown);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleContextMenu = (event) => {
+      event.preventDefault();
+    };
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
+
   const handleIntroStart = useCallback(() => {
     setShowIntro(false);
     if (!bgm) return;
@@ -85,23 +117,28 @@ function App() {
   useEffect(() => {
     if (showIntro) {
       setGameMinutes(0);
+      accumulatedTimeRef.current = 0;
       return;
     }
-    const start = Date.now();
-    const totalGameMinutes = 9 * 60;
-    const totalRealMinutes = 30;
+
+    // 30 real minutes = 9 game hours (540 minutes)
+    // 540 game mins / 1800 real seconds = 0.3 game mins per real second
+    const gameMinutesPerRealSecond = 0.3;
+
     const tick = () => {
-      const elapsedMinutes = (Date.now() - start) / 60000;
-      const progressed = Math.min(
-        totalGameMinutes,
-        (elapsedMinutes / totalRealMinutes) * totalGameMinutes
-      );
-      setGameMinutes(Math.floor(progressed));
+      // Pause conditions
+      if (showMiniGame || showWriteConfirm || showLetterWrite || showLetterRead) {
+        return;
+      }
+      accumulatedTimeRef.current += gameMinutesPerRealSecond;
+      // Round down to nearest 10 minutes
+      const steps = Math.floor(accumulatedTimeRef.current / 10) * 10;
+      setGameMinutes(Math.min(540, steps));
     };
-    tick();
+
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro]);
+  }, [showIntro, showMiniGame, showWriteConfirm, showLetterWrite, showLetterRead]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -244,11 +281,11 @@ function App() {
     }
 
     function create() {
-      const pixelScale = 3;
-      const roomW = 380;
-      const roomH = 450;
+      const pixelScale = 2;
+      const roomW = 340;
+      const roomH = 300;
       const centerX = canvasWidth / 2;
-      const centerY = canvasHeight / 2;
+      const centerY = canvasHeight / 2 - 10;
       const startX = centerX - roomW / 2;
       const startY = centerY - roomH / 2;
 
@@ -260,7 +297,7 @@ function App() {
         .setDepth(0);
 
       this.add
-        .tileSprite(centerX, startY + 65, roomW, 120, "wall")
+        .tileSprite(centerX, startY + 60, roomW, 100, "wall")
         .setTileScale(pixelScale)
         .setDepth(1);
 
@@ -268,8 +305,8 @@ function App() {
       const walls = this.physics.add.staticGroup();
 
       // Top wall
-      const topWall = walls.create(centerX, startY + 60, null);
-      topWall.setSize(roomW, 120).setVisible(false).refreshBody();
+      const topWall = walls.create(centerX, startY + 55, null);
+      topWall.setSize(roomW, 100).setVisible(false).refreshBody();
 
       // Bottom wall
       const bottomWall = walls.create(centerX, startY + roomH, null);
@@ -284,10 +321,10 @@ function App() {
       rightWall.setSize(10, roomH).setVisible(false).refreshBody();
 
       // Top shoe rack area
-      const shoeRackTopW = 100;
-      const shoeRackTopH = 40;
+      const shoeRackTopW = 90;
+      const shoeRackTopH = 36;
       this.add
-        .tileSprite(centerX, startY + 55, shoeRackTopW, shoeRackTopH, "tile2")
+        .tileSprite(centerX, startY + 50, shoeRackTopW, shoeRackTopH, "tile2")
         .setTileScale(pixelScale)
         .setDepth(0);
 
@@ -300,15 +337,15 @@ function App() {
         return furniture;
       };
 
-      const marginX = 75;  // More margin to keep furniture inside walls
+      const marginX = 65;  // More margin to keep furniture inside walls
       const leftX = startX + marginX;
       const rightX = startX + roomW - marginX;
 
       // Y positions for 4 rows - tighter spacing, realistic overlap
-      const row1Y = startY + 135;  // Top row - below wall
-      const row2Y = startY + 215;  // Second row
-      const row3Y = startY + 295;  // Third row - tighter
-      const row4Y = startY + 375;  // Bottom row - above door
+      const row1Y = startY + 95;   // Top row - below wall
+      const row2Y = startY + 155;  // Second row
+      const row3Y = startY + 215;  // Third row
+      const row4Y = startY + 265;  // Bottom row - above door
 
       // Left side (from top to bottom): 책상, 침대, 옷장, 옷장
       createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
@@ -351,6 +388,14 @@ function App() {
         .setOrigin(0, 0.5)
         .setTileScale(pixelScale)
         .setDepth(outlineDepth);
+
+      const cameraBoundsX = startX - outlineSideW;
+      const cameraBoundsY = startY - outlineTopH;
+      const cameraBoundsW = roomW + outlineSideW * 2;
+      const cameraBoundsH = roomH + outlineTopH * 2;
+      this.cameras.main.setBounds(cameraBoundsX, cameraBoundsY, cameraBoundsW, cameraBoundsH);
+      this.cameras.main.setZoom(0.9);
+      this.cameras.main.centerOn(centerX, centerY);
 
       const getFramesPerRow = (textureKey) => {
         const source = this.textures.get(textureKey).getSourceImage();
@@ -400,8 +445,8 @@ function App() {
       });
 
       // ?좊컻???곸뿭 (?섎떒 以묒븰)
-      const shoeRackW = 120;
-      const shoeRackH = 40;
+      const shoeRackW = 90;
+      const shoeRackH = 32;
       this.add
         .tileSprite(centerX, startY + roomH - 20, shoeRackW, shoeRackH, "tile2")
         .setTileScale(pixelScale)
@@ -415,8 +460,8 @@ function App() {
 
 
       // 臾????곹샇?묒슜 ?띿뒪??
-      this.exitText = this.add.text(centerX, startY + roomH - 60, "Press SPACE", {
-        fontSize: "22px",
+      this.exitText = this.add.text(centerX, startY + roomH - 46, "Press SPACE", {
+        fontSize: "18px",
         fontFamily: "Galmuri",
         color: "#C49A6C",
         backgroundColor: "#000000",
@@ -460,7 +505,7 @@ function App() {
 
       this.player = this.physics.add.sprite(
         centerX,
-        centerY + 50,
+        centerY + 30,
         "player_idle",
         0
       );
@@ -471,12 +516,14 @@ function App() {
       this.physics.add.collider(this.player, this.npc);
       this.physics.add.collider(this.player, walls);
 
-      this.cameras.main.setBounds(startX, startY, roomW, roomH);
-      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-
       this.player.anims.play("idle-down");
 
-      this.cursors = this.input.keyboard.createCursorKeys();
+      this.moveKeys = this.input.keyboard.addKeys({
+        up: Phaser.Input.Keyboard.KeyCodes.W,
+        left: Phaser.Input.Keyboard.KeyCodes.A,
+        down: Phaser.Input.Keyboard.KeyCodes.S,
+        right: Phaser.Input.Keyboard.KeyCodes.D,
+      });
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
       this.lastDirection = "down";
@@ -523,6 +570,12 @@ function App() {
       // Door interaction
       if (isNearDoor) {
         this.exitText.setVisible(true);
+        if (rightJustDown) {
+          gameStateRef.current.setShowExitConfirm(true);
+          this.player.body.setVelocity(0);
+          this.player.anims.play(`idle-${this.lastDirection}`, true);
+          return;
+        }
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -579,9 +632,7 @@ function App() {
           }
         }
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-          gameStateRef.current.setShowMiniGame(true);
-          this.player.body.setVelocity(0);
-          this.player.anims.play(`idle-${this.lastDirection}`, true);
+          // NPC interaction no longer opens mini game
           return;
         }
       } else {
@@ -608,19 +659,19 @@ function App() {
       this.player.body.setVelocity(0);
 
       // Movement with walk/run animations
-      if (this.cursors.left.isDown) {
+      if (this.moveKeys.left.isDown) {
         this.player.body.setVelocityX(-speed);
         this.player.anims.play(`${animPrefix}-left`, true);
         this.lastDirection = "left";
-      } else if (this.cursors.right.isDown) {
+      } else if (this.moveKeys.right.isDown) {
         this.player.body.setVelocityX(speed);
         this.player.anims.play(`${animPrefix}-right`, true);
         this.lastDirection = "right";
-      } else if (this.cursors.up.isDown) {
+      } else if (this.moveKeys.up.isDown) {
         this.player.body.setVelocityY(-speed);
         this.player.anims.play(`${animPrefix}-up`, true);
         this.lastDirection = "up";
-      } else if (this.cursors.down.isDown) {
+      } else if (this.moveKeys.down.isDown) {
         this.player.body.setVelocityY(speed);
         this.player.anims.play(`${animPrefix}-down`, true);
         this.lastDirection = "down";
@@ -728,7 +779,7 @@ function App() {
                       width: "64px",
                       height: "64px",
                       backgroundImage: "url('/assets/common/o.png')",
-                      backgroundSize: "contain",
+                      backgroundSize: "59px 64px",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
@@ -741,7 +792,7 @@ function App() {
                       width: "64px",
                       height: "64px",
                       backgroundImage: "url('/assets/common/x.png')",
-                      backgroundSize: "contain",
+                      backgroundSize: "59px 64px",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
@@ -1030,7 +1081,7 @@ function App() {
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "-6px",
+            bottom: "12px",
             transform: "translateX(-50%)",
             zIndex: 120,
             width: `${inventoryConfig.width}px`,
@@ -1098,11 +1149,18 @@ function App() {
             <span
               style={{
                 position: "absolute",
-                left: `${inventoryConfig.padX + inventoryConfig.slotSize - 12}px`,
-                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 10}px`,
+                left: `${inventoryConfig.padX + inventoryConfig.slotSize - 16}px`,
+                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 16}px`,
                 fontFamily: "PixelFont",
                 fontSize: "11px",
-                color: "#8B5A2B",
+                color: "#774c30",
+                backgroundColor: "rgba(230, 210, 181, 0.85)",
+                borderRadius: "999px",
+                minWidth: "16px",
+                height: "16px",
+                lineHeight: "16px",
+                textAlign: "center",
+                zIndex: 5,
                 pointerEvents: "none",
               }}
             >
@@ -1113,11 +1171,18 @@ function App() {
             <span
               style={{
                 position: "absolute",
-                left: `${inventoryConfig.padX + (inventoryConfig.slotSize + inventoryConfig.gap) + inventoryConfig.slotSize - 12}px`,
-                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 10}px`,
+                left: `${inventoryConfig.padX + (inventoryConfig.slotSize + inventoryConfig.gap) + inventoryConfig.slotSize - 16}px`,
+                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 16}px`,
                 fontFamily: "PixelFont",
                 fontSize: "11px",
-                color: "#8B5A2B",
+                color: "#5B3A24",
+                backgroundColor: "rgba(230, 210, 181, 0.85)",
+                borderRadius: "999px",
+                minWidth: "16px",
+                height: "16px",
+                lineHeight: "16px",
+                textAlign: "center",
+                zIndex: 5,
                 pointerEvents: "none",
               }}
             >
@@ -1143,8 +1208,8 @@ function App() {
         <div
           style={{
             position: "absolute",
-            top: "0px",
-            left: "0px",
+            top: "8px",
+            left: "8px",
             width: "340px",
             height: "150px",
             backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
@@ -1160,16 +1225,17 @@ function App() {
             zIndex: 130,
             display: "flex",
             alignItems: "flex-end",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             paddingBottom: "20px",
+            paddingLeft: "38px",
             boxSizing: "border-box",
           }}
         >
           <span
             style={{
               fontFamily: "PixelFont",
-              fontSize: "36px",
-              color: "#C49A6C",
+              fontSize: "25px",
+              color: "#bc9368",
             }}
           >
             {(() => {
@@ -1232,6 +1298,7 @@ function App() {
               setShowExitConfirm(false);
               const game = gameRef.current;
               if (game) {
+                game.scene.stop("Room103");
                 game.scene.start("Hallway", { x: 1000, y: 450 });
               }
             }}
@@ -1240,6 +1307,24 @@ function App() {
         </>
       )}
       {showIntro && <IntroScreen onStart={handleIntroStart} />}
+      <div
+        style={{
+          position: "fixed",
+          left: `${cursorPos.x}px`,
+          top: `${cursorPos.y}px`,
+          width: "24px",
+          height: "24px",
+          backgroundImage: isHolding
+            ? "url('/assets/common/holding.png')"
+            : "url('/assets/common/mouse.png')",
+          backgroundSize: "contain",
+          backgroundRepeat: "no-repeat",
+          imageRendering: "pixelated",
+          pointerEvents: "none",
+          zIndex: 20000,
+          transform: "translate(-2px, -2px)",
+        }}
+      />
     </div>
   );
 }

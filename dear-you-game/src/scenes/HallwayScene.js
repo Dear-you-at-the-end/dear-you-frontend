@@ -1,8 +1,8 @@
 import Phaser from "phaser";
 
 const MAP_WIDTH = 1200;
-const MAP_HEIGHT = 360;
-const FLOOR_HEIGHT = 110;
+const MAP_HEIGHT = 400;
+const FLOOR_HEIGHT = 120;
 
 const directionOrder = ["down", "right", "up", "left"];
 const rowIndexByDir = {
@@ -77,19 +77,27 @@ export default class HallwayScene extends Phaser.Scene {
     wall.body.setOffset(0, wall.displayHeight * 0.8);
     wall.refreshBody();
 
+    const extraWallY = wallY - wallHeight;
+    this.add
+      .tileSprite(MAP_WIDTH / 2, extraWallY, MAP_WIDTH, wallHeight, "hall_wall")
+      .setTileScale(pixelScale)
+      .setDepth(1);
+
     this.doors = this.physics.add.staticGroup();
     const doorTexture = this.textures.get("hall_door").getSourceImage();
     const doorHeight = doorTexture.height * pixelScale;
     const doorY = floorTop - doorHeight / 2 + 4;
 
     const doorPositions = [
-      { x: 200, room: "101" },
-      { x: 600, room: "102" },
-      { x: 1000, room: "103" },
+      { x: 150, room: "101" },
+      { x: 450, room: "102" },
+      { x: 750, room: "103" },
+      { x: 1050, room: "104" },
     ];
 
     doorPositions.forEach(({ x, room }) => {
       const door = this.doors.create(x, doorY, "hall_door");
+      if (room === "103") this.door103 = door;
       door.setScale(pixelScale);
       door.setDepth(2);
       door.roomNumber = room;
@@ -97,13 +105,48 @@ export default class HallwayScene extends Phaser.Scene {
 
       this.add
         .text(x, doorY - doorHeight / 2 - 8, room, {
-          fontSize: "14px",
+          fontSize: "12px",
           fontFamily: "Galmuri",
-          color: "#FFFFFF",
+          color: "#4E342E",
         })
         .setOrigin(0.5)
         .setDepth(3);
     });
+
+    if (this.door103) {
+      // Shaking effect (noise vibration) - Intensified
+      this.tweens.add({
+        targets: this.door103,
+        x: this.door103.x + 3,
+        duration: 35,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut"
+      });
+
+      // Sound wave emission
+      this.time.addEvent({
+        delay: 600,
+        loop: true,
+        callback: () => {
+          if (!this.scene.isActive()) return;
+          const wave = this.add.graphics();
+          wave.lineStyle(2, 0xffffff, 0.7);
+          wave.strokeCircle(0, 0, 12);
+          wave.x = this.door103.x;
+          wave.y = this.door103.y;
+          wave.setDepth(10);
+
+          this.tweens.add({
+            targets: wave,
+            scale: 6,
+            alpha: 0,
+            duration: 1200,
+            onComplete: () => wave.destroy(),
+          });
+        },
+      });
+    }
 
     this.createPlayerAnimations();
 
@@ -116,8 +159,14 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
+    this.cameras.main.setZoom(1.2);
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+    this.moveKeys = this.input.keyboard.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+    });
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
@@ -125,6 +174,7 @@ export default class HallwayScene extends Phaser.Scene {
     this.player.anims.play("idle-down");
 
     this.nearDoor = null;
+    this.prevRight = false;
 
     this.createVignette();
   }
@@ -209,7 +259,12 @@ export default class HallwayScene extends Phaser.Scene {
       }
     });
 
-    if (this.nearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+    const pointer = this.input.activePointer;
+    const rightDown = pointer.rightButtonDown();
+    const rightJustDown = rightDown && !this.prevRight;
+    this.prevRight = rightDown;
+
+    if (this.nearDoor && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
       if (this.nearDoor.roomNumber === "103") {
         this.scene.start("Room103");
       } else {
@@ -223,19 +278,19 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.player.body.setVelocity(0);
 
-    if (this.cursors.left.isDown) {
+    if (this.moveKeys.left.isDown) {
       this.player.body.setVelocityX(-speed);
       this.player.anims.play(`${animPrefix}-left`, true);
       this.lastDirection = "left";
-    } else if (this.cursors.right.isDown) {
+    } else if (this.moveKeys.right.isDown) {
       this.player.body.setVelocityX(speed);
       this.player.anims.play(`${animPrefix}-right`, true);
       this.lastDirection = "right";
-    } else if (this.cursors.up.isDown) {
+    } else if (this.moveKeys.up.isDown) {
       this.player.body.setVelocityY(-speed);
       this.player.anims.play(`${animPrefix}-up`, true);
       this.lastDirection = "up";
-    } else if (this.cursors.down.isDown) {
+    } else if (this.moveKeys.down.isDown) {
       this.player.body.setVelocityY(speed);
       this.player.anims.play(`${animPrefix}-down`, true);
       this.lastDirection = "down";

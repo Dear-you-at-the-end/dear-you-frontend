@@ -1,61 +1,46 @@
 /* Custom Pixel Font */
 @font-face {
-  font-family: 'Galmuri';
-  src: url('/assets/fonts/Galmuri11-Bold.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: block;
-  /* Wait for font to load before showing text */
+    font-family: 'Galmuri';
+    src: url('/assets/fonts/Galmuri11-Bold.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
 }
 
 :root {
-  font-family: 'Galmuri', 'Pretendard', 'Noto Sans KR', monospace;
-  color: #f3ead1;
-  text-rendering: optimizeSpeed;
-  /* Better for pixel fonts */
-  -webkit-font-smoothing: none;
-  /* Disable antialiasing for crisp pixel font */
-  -moz-osx-font-smoothing: grayscale;
-  image-rendering: pixelated;
-  /* Crisp rendering for pixel art */
+    font-family: 'Galmuri', 'Pretendard', 'Noto Sans KR', monospace;
+    color: #f3ead1;
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
+    image-rendering: pixelated;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  /* 화면 전체 높이 확보 */
-  background-color: #222;
-  /* 어두운 배경 */
-  overflow: hidden;
-  /* 스크롤바 제거 */
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #222;
+    overflow: hidden;
 }
 
 body {
-  display: flex;
-  /* 플렉스 박스 사용 */
-  justify-content: center;
-  /* 가로 중앙 정렬 */
-  align-items: center;
-  /* 세로 중앙 정렬 시도 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 #game-container {
-  width: 800px;
-  height: 600px;
-
-  /* 핵심: 마진을 오토로 주면 남는 공간을 균등하게 나눠 가짐 */
-  margin: auto;
-
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
-  /* 그림자로 입체감 */
-  border: 2px solid #444;
-  /* 깔끔한 테두리 */
-  display: block;
+    width: 600px;
+    height: 400px;
+    margin: auto;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    border: 2px solid #444;
+    display: block;
 }
