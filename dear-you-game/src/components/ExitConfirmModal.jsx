@@ -20,9 +20,9 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
         >
             <div
                 style={{
-                    width: "340px",
-                    minHeight: "170px",
-                    backgroundImage: "url('/assets/common/minigame_modal.png')",
+                    width: "270px",
+                    minHeight: "140px",
+                    backgroundImage: "url('/assets/common/modal1.png')",
                     backgroundSize: "contain",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center",
@@ -30,7 +30,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: "40px",
+                    padding: "24px",
                     color: "#4E342E",
                     imageRendering: "pixelated",
                 }}
@@ -39,8 +39,8 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                 <h2
                     style={{
                         fontFamily: "Galmuri",
-                        fontSize: "18px",
-                        marginBottom: "22px",
+                        fontSize: "14px",
+                        marginBottom: "12px",
                                                 textAlign: "center",
                     }}
                 >
@@ -51,7 +51,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                 <div
                     style={{
                         display: "flex",
-                        gap: "20px",
+                        gap: "12px",
                     }}
                 >
                     {/* Yes Button (O image) */}
@@ -59,10 +59,10 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                         onClick={onConfirm}
                         style={{
                             cursor: "pointer",
-                            width: "64px",
-                            height: "64px",
+                            width: "48px",
+                            height: "48px",
                             backgroundImage: "url('/assets/common/o.png')",
-                            backgroundSize: "59px 64px",
+                            backgroundSize: "44px 48px",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
                             imageRendering: "pixelated",
@@ -84,10 +84,10 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                         onClick={onCancel}
                         style={{
                             cursor: "pointer",
-                            width: "64px",
-                            height: "64px",
+                            width: "48px",
+                            height: "48px",
                             backgroundImage: "url('/assets/common/x.png')",
-                            backgroundSize: "59px 64px",
+                            backgroundSize: "44px 48px",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
                             imageRendering: "pixelated",

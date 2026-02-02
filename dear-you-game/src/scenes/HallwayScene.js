@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 1200;
+const MAP_WIDTH = 1500;
 const MAP_HEIGHT = 400;
 const FLOOR_HEIGHT = 120;
 
@@ -34,6 +34,10 @@ export default class HallwayScene extends Phaser.Scene {
     this.load.image("hall_floor", `${dormitoryPath}tile2.png`);
     this.load.image("hall_wall", `${dormitoryPath}wall2.png`);
     this.load.image("hall_door", `${dormitoryPath}door.png`);
+    this.load.image("ban_icon", `${commonPath}ban.png`);
+    this.load.image("notice_icon", `${commonPath}notice.png`);
+    this.load.image("letter_icon", `${commonPath}letter.png`);
+    this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
     const characterPath = `${commonPath}character/`;
     const spriteConfig = {
@@ -93,6 +97,7 @@ export default class HallwayScene extends Phaser.Scene {
       { x: 450, room: "102" },
       { x: 750, room: "103" },
       { x: 1050, room: "104" },
+      { x: 1350, room: "105" },
     ];
 
     doorPositions.forEach(({ x, room }) => {
@@ -102,6 +107,36 @@ export default class HallwayScene extends Phaser.Scene {
       door.setDepth(2);
       door.roomNumber = room;
       door.refreshBody();
+
+      if (room === "103" || room === "104") {
+        const notice = this.add.image(x, doorY - doorHeight / 2 - 10, "notice_icon");
+        notice.setScale(pixelScale * 0.4);
+        notice.setDepth(4);
+        notice.setVisible(false);
+        door.noticeIcon = notice;
+        this.tweens.add({
+          targets: notice,
+          y: notice.y - 4,
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      } else {
+        const ban = this.add.image(x, doorY - doorHeight / 2 - 10, "ban_icon");
+        ban.setScale(pixelScale * 0.4);
+        ban.setDepth(4);
+        ban.setVisible(false);
+        door.banIcon = ban;
+        this.tweens.add({
+          targets: ban,
+          y: ban.y - 4,
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
 
       this.add
         .text(x, doorY - doorHeight / 2 - 8, room, {
@@ -154,6 +189,7 @@ export default class HallwayScene extends Phaser.Scene {
     this.player.setScale(pixelScale).setCollideWorldBounds(true);
     this.player.body.setSize(10, 8).setOffset(5, 12);
     this.player.setDepth(100);
+    this.handItem = this.add.image(0, 0, "letter_icon").setScale(1).setDepth(200).setVisible(false);
 
     this.physics.add.collider(this.player, wall);
 
@@ -256,6 +292,19 @@ export default class HallwayScene extends Phaser.Scene {
       );
       if (distance < 60) {
         this.nearDoor = door;
+        if (door.banIcon) {
+          door.banIcon.setVisible(true);
+        }
+        if (door.noticeIcon) {
+          door.noticeIcon.setVisible(true);
+        }
+      } else {
+        if (door.banIcon) {
+          door.banIcon.setVisible(false);
+        }
+        if (door.noticeIcon) {
+          door.noticeIcon.setVisible(false);
+        }
       }
     });
 
@@ -264,9 +313,21 @@ export default class HallwayScene extends Phaser.Scene {
     const rightJustDown = rightDown && !this.prevRight;
     this.prevRight = rightDown;
 
-    if (this.nearDoor && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
-      if (this.nearDoor.roomNumber === "103") {
-        this.scene.start("Room103");
+    if (this.nearDoor && rightJustDown) {
+      if (this.nearDoor.banIcon) {
+        window.dispatchEvent(new CustomEvent("ban-door"));
+        return;
+      }
+      if (["103", "104"].includes(this.nearDoor.roomNumber)) {
+        this.scene.start(`Room${this.nearDoor.roomNumber}`);
+        return;
+      }
+      console.log(`Enter Room ${this.nearDoor.roomNumber}`);
+    }
+
+    if (this.nearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+      if (["103", "104"].includes(this.nearDoor.roomNumber)) {
+        this.scene.start(`Room${this.nearDoor.roomNumber}`);
       } else {
         console.log(`Enter Room ${this.nearDoor.roomNumber}`);
       }
@@ -299,5 +360,27 @@ export default class HallwayScene extends Phaser.Scene {
     }
 
     this.player.setDepth(this.player.y);
+
+    if (this.handItem) {
+      const selectedSlot = this.registry.get("selectedSlot") ?? 0;
+      const letterCount = this.registry.get("letterCount") ?? 0;
+      const writtenCount = this.registry.get("writtenCount") ?? 0;
+
+      if (selectedSlot === 0 && letterCount > 0) {
+        this.handItem.setTexture("letter_icon");
+        this.handItem.setVisible(true);
+      } else if (selectedSlot === 1 && writtenCount > 0) {
+        this.handItem.setTexture("letter_written");
+        this.handItem.setVisible(true);
+      } else {
+        this.handItem.setVisible(false);
+      }
+
+      if (this.handItem.visible) {
+        this.handItem.x = this.player.x + (this.lastDirection === "left" ? -8 : 8);
+        this.handItem.y = this.player.y + 10;
+        this.handItem.setDepth(this.player.depth + 1);
+      }
+    }
   }
 }

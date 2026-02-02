@@ -5,6 +5,7 @@ const IntroScreen = ({ onStart }) => {
   const [logoVisible, setLogoVisible] = useState(false);
   const [buttonVisible, setButtonVisible] = useState(false);
   const [cherryBlossoms, setCherryBlossoms] = useState([]);
+  const [showCreator, setShowCreator] = useState(false);
   const bgmRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ const IntroScreen = ({ onStart }) => {
         size: 6 + Math.floor(Math.random() * 4) * 2,
       });
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCherryBlossoms(petals);
   }, []);
 
@@ -39,6 +41,11 @@ const IntroScreen = ({ onStart }) => {
       bgmRef.current.play().catch(err => console.log("BGM play error:", err));
     }
     onStart();
+  };
+
+  const handleLogoClick = () => {
+    setShowCreator(false);
+    setTimeout(() => setShowCreator(true), 0);
   };
 
   return (
@@ -127,29 +134,58 @@ const IntroScreen = ({ onStart }) => {
         {/* Main Logo with left-to-right reveal animation */}
         <div
           style={{
-            marginTop: "20px",
-            overflow: "hidden",
+            marginTop: "110px",
             width: logoVisible ? "100%" : "0%",
             maxWidth: "600px",
             transition: "width 2s ease-out",
             display: "flex",
             justifyContent: "center",
+            position: "relative",
           }}
         >
-          <img
-            src="/assets/common/mainlogo.png"
-            alt="Game Logo"
+          {showCreator && (
+            <img
+              src="/assets/common/creator.png"
+              alt="Creator"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "0",
+                transform: "translate(-50%, -200%)",
+                width: "140px",
+                height: "auto",
+                imageRendering: "pixelated",
+                animation: "pop 0.2s ease-out, float 3s ease-in-out infinite",
+                animationDelay: "0s, 0.2s",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+          <div
             style={{
-              width: "80vw",
-              maxWidth: "600px",
-              height: "auto",
-              imageRendering: "pixelated",
-              filter: "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3))",
-              opacity: logoVisible ? 1 : 0,
-              transition: "opacity 0.5s ease-in 0.5s",
-              animation: logoVisible ? "float 3s ease-in-out infinite" : "none",
+              overflow: "hidden",
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
             }}
-          />
+          >
+            <img
+              src="/assets/common/mainlogo.png"
+              alt="Game Logo"
+              onClick={handleLogoClick}
+              style={{
+                width: "46vw",
+                maxWidth: "330px",
+                height: "auto",
+                imageRendering: "pixelated",
+                filter: "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3))",
+                opacity: logoVisible ? 1 : 0,
+                transition: "opacity 0.5s ease-in 0.5s",
+                animation: logoVisible ? "float 3s ease-in-out infinite" : "none",
+                cursor: "pointer",
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -228,6 +264,10 @@ const IntroScreen = ({ onStart }) => {
           50% {
             transform: translateY(-10px);
           }
+        }
+        @keyframes pop {
+          0% { transform: scale(0.6); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>

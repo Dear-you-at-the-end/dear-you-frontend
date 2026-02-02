@@ -32,6 +32,7 @@ function App() {
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
     { id: "npc-1", name: "전하은", hasLetter: false, hasWritten: false },
+    { id: "npc-2", name: "김민수", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -46,15 +47,18 @@ function App() {
   const gameRef = useRef(null);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
+  const [showBanToast, setShowBanToast] = useState(false);
+  const banToastTimerRef = useRef(null);
+  const [banToastVisible, setBanToastVisible] = useState(false);
 
   const inventoryConfig = {
     slots: 7,
-    width: 352,
-    height: 72,
-    slotSize: 36,
-    gap: 12,
-    padX: 12,
-    padY: 10,
+    width: 392,
+    height: 82,
+    slotSize: 40,
+    gap: 14,
+    padX: 14,
+    padY: 12,
   };
   const letterPaper = {
     width: 240,
@@ -73,6 +77,27 @@ function App() {
     return () => {
       audio.pause();
       audio.currentTime = 0;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleBanToast = () => {
+      setShowBanToast(true);
+      setBanToastVisible(true);
+      if (banToastTimerRef.current) {
+        clearTimeout(banToastTimerRef.current);
+      }
+      banToastTimerRef.current = setTimeout(() => {
+        setBanToastVisible(false);
+        setTimeout(() => setShowBanToast(false), 300);
+      }, 1200);
+    };
+    window.addEventListener("ban-door", handleBanToast);
+    return () => {
+      window.removeEventListener("ban-door", handleBanToast);
+      if (banToastTimerRef.current) {
+        clearTimeout(banToastTimerRef.current);
+      }
     };
   }, []);
 
@@ -216,7 +241,13 @@ function App() {
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
     gameStateRef.current.getNpcState = (id) => npcs.find((n) => n.id === id);
-  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs]);
+    if (gameRef.current) {
+      gameRef.current.registry.set("selectedSlot", selectedSlot);
+      gameRef.current.registry.set("letterCount", letterCount);
+      gameRef.current.registry.set("writtenCount", writtenCount);
+      gameRef.current.registry.set("writtenLetters", writtenLetters);
+    }
+  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -242,7 +273,7 @@ function App() {
           debug: true,
         },
       },
-      scene: [HallwayScene, { key: "Room103", preload, create, update }],
+      scene: [HallwayScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
     };
 
     function preload() {
@@ -261,7 +292,7 @@ function App() {
       this.load.image("door", `${dormitoryPath}door.png`);
       this.load.image("door_inside", `${dormitoryPath}door_inside.png`);
       this.load.image("window", `${dormitoryPath}window.png`);
-      this.load.image("quest_icon", `${commonPath}quest_icon2.png`);
+      this.load.image("quest_icon", `${commonPath}quest_icon.png`);
       this.load.image("happy_icon", `${commonPath}happy.png`);
       this.load.image("letter_icon", `${commonPath}letter.png`);
       this.load.image("letter_written", `${commonPath}letter_wirte.png`);
@@ -282,7 +313,7 @@ function App() {
 
     function create() {
       const pixelScale = 2;
-      const roomW = 340;
+      const roomW = 280;
       const roomH = 300;
       const centerX = canvasWidth / 2;
       const centerY = canvasHeight / 2 - 10;
@@ -296,8 +327,10 @@ function App() {
         .setTileScale(pixelScale)
         .setDepth(0);
 
+      const wallHeight = 100;
+      const wallCenterY = startY + 60;
       this.add
-        .tileSprite(centerX, startY + 60, roomW, 100, "wall")
+        .tileSprite(centerX, wallCenterY, roomW, wallHeight, "wall")
         .setTileScale(pixelScale)
         .setDepth(1);
 
@@ -305,8 +338,9 @@ function App() {
       const walls = this.physics.add.staticGroup();
 
       // Top wall
-      const topWall = walls.create(centerX, startY + 55, null);
-      topWall.setSize(roomW, 100).setVisible(false).refreshBody();
+      const wallBottomY = wallCenterY + wallHeight / 2;
+      const topWall = walls.create(centerX, wallBottomY - 12, null);
+      topWall.setSize(roomW, 24).setVisible(false).refreshBody();
 
       // Bottom wall
       const bottomWall = walls.create(centerX, startY + roomH, null);
@@ -321,7 +355,7 @@ function App() {
       rightWall.setSize(10, roomH).setVisible(false).refreshBody();
 
       // Top shoe rack area
-      const shoeRackTopW = 90;
+      const shoeRackTopW = 110;
       const shoeRackTopH = 36;
       this.add
         .tileSprite(centerX, startY + 50, shoeRackTopW, shoeRackTopH, "tile2")
@@ -337,7 +371,7 @@ function App() {
         return furniture;
       };
 
-      const marginX = 65;  // More margin to keep furniture inside walls
+      const marginX = 15;  // Furniture attached to walls
       const leftX = startX + marginX;
       const rightX = startX + roomW - marginX;
 
@@ -389,12 +423,21 @@ function App() {
         .setTileScale(pixelScale)
         .setDepth(outlineDepth);
 
-      const cameraBoundsX = startX - outlineSideW;
-      const cameraBoundsY = startY - outlineTopH;
-      const cameraBoundsW = roomW + outlineSideW * 2;
-      const cameraBoundsH = roomH + outlineTopH * 2;
+      const windowY = startY + 60;
+      this.add
+        .image(centerX, windowY, "window")
+        .setScale(pixelScale * 1.3)
+        .setDepth(windowY + 1);
+
+      const zoom = 0.9;
+      const viewW = canvasWidth / zoom;
+      const viewH = canvasHeight / zoom;
+      const cameraBoundsW = Math.max(roomW + outlineSideW * 2, viewW);
+      const cameraBoundsH = Math.max(roomH + outlineTopH * 2, viewH);
+      const cameraBoundsX = centerX - cameraBoundsW / 2;
+      const cameraBoundsY = centerY - cameraBoundsH / 2;
       this.cameras.main.setBounds(cameraBoundsX, cameraBoundsY, cameraBoundsW, cameraBoundsH);
-      this.cameras.main.setZoom(0.9);
+      this.cameras.main.setZoom(zoom);
       this.cameras.main.centerOn(centerX, centerY);
 
       const getFramesPerRow = (textureKey) => {
@@ -445,7 +488,7 @@ function App() {
       });
 
       // ?좊컻???곸뿭 (?섎떒 以묒븰)
-      const shoeRackW = 90;
+      const shoeRackW = 110;
       const shoeRackH = 32;
       this.add
         .tileSprite(centerX, startY + roomH - 20, shoeRackW, shoeRackH, "tile2")
@@ -468,44 +511,56 @@ function App() {
         padding: { x: 4, y: 4 }
       }).setOrigin(0.5).setDepth(99999).setVisible(false);
 
-      // NPC - 침대 옆 (left bed)
-      this.npcId = "npc-1";
-      this.npc = this.physics.add.staticSprite(
-        leftX + 70,
-        row2Y + 10,
-        "player_idle",
-        0
-      );
-      this.npc.setScale(pixelScale);
-      this.npc.setDepth(this.npc.y);
-      this.npc.refreshBody();
-      this.npc.anims.play("idle-right");
+      // NPC Logic
+      const roomNpcMap = {
+        "Room103": "npc-1",
+        "Room104": "npc-2",
+      };
+      const assignedNpcId = roomNpcMap[this.scene.key];
 
-      // Quest icon (show when near NPC)
-      this.questIcon = this.add.image(this.npc.x, this.npc.y - 40, "quest_icon");
-      this.questIcon.setScale(pixelScale * 0.6);
-      this.questIcon.setDepth(99999);
-      this.questIcon.setVisible(false);
+      if (assignedNpcId) {
+        this.npcId = assignedNpcId;
+        this.npc = this.physics.add.staticSprite(
+          leftX + 70,
+          row2Y + 10,
+          "player_idle",
+          0
+        );
+        this.npc.setScale(pixelScale);
+        this.npc.setDepth(this.npc.y);
+        this.npc.refreshBody();
+        this.npc.anims.play("idle-right");
 
-      this.tweens.add({
-        targets: this.questIcon,
-        y: this.questIcon.y - 5,
-        duration: 800,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
+        // Quest icon (show when near NPC)
+        const iconOffsetY = 36;
+        this.questIcon = this.add.image(this.npc.x, this.npc.y - iconOffsetY, "quest_icon");
+        this.questIcon.setScale(pixelScale * 0.65);
+        this.questIcon.setDepth(99999);
+        this.questIcon.setVisible(false);
 
-      this.happyIcon = this.add.image(this.npc.x, this.npc.y - 40, "happy_icon");
-      this.happyIcon.setScale(pixelScale * 0.6);
-      this.happyIcon.setDepth(99999);
-      this.happyIcon.setVisible(false);
-      this.happyTimer = null;
+        this.tweens.add({
+          targets: this.questIcon,
+          y: this.questIcon.y - 4,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+
+        this.happyIcon = this.add.image(this.npc.x, this.npc.y - iconOffsetY, "happy_icon");
+        this.happyIcon.setScale(pixelScale * 0.65);
+        this.happyIcon.setDepth(99999);
+        this.happyIcon.setVisible(false);
+        this.happyTimer = null;
+      }
+      this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
       this.prevRight = false;
 
+      const spawnX = centerX;
+      const spawnY = startY + roomH - 60;
       this.player = this.physics.add.sprite(
-        centerX,
-        centerY + 30,
+        spawnX,
+        spawnY,
         "player_idle",
         0
       );
@@ -513,7 +568,9 @@ function App() {
       this.player.body.setSize(10, 8).setOffset(5, 12);
 
       this.physics.add.collider(this.player, obstacles);
-      this.physics.add.collider(this.player, this.npc);
+      if (this.npc) {
+        this.physics.add.collider(this.player, this.npc);
+      }
       this.physics.add.collider(this.player, walls);
 
       this.player.anims.play("idle-down");
@@ -680,6 +737,30 @@ function App() {
       }
 
       this.player.setDepth(this.player.y);
+
+      // Hand Item Logic
+      if (this.handItem) {
+        const gState = gameStateRef.current;
+        const currentSlot = gState.getSelectedSlot();
+        const currentLCount = gState.getLetterCount();
+        const currentWCount = gState.getWrittenCount();
+
+        if (currentSlot === 0 && currentLCount > 0) {
+          this.handItem.setTexture("letter_icon");
+          this.handItem.setVisible(true);
+        } else if (currentSlot === 1 && currentWCount > 0) {
+          this.handItem.setTexture("letter_written");
+          this.handItem.setVisible(true);
+        } else {
+          this.handItem.setVisible(false);
+        }
+
+        if (this.handItem.visible) {
+          this.handItem.x = this.player.x + (this.lastDirection === "left" ? -8 : 8);
+          this.handItem.y = this.player.y + 10;
+          this.handItem.setDepth(this.player.depth + 1);
+        }
+      }
     }
 
     const game = new Phaser.Game(config);
@@ -738,8 +819,8 @@ function App() {
             >
               <div
                 style={{
-                  width: "420px",
-                  minHeight: "170px",
+                  width: "300px",
+                  minHeight: "130px",
                   backgroundImage: "url('/assets/common/minigame_modal.png')",
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",
@@ -748,15 +829,15 @@ function App() {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "20px",
+                  padding: "16px",
                   color: "#4E342E",
                   imageRendering: "pixelated",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri", fontSize: "16px", textAlign: "center" }}>
+                <div style={{ fontFamily: "Galmuri", fontSize: "14px", textAlign: "center" }}>
                   {`${npcs.find((n) => n.id === activeNpcId)?.name ?? "전하은"}에게 편지를 쓰시겠습니까?`}
                 </div>
-                <div style={{ display: "flex", gap: "16px", marginTop: "18px" }}>
+                <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
                   <div
                     onClick={() => {
                       setShowWriteConfirm(false);
@@ -776,10 +857,10 @@ function App() {
                     }}
                     style={{
                       cursor: "pointer",
-                      width: "64px",
-                      height: "64px",
+                      width: "48px",
+                      height: "48px",
                       backgroundImage: "url('/assets/common/o.png')",
-                      backgroundSize: "59px 64px",
+                      backgroundSize: "contain",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
@@ -789,10 +870,10 @@ function App() {
                     onClick={() => setShowWriteConfirm(false)}
                     style={{
                       cursor: "pointer",
-                      width: "64px",
-                      height: "64px",
+                      width: "48px",
+                      height: "48px",
                       backgroundImage: "url('/assets/common/x.png')",
-                      backgroundSize: "59px 64px",
+                      backgroundSize: "contain",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
@@ -1210,8 +1291,8 @@ function App() {
             position: "absolute",
             top: "8px",
             left: "8px",
-            width: "340px",
-            height: "150px",
+            width: "380px",
+            height: "170px",
             backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
               ? "morning"
               : 9 + Math.floor(gameMinutes / 60) < 15
@@ -1226,15 +1307,15 @@ function App() {
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "flex-start",
-            paddingBottom: "20px",
-            paddingLeft: "38px",
+            paddingBottom: "24px",
+            paddingLeft: "42px",
             boxSizing: "border-box",
           }}
         >
           <span
             style={{
               fontFamily: "PixelFont",
-              fontSize: "25px",
+              fontSize: "30px",
               color: "#bc9368",
             }}
           >
@@ -1255,7 +1336,7 @@ function App() {
           style={{
             position: "absolute",
             top: "12px",
-            right: "8px",
+            right: "16px",
             cursor: "pointer",
             zIndex: 125,
             transition: "transform 0.2s",
@@ -1283,6 +1364,34 @@ function App() {
               filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))",
             }}
           />
+        </div>
+      )}
+      {!showIntro && showBanToast && (
+        <div
+          style={{
+            position: "absolute",
+            top: "78px",
+            right: "16px",
+            width: "170px",
+            height: "56px",
+            backgroundImage: "url('/assets/common/ui1.png')",
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
+            imageRendering: "pixelated",
+            zIndex: 126,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#8d684e",
+            fontFamily: "Galmuri",
+            fontSize: "13px",
+            pointerEvents: "none",
+            opacity: banToastVisible ? 1 : 0,
+            transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
+            transition: "opacity 0.3s ease, transform 0.3s ease",
+          }}
+        >
+          들어갈 수 없는 것 같다..
         </div>
       )}
       {!showIntro && (
