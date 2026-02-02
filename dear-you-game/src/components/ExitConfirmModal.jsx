@@ -20,8 +20,8 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
         >
             <div
                 style={{
-                    width: "400px",
-                    minHeight: "200px",
+                    width: "340px",
+                    minHeight: "170px",
                     backgroundImage: "url('/assets/common/minigame_modal.png')",
                     backgroundSize: "contain",
                     backgroundRepeat: "no-repeat",
@@ -31,7 +31,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                     alignItems: "center",
                     justifyContent: "center",
                     padding: "40px",
-                    color: "white",
+                    color: "#4E342E",
                     imageRendering: "pixelated",
                 }}
             >
@@ -39,10 +39,9 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                 <h2
                     style={{
                         fontFamily: "Galmuri",
-                        fontSize: "22px",
-                        marginBottom: "30px",
-                        textShadow: "2px 2px 0 #000",
-                        textAlign: "center",
+                        fontSize: "18px",
+                        marginBottom: "22px",
+                                                textAlign: "center",
                     }}
                 >
                     103호를 나가시겠습니까?
@@ -60,8 +59,8 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                         onClick={onConfirm}
                         style={{
                             cursor: "pointer",
-                            width: "80px",
-                            height: "80px",
+                            width: "64px",
+                            height: "64px",
                             backgroundImage: "url('/assets/common/o.png')",
                             backgroundSize: "contain",
                             backgroundRepeat: "no-repeat",
@@ -85,8 +84,8 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
                         onClick={onCancel}
                         style={{
                             cursor: "pointer",
-                            width: "80px",
-                            height: "80px",
+                            width: "64px",
+                            height: "64px",
                             backgroundImage: "url('/assets/common/x.png')",
                             backgroundSize: "contain",
                             backgroundRepeat: "no-repeat",

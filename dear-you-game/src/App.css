@@ -1,23 +1,15 @@
 #root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: clamp(0.75rem, 2vw, 2rem);
-  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 #game-container {
-  width: min(90vw, 720px);
-  height: min(90vh, 520px);
-  background: #010101;
-  border-radius: 22px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.75);
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  width: 800px;
+  height: 600px;
+  margin: 20px auto;
+  border: 2px solid #555;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  display: block;
 }
 
 #game-container canvas {

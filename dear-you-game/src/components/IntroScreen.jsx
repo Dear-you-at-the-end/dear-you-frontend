@@ -147,6 +147,7 @@ const IntroScreen = ({ onStart }) => {
               filter: "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3))",
               opacity: logoVisible ? 1 : 0,
               transition: "opacity 0.5s ease-in 0.5s",
+              animation: logoVisible ? "float 3s ease-in-out infinite" : "none",
             }}
           />
         </div>
@@ -217,6 +218,15 @@ const IntroScreen = ({ onStart }) => {
           50% {
             transform: scale(1.08);
             filter: brightness(1.15) drop-shadow(0 6px 12px rgba(255, 255, 255, 0.6));
+          }
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
           }
         }
       `}</style>

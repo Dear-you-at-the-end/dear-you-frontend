@@ -146,8 +146,8 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
             >
                 <div
                     style={{
-                        width: "500px",
-                        minHeight: "400px",
+                    width: "420px",
+                    minHeight: "320px",
                         backgroundImage: "url('/assets/common/minigame_modal.png')",
                         backgroundSize: "contain",
                         backgroundRepeat: "no-repeat",
@@ -157,7 +157,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         alignItems: "center",
                         justifyContent: "center",
                         padding: "40px",
-                        color: "white",
+                        color: "#4E342E",
                         imageRendering: "pixelated",
                         animation: "slideIn 0.4s ease-out",
                     }}
@@ -167,7 +167,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         src="/assets/dormitory/logo.png"
                         alt="Mini Game Logo"
                         style={{
-                            width: "350px",
+                        width: "300px",
                             height: "auto",
                             marginBottom: "30px",
                             imageRendering: "pixelated",
@@ -196,10 +196,10 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         onClick={handleStartGame}
                         style={{
                             fontFamily: "Galmuri",
-                            fontSize: "16px",
-                            padding: "12px 32px",
+                            fontSize: "14px",
+                            padding: "10px 28px",
                             backgroundColor: "#ff6b35",
-                            color: "white",
+                            color: "#4E342E",
                             border: "4px solid #fff",
                             borderRadius: "0",
                             cursor: "pointer",
@@ -269,8 +269,8 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
         >
             <div
                 style={{
-                    width: "400px",
-                    height: "300px",
+                    width: "340px",
+                    height: "250px",
                     backgroundImage: "url('/assets/common/minigame_modal.png')",
                     backgroundSize: "contain",
                     backgroundRepeat: "no-repeat",
@@ -280,7 +280,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                     alignItems: "center",
                     justifyContent: "center",
                     padding: "20px",
-                    color: "white",
+                    color: "#4E342E",
                     imageRendering: "pixelated",
                     animation: gameState === "success" ? "successPulse 0.6s ease-out" : "none",
                 }}
@@ -289,7 +289,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                     style={{
                         marginBottom: "20px",
                         fontFamily: "Galmuri",
-                        fontSize: gameState === "success" ? "32px" : "22px",
+                        fontSize: gameState === "success" ? "28px" : "20px",
                         transition: "font-size 0.3s",
                     }}
                 >
@@ -299,9 +299,9 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                 {permission && gameState === "playing" && (
                     <div
                         style={{
-                            width: "200px",
-                            height: "30px",
-                            border: "2px solid white",
+                            width: "180px",
+                            height: "26px",
+                            border: "2px solid #4E342E",
                             marginBottom: "20px",
                             position: "relative",
                         }}
@@ -332,11 +332,11 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         onClick={onClose}
                         style={{
                             fontFamily: "Galmuri",
-                            fontSize: "11px",
-                            padding: "8px 16px",
+                            fontSize: "10px",
+                            padding: "7px 14px",
                             backgroundColor: "#666",
-                            color: "white",
-                            border: "2px solid #fff",
+                            color: "#4E342E",
+                            border: "2px solid #4E342E",
                             cursor: "pointer",
                             fontWeight: "bold",
                             marginTop: "20px",
