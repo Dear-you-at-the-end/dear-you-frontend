@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 1600;
+const MAP_WIDTH = 2400;
 const MAP_HEIGHT = 600;
 
 export default class RoadScene extends Phaser.Scene {
@@ -26,7 +26,8 @@ export default class RoadScene extends Phaser.Scene {
     this.load.image("post_office_flag", `${roadPath}post_office_flag.png`);
     this.load.image("road_tree", `${roadPath}tree.png`);
     this.load.image("road_bush", `${roadPath}bush.png`);
-    this.load.image("road_lamp", `${roadPath}street_lamp.png`);
+    this.load.image("road_lamp", `${roadPath}lamp.png`);
+    this.load.image("road_bus", `${roadPath}bus.png`);
     this.load.image("block", `${roadPath}block.png`);
     this.load.image("stair_down", `${roadPath}stair_down.png`);
     for (let i = 1; i <= 6; i++) {
@@ -84,8 +85,8 @@ export default class RoadScene extends Phaser.Scene {
         originY = 1;
       } else if (key === "tile_down") {
         spriteHeight = tex.height;
-        y = (row + 1) * tileSize;
-        originY = 1;
+        y = row * tileSize - 2; // Align to top and move up 2px to overlap
+        originY = 0;
       }
 
       const depth = (key === "tile_top" || key === "tile_down") ? 1 : 0;
@@ -100,8 +101,8 @@ export default class RoadScene extends Phaser.Scene {
     const buildingBottomTarget = tileSize * topGrassRows - 2;
     const buildingDefs = [
       { key: "road_sarang_hall", x: 260, scale: 2.1 },
-      { key: "road_kaimaru", x: 860, scale: 2.3 },
-      { key: "post_office_flag", x: 1380, scale: 1.8 },
+      { key: "road_kaimaru", x: 1060, scale: 2.3 },
+      { key: "post_office_flag", x: 2000, scale: 1.1 },
     ];
 
     const buildingBlocks = buildingDefs.map((def) => {
@@ -125,12 +126,27 @@ export default class RoadScene extends Phaser.Scene {
       def.bottomY = bottomY;
     });
 
-    const grassTopY = Math.round(tileSize * (topGrassRows / 2));
-    const grassBottomY = Math.round(mapHeight - tileSize * (bottomGrassRows / 2));
-    const bushScale = 1.2;
-    const treeScale = 1.3;
-    const lampScale = 1.5;
+    const roadTopY = tileSize * topGrassRows;
+    const roadBottomY = tileSize * (rows - bottomGrassRows);
 
+    // Bus - Lower roadside between Kaimaru and Post Office Flag
+    // Kaimaru x=1060, PostFlag x=2000 => Bus x ~1530
+    // Place bus BEFORE decorations so it registers in buildingBlocks
+    const busX = 1530;
+    const busY = roadBottomY - 25; // moved further up
+    const bus = obstacles.create(busX, busY, "road_bus");
+    bus.setScale(0.25);
+    bus.setDepth(busY);
+    bus.refreshBody();
+    bus.body.setSize(bus.displayWidth * 0.9, bus.displayHeight * 0.5);
+    bus.body.setOffset(bus.displayWidth * 0.05, bus.displayHeight * 0.45);
+    // Add bus boundary to building blocks so random items don't overlap heavily
+    // Using a larger 'half' value to ensure clear space around it
+    buildingBlocks.push({ x: busX, half: (bus.displayWidth) / 2 + 80 });
+
+    const bushScale = 1.2;
+    const treeScale = 1.6;
+    const lampScale = 1.5;
     // Scattered Decorations (Bushes, Trees, Lamps)
     // Avoid buildings: buildingBlocks contains {x, half}
     const safeDist = 80;
@@ -140,23 +156,29 @@ export default class RoadScene extends Phaser.Scene {
     ];
 
     const decorations = [
-      { key: "road_tree", count: 12, scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { key: "road_bush", count: 18, scale: bushScale, body: { w: 0.7, h: 0.4, offY: 0.4 } },
-      { key: "road_lamp", count: 6, scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } }
+      { key: "road_tree", count: 8, scale: treeScale, minGap: 140, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { key: "road_bush", count: 12, scale: bushScale, minGap: 90, body: { w: 0.7, h: 0.4, offY: 0.4 } },
+      { key: "road_lamp", count: 4, scale: lampScale, minGap: 160, body: { w: 0.2, h: 0.1, offY: 0.85 } }
     ];
+
+    const placedDecorations = [];
 
     decorations.forEach(deco => {
       for (let i = 0; i < deco.count; i++) {
         let attempts = 0;
         let placed = false;
-        while (attempts < 20 && !placed) {
+        while (attempts < 28 && !placed) {
           const x = Phaser.Math.Between(50, MAP_WIDTH - 50);
           const range = grassYRanges[Phaser.Math.Between(0, 1)];
           const y = Phaser.Math.Between(range.min, range.max);
 
           const hitsBuilding = buildingBlocks.some(b => Math.abs(x - b.x) < (b.half + safeDist));
+          const tooCloseToOther = placedDecorations.some((p) => {
+            const minDist = Math.max(deco.minGap, p.minGap);
+            return Phaser.Math.Distance.Between(x, y, p.x, p.y) < minDist;
+          });
 
-          if (!hitsBuilding) {
+          if (!hitsBuilding && !tooCloseToOther) {
             const item = obstacles.create(x, y, deco.key);
             item.setScale(deco.scale);
             item.setDepth(y);
@@ -172,15 +194,13 @@ export default class RoadScene extends Phaser.Scene {
                 item.height * deco.body.offY
               );
             }
+            placedDecorations.push({ x, y, minGap: deco.minGap });
             placed = true;
           }
           attempts++;
         }
       }
     });
-
-    const roadTopY = tileSize * topGrassRows;
-    const roadBottomY = tileSize * (rows - bottomGrassRows);
 
     // Blockade at the far right
     const blockYPos = Math.round((roadTopY + roadBottomY) / 2);
@@ -198,15 +218,26 @@ export default class RoadScene extends Phaser.Scene {
     const upperStripY = roadTopY + 12;
     const lowerStripY = roadBottomY - 12;
     const scatteredPositions = [
-      { x: 450, y: upperStripY },
-      { x: 950, y: upperStripY },
-      { x: 400, y: lowerStripY },
-      { x: 900, y: lowerStripY },
-      { x: 250, y: lowerStripY },
+      // Sarang Hall Cluster (Right) - b1, b3, b5
+      { x: 380, y: upperStripY, key: "b1" },
+      { x: 420, y: upperStripY, key: "b3" },
+      { x: 460, y: upperStripY, key: "b5" },
+
+      // Kaimaru Cluster (Left) - b1, b5, b3
+      { x: 900, y: upperStripY, key: "b1" },
+      { x: 940, y: upperStripY, key: "b5" },
+      { x: 980, y: upperStripY, key: "b3" },
+
+
+      // Scattered Singles (b2, b4, b6)
+      { x: 700, y: upperStripY, key: "b2" },
+      { x: 1600, y: upperStripY, key: "b4" },
+      { x: 2300, y: lowerStripY, key: "b6" },
+      { x: 100, y: lowerStripY, key: "b2" },
     ];
 
     scatteredPositions.forEach((pos) => {
-      const bikeKey = mixedBikeKeys[Phaser.Math.Between(0, mixedBikeKeys.length - 1)];
+      const bikeKey = pos.key;
       const bike = obstacles.create(pos.x, pos.y, bikeKey);
       const scale = (bikeKey === "b2" || bikeKey === "b4" || bikeKey === "b6") ? bikeScaleSmall : bikeScaleLarge;
       bike.setScale(scale);
@@ -215,6 +246,9 @@ export default class RoadScene extends Phaser.Scene {
       bike.body.setSize(bike.width * 0.8, bike.height * 0.5);
       bike.body.setOffset(bike.width * 0.1, bike.height * 0.5);
     });
+
+
+
 
     // No bikes directly in front of building doors (avoid clutter)
 
@@ -270,7 +304,7 @@ export default class RoadScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, mapHeight);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
-    this.cameras.main.setZoom(1.4);
+    this.cameras.main.setZoom(1.6);
     this.cameras.main.roundPixels = true;
 
     this.moveKeys = this.input.keyboard.addKeys({

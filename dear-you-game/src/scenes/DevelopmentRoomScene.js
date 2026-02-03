@@ -1,8 +1,8 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 1000;
-const MAP_HEIGHT = 520;
-const FLOOR_HEIGHT = 380; // Compact floor area
+const MAP_WIDTH = 700;
+const MAP_HEIGHT = 500;
+const FLOOR_HEIGHT = 360; // Compact floor area
 
 export default class DevelopmentRoomScene extends Phaser.Scene {
     constructor() {
@@ -11,7 +11,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
     init(data) {
         this.spawnX = data?.x ?? MAP_WIDTH / 2;
-        this.spawnY = data?.y ?? MAP_HEIGHT - 90;
+        this.spawnY = data?.y ?? MAP_HEIGHT - 60;
     }
 
     preload() {
@@ -81,11 +81,13 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         const decor = this.physics.add.staticGroup(); // For non-colliding or special items
 
         // Doors (Top Left & Right)
-        const doorY = floorTop - 8; // Pull doors down to meet floor
-        const doorLeft = decor.create(130, doorY, "dev_door_left");
-        const doorRight = decor.create(MAP_WIDTH - 130, doorY, "dev_door_right");
+        // Doors (Top Left & Right)
+        const doorY = floorTop; // Align bottom of door with floor line
+        const doorLeft = decor.create(80, doorY, "dev_door_left");
+        const doorRight = decor.create(MAP_WIDTH - 80, doorY, "dev_door_right");
 
         [doorLeft, doorRight].forEach(door => {
+            door.setOrigin(0.5, 1);
             door.setScale(pixelScale * 1.15);
             door.setDepth(2.1);
         });
@@ -118,9 +120,9 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             // We will just space them manually or using their width
 
             // Groups positions (Center X)
-            const leftGroupX = 170;
+            const leftGroupX = 120;
             const centerGroupX = MAP_WIDTH / 2;
-            const rightGroupX = MAP_WIDTH - 170;
+            const rightGroupX = MAP_WIDTH - 120;
 
             // Function to place a sequence of desks centered at cx
             const placeSequence = (cx, types) => {

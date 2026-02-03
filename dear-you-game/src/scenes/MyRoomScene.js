@@ -1,34 +1,30 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 640;
-const MAP_HEIGHT = 440;
-const FLOOR_TOP = 100;
+const MAP_WIDTH = 500;
+const MAP_HEIGHT = 420;
 
-export default class KaimaruScene extends Phaser.Scene {
+export default class MyRoomScene extends Phaser.Scene {
   constructor() {
-    super({ key: "Kaimaru" });
+    super({ key: "MyRoom" });
   }
 
   init(data) {
     this.spawnX = data?.x ?? MAP_WIDTH / 2;
-    this.spawnY = data?.y ?? MAP_HEIGHT - 60;
+    this.spawnY = data?.y ?? MAP_HEIGHT - 80;
   }
 
   preload() {
-    const kaimaruPath = "/assets/kaimaru/";
+    const roomPath = "/assets/myroom/";
     const commonPath = "/assets/common/";
 
-    this.load.image("kaimaru_floor", `${kaimaruPath}tile4.png`);
-    this.load.image("kaimaru_wall", `${kaimaruPath}wall3.png`);
-    this.load.image("kaimaru_door", `${kaimaruPath}door.png`);
-    this.load.image("kaimaru_table_set", `${kaimaruPath}tableset.png`);
-    this.load.image("kaimaru_table_set_back", `${kaimaruPath}tableset_bk.png`);
-    this.load.image("kaimaru_table_main", `${kaimaruPath}table_main.png`);
-    this.load.image("kaimaru_table", `${kaimaruPath}table.png`);
-    this.load.image("npc_bsy", `${commonPath}character/bsy.png`);
-    this.load.image("npc_kys", `${commonPath}character/kys.png`);
-    this.load.image("npc_thj", `${commonPath}character/thj.png`);
-    this.load.image("npc_jjw", `${commonPath}character/jjw.png`);
+    this.load.image("my_floor", `${roomPath}tile6.png`);
+    this.load.image("my_wall", `${roomPath}wall4.png`);
+    this.load.image("my_bed", `${roomPath}bed1.png`);
+    this.load.image("my_bedside", `${roomPath}bedside.png`);
+    this.load.image("my_chair", `${roomPath}chair1.png`);
+    this.load.image("my_desk", `${roomPath}desk1.png`);
+    this.load.image("my_rug", `${roomPath}rug.png`);
+    this.load.image("my_door", `${roomPath}door.png`);
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
@@ -41,132 +37,83 @@ export default class KaimaruScene extends Phaser.Scene {
   }
 
   create() {
-    const pixelScale = 3;
-    const canvasWidth = 800;
-    const canvasHeight = 600;
-    const roomW = 380;
-    const roomH = 450;
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    const startX = centerX - roomW / 2;
-    const startY = centerY - roomH / 2;
+    const pixelScale = 2;
 
     this.cameras.main.setBackgroundColor("#222222");
-    this.cameras.main.setZoom(1);
-    this.physics.world.setBounds(startX, startY, roomW, roomH);
+    this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
-    // Floor
+    const floorHeight = 300;
+    const floorTop = MAP_HEIGHT - floorHeight;
+    const floorY = floorTop + floorHeight / 2;
+
     this.add
-      .tileSprite(centerX, centerY, roomW, roomH, "kaimaru_floor")
+      .tileSprite(MAP_WIDTH / 2, floorY, MAP_WIDTH, floorHeight, "my_floor")
       .setTileScale(pixelScale)
       .setDepth(0);
 
-    // Wall (Top)
-    const wallTexture = this.textures.get("kaimaru_wall").getSourceImage();
+    const wallTexture = this.textures.get("my_wall").getSourceImage();
     const wallHeight = wallTexture.height * pixelScale;
-    const wallY = startY + wallHeight / 2;
+    const wallY = floorTop - wallHeight / 2;
 
     this.add
-      .tileSprite(centerX, wallY, roomW, wallHeight, "kaimaru_wall")
+      .tileSprite(MAP_WIDTH / 2, wallY, MAP_WIDTH, wallHeight, "my_wall")
       .setTileScale(pixelScale)
       .setDepth(1);
 
-    // Wall Barriers (Invisible)
-    const walls = this.physics.add.staticGroup();
-    // Top
-    const topWall = walls.create(centerX, wallY, null);
-    topWall.setSize(roomW, wallHeight).setVisible(false).refreshBody();
-    // Left
-    const leftWall = walls.create(startX, centerY, null);
-    leftWall.setSize(10, roomH).setVisible(false).refreshBody();
-    // Right
-    const rightWall = walls.create(startX + roomW, centerY, null);
-    rightWall.setSize(10, roomH).setVisible(false).refreshBody();
-    // Bottom
-    const bottomWall = walls.create(centerX, startY + roomH, null);
-    bottomWall.setSize(roomW, 20).setVisible(false).refreshBody();
+    const wallBody = this.physics.add.staticImage(MAP_WIDTH / 2, wallY, "my_wall");
+    wallBody.setDisplaySize(MAP_WIDTH, wallHeight);
+    wallBody.setVisible(false);
+    wallBody.body.setSize(MAP_WIDTH, wallHeight * 0.2);
+    wallBody.body.setOffset(0, wallHeight * 0.8);
+    wallBody.refreshBody();
 
     const obstacles = this.physics.add.staticGroup();
 
-    // Door (Bottom Center)
-    const doorTex = this.textures.get("kaimaru_door").getSourceImage();
-    const doorH = doorTex.height * pixelScale;
-    const doorY = startY + roomH - doorH / 2 - 10;
-    const door = this.add.image(centerX, doorY, "kaimaru_door");
-    door.setScale(pixelScale);
-    door.setDepth(Math.round(doorY) + 2);
-    this.exitDoor = door;
+    const rug = obstacles.create(MAP_WIDTH / 2, floorTop + 140, "my_rug");
+    rug.setScale(pixelScale);
+    rug.refreshBody();
+    rug.body.setSize(rug.displayWidth, rug.displayHeight * 0.2);
+    rug.body.setOffset(0, rug.displayHeight * 0.8);
+    rug.setDepth(rug.y);
 
-    // Tables
-    // Distribute them in grid logic within the room
-    const margin = 80;
-    const colSpacing = (roomW - margin * 2) / 2;
-    const rowStart = startY + 140;
-    const rowSpacing = 100;
+    const bed = obstacles.create(120, floorTop + 110, "my_bed");
+    bed.setScale(pixelScale);
+    bed.refreshBody();
+    bed.body.setSize(bed.displayWidth, bed.displayHeight * 0.3);
+    bed.body.setOffset(0, bed.displayHeight * 0.7);
+    bed.setDepth(bed.y);
 
-    // We have 6 tables originally.
-    // Let's create a 2x3 grid or 3x2?
-    // User had: 3 cols x 2 rows. Room is narrower now (380).
-    // Maybe 2 cols x 3 rows is better for 380 width? Or keep 3 cols but tighter?
-    // 380 width allows roughly 3 tables if small.
-    // Table width approx 32 * 3 = 96.
-    // 96 * 3 = 288. 380 - 288 = 92 space. It fits tightly.
-    // Let's try 2 columns for better spacing?
-    // Actually user had 6 tables.
-    // Let's do 2 columns, 3 rows.
-    const tablePositions = [
-      { x: centerX - 80, y: rowStart },
-      { x: centerX + 80, y: rowStart },
-      { x: centerX - 80, y: rowStart + rowSpacing },
-      { x: centerX + 80, y: rowStart + rowSpacing },
-      { x: centerX - 80, y: rowStart + rowSpacing * 2 },
-      { x: centerX + 80, y: rowStart + rowSpacing * 2 },
-    ];
+    const bedside = obstacles.create(200, floorTop + 120, "my_bedside");
+    bedside.setScale(pixelScale);
+    bedside.refreshBody();
+    bedside.body.setSize(bedside.displayWidth, bedside.displayHeight * 0.3);
+    bedside.body.setOffset(0, bedside.displayHeight * 0.7);
+    bedside.setDepth(bedside.y);
 
-    tablePositions.forEach((pos, index) => {
-      // Main table logic: Let's make the top-right one main? Or top-left?
-      // Old logic: index 1 was main (top-center).
-      // Let's make index 1 (top-right) main.
-      const isMainTable = index === 1;
+    const desk = obstacles.create(MAP_WIDTH - 140, floorTop + 120, "my_desk");
+    desk.setScale(pixelScale);
+    desk.refreshBody();
+    desk.body.setSize(desk.displayWidth, desk.displayHeight * 0.3);
+    desk.body.setOffset(0, desk.displayHeight * 0.7);
+    desk.setDepth(desk.y);
 
-      let textureKey;
-      if (isMainTable) {
-        textureKey = "kaimaru_table_main";
-      } else {
-        // Aesthetic variety
-        if (index % 2 === 0) textureKey = "kaimaru_table_set";
-        else textureKey = "kaimaru_table_set_back";
-      }
+    const chair = obstacles.create(MAP_WIDTH - 170, floorTop + 170, "my_chair");
+    chair.setScale(pixelScale);
+    chair.refreshBody();
+    chair.body.setSize(chair.displayWidth, chair.displayHeight * 0.5);
+    chair.body.setOffset(0, chair.displayHeight * 0.5);
+    chair.setDepth(chair.y);
 
-      const table = obstacles.create(pos.x, pos.y, textureKey);
-      table.setScale(pixelScale);
-      table.refreshBody();
-
-      if (isMainTable) {
-        table.body.setSize(table.displayWidth, table.displayHeight * 0.45);
-        table.body.setOffset(0, table.displayHeight * 0.55);
-      } else {
-        table.body.setSize(table.displayWidth * 0.9, table.displayHeight * 0.6);
-        table.body.setOffset(table.displayWidth * 0.05, table.displayHeight * 0.3);
-      }
-      table.setDepth(Math.round(table.y));
-
-      if (isMainTable) {
-        // NPCs around main table
-        const offX = 36;
-        const offY = 12;
-        const npcLeft = this.add.image(pos.x - offX, pos.y + offY, "npc_bsy").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcLeft2 = this.add.image(pos.x - 12, pos.y + offY, "npc_kys").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcRight = this.add.image(pos.x + 12, pos.y + offY, "npc_thj").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcRight2 = this.add.image(pos.x + offX, pos.y + offY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + offY);
-      }
-    });
+    const doorY = MAP_HEIGHT - 20;
+    this.exitDoor = this.add.image(MAP_WIDTH / 2, doorY, "my_door");
+    this.exitDoor.setScale(pixelScale);
+    this.exitDoor.setDepth(999);
 
     const firstFrame = "16x16 All Animations 0.aseprite";
     this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
     this.player.setScale(pixelScale).setCollideWorldBounds(true);
     this.player.body.setSize(10, 8).setOffset(5, 12);
-    this.player.setDepth(Math.round(this.player.y));
+    this.player.setDepth(this.player.y);
 
     this.handItem = this.add.image(0, 0, "letter_icon").setScale(1).setDepth(200).setVisible(false);
 
@@ -199,6 +146,7 @@ export default class KaimaruScene extends Phaser.Scene {
 
   createPlayerAnimations() {
     if (this.anims.exists("idle-down")) return;
+
     const makeAnim = (key, start, end, frameRate, repeat) => {
       this.anims.create({
         key,
@@ -212,14 +160,17 @@ export default class KaimaruScene extends Phaser.Scene {
         repeat,
       });
     };
+
     makeAnim("idle-down", 0, 3, 4, -1);
     makeAnim("idle-left", 4, 7, 4, -1);
     makeAnim("idle-right", 8, 11, 4, -1);
     makeAnim("idle-up", 0, 3, 4, -1);
+
     makeAnim("walk-down", 12, 15, 10, -1);
     makeAnim("walk-right", 16, 19, 10, -1);
     makeAnim("walk-left", 20, 23, 10, -1);
     makeAnim("walk-up", 24, 27, 10, -1);
+
     makeAnim("run-right", 28, 33, 14, -1);
     makeAnim("run-left", 34, 39, 14, -1);
     makeAnim("run-down", 12, 15, 14, -1);
@@ -242,11 +193,11 @@ export default class KaimaruScene extends Phaser.Scene {
     );
 
     const canTrigger = !this.lastTriggerTime || this.time.now - this.lastTriggerTime > 1000;
-    const isMovingDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
+    const isMovingDown = this.moveKeys.down.isDown;
 
     if (distanceToDoor < 60 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingDown)) {
       this.lastTriggerTime = this.time.now;
-      window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "LeaveKaimaru" } }));
+      window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "LeaveMyRoom" } }));
       this.player.body.setVelocity(0);
       return;
     }
@@ -264,6 +215,7 @@ export default class KaimaruScene extends Phaser.Scene {
     };
 
     this.player.body.setVelocity(0);
+
     const leftDown = this.moveKeys.left.isDown || this.moveKeys.a.isDown;
     const rightDown = this.moveKeys.right.isDown || this.moveKeys.d.isDown;
     const upDown = this.moveKeys.up.isDown || this.moveKeys.w.isDown;
@@ -289,7 +241,7 @@ export default class KaimaruScene extends Phaser.Scene {
       this.player.anims.play(animKey("idle", this.lastDirection), true);
     }
 
-    this.player.setDepth(Math.round(this.player.y));
+    this.player.setDepth(this.player.y);
 
     if (this.handItem) {
       const selectedSlot = this.registry.get("selectedSlot") ?? 0;

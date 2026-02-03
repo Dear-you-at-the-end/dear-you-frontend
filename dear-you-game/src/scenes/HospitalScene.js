@@ -1,8 +1,8 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 800; // Adjust as needed
-const MAP_HEIGHT = 600;
-const FLOOR_HEIGHT = 500; // Floor area height
+const MAP_WIDTH = 600;
+const MAP_HEIGHT = 440;
+const FLOOR_HEIGHT = 340; // Reduced floor height
 
 export default class HospitalScene extends Phaser.Scene {
     constructor() {
@@ -11,7 +11,7 @@ export default class HospitalScene extends Phaser.Scene {
 
     init(data) {
         this.spawnX = data?.x ?? MAP_WIDTH / 2;
-        this.spawnY = data?.y ?? MAP_HEIGHT - 100;
+        this.spawnY = data?.y ?? MAP_HEIGHT - 60;
     }
 
     preload() {
@@ -39,79 +39,95 @@ export default class HospitalScene extends Phaser.Scene {
     }
 
     create() {
-        const pixelScale = 2;
+        const pixelScale = 3;
+        const canvasWidth = 800;
+        const canvasHeight = 600;
+        const roomW = 380;
+        const roomH = 450;
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
+        const startX = centerX - roomW / 2;
+        const startY = centerY - roomH / 2;
 
         this.cameras.main.setBackgroundColor("#222222");
-        this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        this.cameras.main.setZoom(1); // Reset zoom as we are using pixelScale 3
+        this.physics.world.setBounds(startX, startY, roomW, roomH);
 
         // Floor
-        this.add.tileSprite(MAP_WIDTH / 2, MAP_HEIGHT / 2, MAP_WIDTH, MAP_HEIGHT, "hosp_tile")
+        this.add.tileSprite(centerX, centerY, roomW, roomH, "hosp_tile")
             .setTileScale(pixelScale)
             .setDepth(0);
 
         // Wall (Top)
-        // Assuming wall3.png is a wall segment.
+        // Adjusting wall to fit top of room
         const wallTex = this.textures.get("hosp_wall").getSourceImage();
         const wallHeight = wallTex.height * pixelScale;
 
-        // Tiling the wall across the top
-        this.add.tileSprite(MAP_WIDTH / 2, wallHeight / 2, MAP_WIDTH, wallHeight, "hosp_wall")
+        // Position wall at the top edge of the room
+        this.add.tileSprite(centerX, startY + wallHeight / 2, roomW, wallHeight, "hosp_wall")
             .setTileScale(pixelScale)
             .setDepth(1);
 
+        // Create invisible wall barriers
+        const walls = this.physics.add.staticGroup();
+        // Top wall
+        const topWall = walls.create(centerX, startY + wallHeight / 2, null);
+        topWall.setSize(roomW, wallHeight).setVisible(false).refreshBody();
+
+        // Left wall barrier
+        const leftWall = walls.create(startX, centerY, null);
+        leftWall.setSize(10, roomH).setVisible(false).refreshBody();
+
+        // Right wall barrier
+        const rightWall = walls.create(startX + roomW, centerY, null);
+        rightWall.setSize(10, roomH).setVisible(false).refreshBody();
+
+        // Bottom invisible barrier (leave gap for exit)
+        const bottomWall = walls.create(centerX, startY + roomH, null);
+        bottomWall.setSize(roomW, 20).setVisible(false).refreshBody();
+
+
         // --- Floor Outline (Exit Zone Logic) ---
-        // We will create an 'outline' at the bottom that acts as the exit.
         const outlineTex = this.textures.get("hosp_outline").getSourceImage();
         const outlineH = outlineTex.height * pixelScale;
 
-        // 1. Outline at the very bottom of the floor area (visually)
-        const outlineBottom = this.add.tileSprite(MAP_WIDTH / 2, MAP_HEIGHT - outlineH / 2, MAP_WIDTH, outlineH, "hosp_outline")
+        // 1. Outline at the very bottom of the floor area
+        this.add.tileSprite(centerX, startY + roomH - outlineH / 2, roomW, outlineH, "hosp_outline")
             .setTileScale(pixelScale)
             .setDepth(1);
 
-        // 2. Physics zone for exit (triggered when walking on outline)
-        this.exitZone = this.add.zone(MAP_WIDTH / 2, MAP_HEIGHT - 20, MAP_WIDTH, 40);
+        // 2. Physics zone for exit
+        this.exitZone = this.add.zone(centerX, startY + roomH - 20, roomW, 40);
         this.physics.world.enable(this.exitZone);
         this.exitZone.body.setAllowGravity(false);
         this.exitZone.body.moves = false;
 
-        // Wall physics
-        const wallBody = this.physics.add.staticImage(MAP_WIDTH / 2, wallHeight / 2, "hosp_wall");
-        wallBody.setDisplaySize(MAP_WIDTH, wallHeight);
-        wallBody.body.setSize(MAP_WIDTH, wallHeight); // Block top area
-        wallBody.setVisible(false);
-
         const obstacles = this.physics.add.staticGroup();
 
-        // Furniture Placement (based on UI design)
-        // Center logic
-        const CX = MAP_WIDTH / 2;
-        const CY = MAP_HEIGHT / 2;
-
-        // Bed (Center)
-        const bed = obstacles.create(CX, CY, "hosp_bed");
-        bed.setScale(pixelScale * 1.2); // Make it significant
+        // Furniture Placement
+        // Bed (Centerish)
+        const bed = obstacles.create(centerX, centerY, "hosp_bed");
+        bed.setScale(pixelScale * 1.2);
         bed.refreshBody();
         bed.body.setSize(bed.width * 0.9, bed.height * 0.8);
         bed.body.setOffset(bed.width * 0.05, bed.height * 0.1);
         bed.setDepth(bed.y);
 
         // Cart (Left of Bed)
-        const cartX = bed.x - (bed.width * pixelScale) / 2 - 60;
+        const cartX = bed.x - (bed.width * bed.scaleX) / 2 - 40;
         const cartY = bed.y - 20;
         const cart = obstacles.create(cartX, cartY, "hosp_cart");
         cart.setScale(pixelScale);
         cart.refreshBody();
         cart.setDepth(cart.y);
 
-        // Flower (On Cart - decorative, no physics usually, or same body)
-        // If it's on top, it needs higher depth than cart.
-        const flower = this.add.image(cart.x, cart.y - 20, "hosp_flower");
+        // Flower (On Cart)
+        const flower = this.add.image(cart.x, cart.y - 20 * (pixelScale / 2), "hosp_flower");
         flower.setScale(pixelScale);
         flower.setDepth(cart.depth + 1);
 
         // IV (Right of Bed)
-        const ivX = bed.x + (bed.width * pixelScale) / 2 + 40;
+        const ivX = bed.x + (bed.width * bed.scaleX) / 2 + 30;
         const ivY = bed.y - 40;
         const iv = obstacles.create(ivX, ivY, "hosp_iv");
         iv.setScale(pixelScale);
@@ -119,7 +135,7 @@ export default class HospitalScene extends Phaser.Scene {
         iv.setDepth(iv.y);
 
         // Armchair (Far Right)
-        const chairX = iv.x + 80;
+        const chairX = ivX + 60;
         const chairY = bed.y + 40;
         const chair = obstacles.create(chairX, chairY, "hosp_armchair");
         chair.setScale(pixelScale);
@@ -129,18 +145,23 @@ export default class HospitalScene extends Phaser.Scene {
         // Player
         this.createPlayerAnimations();
         const firstFrame = "16x16 All Animations 0.aseprite";
-        this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
+        // Default spawn at "door" area if no data
+        const spawnX = this.spawnX === 600 / 2 ? centerX : this.spawnX; // rough check if it was default
+        const spawnY = this.spawnY === 440 - 60 ? startY + roomH - 80 : this.spawnY;
+
+        // Force spawn to new door location if it looks like default
+        this.player = this.physics.add.sprite(centerX, startY + roomH - 80, "main_character", firstFrame);
         this.player.setScale(pixelScale).setCollideWorldBounds(true);
         this.player.body.setSize(10, 8).setOffset(5, 12);
         this.player.setDepth(100);
 
-        this.physics.add.collider(this.player, wallBody);
+        this.physics.add.collider(this.player, walls);
         this.physics.add.collider(this.player, obstacles);
 
         // Camera
-        this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
-        this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
-        this.cameras.main.setZoom(1.5); // Match new zoom
+        // Center camera on the room
+        this.cameras.main.setBounds(0, 0, canvasWidth, canvasHeight);
+        this.cameras.main.centerOn(centerX, centerY);
         this.cameras.main.roundPixels = true;
 
         // Controls

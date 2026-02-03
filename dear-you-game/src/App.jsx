@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import "./App.css";
 import MiniGameModal from "./components/MiniGameModal";
@@ -9,6 +9,7 @@ import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
 import DevelopmentRoomScene from "./scenes/DevelopmentRoomScene";
 import KaimaruScene from "./scenes/KaimaruScene";
+import MyRoomScene from "./scenes/MyRoomScene";
 import HospitalScene from "./scenes/HospitalScene";
 
 const canvasWidth = 1200;
@@ -32,11 +33,11 @@ function App() {
   const [letterCount, setLetterCount] = useState(21);
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
-    { id: "npc-103-1", name: "신원영", hasLetter: false, hasWritten: false },
-    { id: "npc-103-2", name: "김명성", hasLetter: false, hasWritten: false },
-    { id: "npc-103-3", name: "박찬우", hasLetter: false, hasWritten: false },
-    { id: "npc-104-1", name: "임남중", hasLetter: false, hasWritten: false },
-    { id: "npc-104-2", name: "이건", hasLetter: false, hasWritten: false },
+    { id: "npc-103-1", name: "ſ", hasLetter: false, hasWritten: false },
+    { id: "npc-103-2", name: "", hasLetter: false, hasWritten: false },
+    { id: "npc-103-3", name: "", hasLetter: false, hasWritten: false },
+    { id: "npc-104-1", name: "ӳ", hasLetter: false, hasWritten: false },
+    { id: "npc-104-2", name: "̰", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -337,7 +338,7 @@ function App() {
           debug: true,
         },
       },
-      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
+      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, MyRoomScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
     };
 
     function preload() {
@@ -472,7 +473,7 @@ function App() {
         .setScale(pixelScale * 1.3)
         .setDepth(windowY + 1);
 
-      const zoom = 0.9;
+        const zoom = 1.2;
       const viewW = canvasWidth / zoom;
       const viewH = canvasHeight / zoom;
       const cameraBoundsW = Math.max(roomW + outlineSideW * 2, viewW);
@@ -1062,7 +1063,7 @@ function App() {
                       transition: "opacity 0.5s ease",
                     }}
                   >
-                    104호에게 편지를 전달하자
+                    104 
                   </div>
                 </div>
               </div>
@@ -1102,7 +1103,7 @@ function App() {
                 }}
               >
                 <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "14px", textAlign: "center" }}>
-                  {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? "누군가"}에게 편지를 ${confirmMode === "give" ? "주시겠습니까?" : "쓰시겠습니까?"}`}
+                  {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? ""}  ${confirmMode === "give" ? "ֽðڽϱ?" : "ðڽϱ?"}`}
                 </div>
                 <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <div
@@ -1214,7 +1215,7 @@ function App() {
                   gap: "12px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지를 작성하세요</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}> ۼϼ</div>
                 <div
                   style={{
                     position: "relative",
@@ -1321,7 +1322,7 @@ function App() {
                     marginTop: "12px",
                   }}
                 >
-                  작성 완료
+                  ۼ Ϸ
                 </button>
               </div>
             </div>
@@ -1350,7 +1351,7 @@ function App() {
                   gap: "10px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>작성한 편지</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>ۼ </div>
                 {readingLetters.length > 0 && (
                   <div
                     style={{
@@ -1429,7 +1430,7 @@ function App() {
                       cursor: "pointer",
                     }}
                   >
-                    수정
+                    
                   </button>
                   <button
                     onClick={() => setShowLetterRead(false)}
@@ -1444,7 +1445,24 @@ function App() {
                       cursor: "pointer",
                     }}
                   >
-                    닫기
+                    ݱ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("MyRoom")}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    MyRoom
                   </button>
                 </div>
               </div>
@@ -1611,7 +1629,7 @@ function App() {
                         zIndex: 20,
                       }}
                     >
-                      {`${npcs.find((n) => n.id === group.npcId)?.name ?? "누군가"}에게 줄 편지`}
+                      {`${npcs.find((n) => n.id === group.npcId)?.name ?? ""}  `}
                     </div>
                   )}
                 </React.Fragment>
@@ -1686,7 +1704,7 @@ function App() {
               transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
               transition: "opacity 0.3s ease, transform 0.3s ease",
             }}>
-              들어갈 수 없는 것 같아..
+                  ..
             </div>
           )}
 
@@ -1918,7 +1936,7 @@ function App() {
                         cursor: "pointer",
                       }}
                     >
-                      아케이드
+                      미니게임
                     </button>
                     <button
                       type="button"
@@ -1935,7 +1953,7 @@ function App() {
                         cursor: "pointer",
                       }}
                     >
-                      하트퀘스트
+                      하트쿼스트
                     </button>
                   </div>
                 )}
@@ -1968,7 +1986,7 @@ function App() {
           setShowMiniGame(false);
           setIsQuestCompleted(true);
         }}
-        onWin={() => alert("미니게임 클리어!")}
+        onWin={() => alert("̴ϰ Ŭ!")}
       />
       <ExitConfirmModal
         isOpen={showExitConfirm}
@@ -1995,12 +2013,13 @@ function App() {
         }}
         roomNumber={(() => {
           if (!exitRoomKey) return "";
-          if (exitRoomKey === "EnterHallway") return "";
-          if (exitRoomKey === "LeaveHallway") return "";
-          if (exitRoomKey === "EnterKaimaru") return "카이마루";
-          if (exitRoomKey.startsWith("EnterRoom")) return exitRoomKey.replace("EnterRoom", "") + "호";
-          if (exitRoomKey.startsWith("Room")) return "사랑관 복도";
-          return "이동";
+          if (exitRoomKey === "EnterHallway") return "Dorm";
+          if (exitRoomKey === "LeaveHallway") return "Outside";
+          if (exitRoomKey === "EnterKaimaru") return "Kaimaru";
+          if (exitRoomKey === "LeaveMyRoom") return "My Room";
+          if (exitRoomKey.startsWith("EnterRoom")) return `Room ${exitRoomKey.replace("EnterRoom", "")}`;
+          if (exitRoomKey.startsWith("Room")) return "Hallway";
+          return "Move";
         })()}
       />
       <HeartQuestModal
@@ -2008,9 +2027,9 @@ function App() {
         onClose={() => setShowHeartQuest(false)}
         onWin={() => {
           setIsQuestCompleted(true);
-          alert("하트 퀘스트 완료!");
+          alert("Ʈ Ʈ Ϸ!");
         }}
-        onFail={() => alert("실패...")}
+        onFail={() => alert("...")}
       />
 
       {showIntro && <IntroScreen onStart={handleIntroStart} />}
@@ -2038,6 +2057,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
