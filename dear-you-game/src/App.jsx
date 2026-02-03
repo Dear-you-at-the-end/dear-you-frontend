@@ -3,44 +3,52 @@ import Phaser from "phaser";
 import "./App.css";
 import MiniGameModal from "./components/MiniGameModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
+import HeartQuestModal from "./components/HeartQuestModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 
 const canvasWidth = 600;
 const canvasHeight = 400;
-const directionOrder = ["down", "right", "up", "left"];
-const rowIndexByDir = {
-  down: 0,
-  right: 2,
-  left: 3,
-  up: 4,
-};
-const spriteFrame = {
-  size: 20,
-  spacing: 0,
-  margin: 0,
-};
 
 function App() {
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [bgm, setBgm] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(0);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
   const [letterCount, setLetterCount] = useState(21);
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
-    { id: "npc-1", name: "전하은", hasLetter: false, hasWritten: false },
-    { id: "npc-2", name: "김민수", hasLetter: false, hasWritten: false },
+    { id: "npc-103-1", name: "신원영", hasLetter: false, hasWritten: false },
+    { id: "npc-103-2", name: "김명성", hasLetter: false, hasWritten: false },
+    { id: "npc-103-3", name: "박찬우", hasLetter: false, hasWritten: false },
+    { id: "npc-104-1", name: "임남중", hasLetter: false, hasWritten: false },
+    { id: "npc-104-2", name: "이건", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
   const [letterText, setLetterText] = useState("");
-  const [activeNpcId, setActiveNpcId] = useState(null);
   const [envelopeFrame, setEnvelopeFrame] = useState(1);
   const [writtenLetters, setWrittenLetters] = useState([]);
+  const [readingLetters, setReadingLetters] = useState([]); // Subset of letters to read
   const [showLetterRead, setShowLetterRead] = useState(false);
+
+  const letterGroups = React.useMemo(() => {
+    const groups = [];
+    const map = new Map();
+    writtenLetters.forEach((l) => {
+      if (!map.has(l.npcId)) {
+        map.set(l.npcId, groups.length);
+        groups.push({ npcId: l.npcId, letters: [] });
+      }
+      groups[map.get(l.npcId)].letters.push(l);
+    });
+    return groups;
+  }, [writtenLetters]);
   const [readIndex, setReadIndex] = useState(0);
   const writtenLettersRef = useRef([]);
   const accumulatedTimeRef = useRef(0);
@@ -50,6 +58,9 @@ function App() {
   const [showBanToast, setShowBanToast] = useState(false);
   const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
+  const [exitRoomKey, setExitRoomKey] = useState(null);
+  const [interactionTargetId, setInteractionTargetId] = useState(null);
+  const [confirmMode, setConfirmMode] = useState("write"); // 'write' | 'give'
 
   const inventoryConfig = {
     slots: 7,
@@ -61,11 +72,11 @@ function App() {
     padY: 12,
   };
   const letterPaper = {
-    width: 240,
-    height: 320,
-    padX: 22,
-    padTop: 36,
-    padBottom: 32,
+    width: 330,
+    height: 390,
+    padX: 30,
+    padTop: 45,
+    padBottom: 40,
   };
 
   useEffect(() => {
@@ -128,6 +139,29 @@ function App() {
     return () => {
       window.removeEventListener("contextmenu", handleContextMenu);
     };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (checklistTimerRef.current) {
+        clearTimeout(checklistTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleChecklistClick = useCallback(() => {
+    if (checklistTimerRef.current) {
+      clearTimeout(checklistTimerRef.current);
+    }
+    setChecklistOpen((prev) => {
+      const nextOpen = !prev;
+      if (nextOpen) {
+        checklistTimerRef.current = setTimeout(() => {
+          setChecklistOpen(false);
+        }, 2400);
+      }
+      return nextOpen;
+    });
   }, []);
 
   const handleIntroStart = useCallback(() => {
@@ -241,16 +275,19 @@ function App() {
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
     gameStateRef.current.getNpcState = (id) => npcs.find((n) => n.id === id);
+    gameStateRef.current.getLetterGroups = () => letterGroups;
     if (gameRef.current) {
       gameRef.current.registry.set("selectedSlot", selectedSlot);
       gameRef.current.registry.set("letterCount", letterCount);
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
     }
-  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters]);
+  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups]);
 
   useEffect(() => {
     if (showIntro) return;
+
+    let cancelled = false;
 
     // index.css handles layout
     // const style = document.createElement("style"); ... removed
@@ -261,10 +298,15 @@ function App() {
       height: canvasHeight,
       parent: "game-container",
       pixelArt: true,
+      roundPixels: true,
       backgroundColor: "#222222",
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      render: {
+        antialias: false,
+        antialiasGL: false,
       },
       physics: {
         default: "arcade",
@@ -297,18 +339,9 @@ function App() {
       this.load.image("letter_icon", `${commonPath}letter.png`);
       this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
-      const characterPath = `${commonPath}character/`;
-      const spriteConfig = {
-        frameWidth: spriteFrame.size,
-        frameHeight: spriteFrame.size,
-        margin: spriteFrame.margin,
-        spacing: spriteFrame.spacing,
-      };
-
-      this.load.spritesheet("player_walk", `${characterPath}16x16 Walk-Sheet.png`, spriteConfig);
-      this.load.spritesheet("player_run", `${characterPath}16x16 Run-Sheet.png`, spriteConfig);
-      this.load.spritesheet("player_jump", `${characterPath}16x16 Jump-Sheet.png`, spriteConfig);
-      this.load.spritesheet("player_idle", `${characterPath}16x16 Idle-Sheet.png`, spriteConfig);
+      
+      this.load.atlas("main_character", `${commonPath}character/main_character.png`, `${commonPath}character/main_character.json`);
+      
     }
 
     function create() {
@@ -438,54 +471,34 @@ function App() {
       const cameraBoundsY = centerY - cameraBoundsH / 2;
       this.cameras.main.setBounds(cameraBoundsX, cameraBoundsY, cameraBoundsW, cameraBoundsH);
       this.cameras.main.setZoom(zoom);
+      this.cameras.main.roundPixels = true;
       this.cameras.main.centerOn(centerX, centerY);
 
-      const getFramesPerRow = (textureKey) => {
-        const source = this.textures.get(textureKey).getSourceImage();
-        const denom = spriteFrame.size + spriteFrame.spacing;
-        const numer = source.width - spriteFrame.margin * 2 + spriteFrame.spacing;
-        return Math.max(1, Math.floor(numer / denom));
-      };
+      
+      // Idle
+      this.anims.create({ key: 'idle-down', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 3, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
+      this.anims.create({ key: 'idle-left', frames: this.anims.generateFrameNames('main_character', { start: 4, end: 7, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
+      this.anims.create({ key: 'idle-right', frames: this.anims.generateFrameNames('main_character', { start: 8, end: 11, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
+      this.anims.create({ key: 'idle-up', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 3, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
 
-      const createDirectionalAnims = ({ action, textureKey, frameRate, repeat }) => {
-        const framesPerRow = getFramesPerRow(textureKey);
-        directionOrder.forEach((dir) => {
-          const rowIndex = rowIndexByDir[dir];
-          const start = rowIndex * framesPerRow;
-          const end = start + framesPerRow - 1;
-          this.anims.create({
-            key: `${action}-${dir}`,
-            frames: this.anims.generateFrameNumbers(textureKey, { start, end }),
-            frameRate,
-            repeat,
-          });
-        });
-      };
+      // Walk
+      this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNames('main_character', { start: 12, end: 15, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNames('main_character', { start: 16, end: 19, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNames('main_character', { start: 20, end: 23, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNames('main_character', { start: 24, end: 27, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
 
-      createDirectionalAnims({
-        action: "idle",
-        textureKey: "player_idle",
-        frameRate: 4,
-        repeat: -1,
-      });
-      createDirectionalAnims({
-        action: "walk",
-        textureKey: "player_walk",
-        frameRate: 10,
-        repeat: -1,
-      });
-      createDirectionalAnims({
-        action: "run",
-        textureKey: "player_run",
-        frameRate: 14,
-        repeat: -1,
-      });
-      createDirectionalAnims({
-        action: "jump",
-        textureKey: "player_jump",
-        frameRate: 10,
-        repeat: 0,
-      });
+      // Run
+      this.anims.create({ key: 'run-right', frames: this.anims.generateFrameNames('main_character', { start: 28, end: 33, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
+      this.anims.create({ key: 'run-left', frames: this.anims.generateFrameNames('main_character', { start: 34, end: 39, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
+      this.anims.create({ key: 'run-down', frames: this.anims.generateFrameNames('main_character', { start: 12, end: 15, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
+      this.anims.create({ key: 'run-up', frames: this.anims.generateFrameNames('main_character', { start: 24, end: 27, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
+
+      // Jump (Fallback)
+      this.anims.create({ key: 'jump-down', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 0, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
+      this.anims.create({ key: 'jump-left', frames: this.anims.generateFrameNames('main_character', { start: 4, end: 4, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
+      this.anims.create({ key: 'jump-right', frames: this.anims.generateFrameNames('main_character', { start: 8, end: 8, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
+      this.anims.create({ key: 'jump-up', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 0, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
+          
 
       // ?좊컻???곸뿭 (?섎떒 以묒븰)
       const shoeRackW = 110;
@@ -505,53 +518,102 @@ function App() {
       // 臾????곹샇?묒슜 ?띿뒪??
       this.exitText = this.add.text(centerX, startY + roomH - 46, "Press SPACE", {
         fontSize: "18px",
-        fontFamily: "Galmuri",
+        fontFamily: "Galmuri11-Bold",
         color: "#C49A6C",
         backgroundColor: "#000000",
         padding: { x: 4, y: 4 }
       }).setOrigin(0.5).setDepth(99999).setVisible(false);
 
       // NPC Logic
-      const roomNpcMap = {
-        "Room103": "npc-1",
-        "Room104": "npc-2",
+      const roomNpcConfig = {
+        "Room103": [
+          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right" },
+          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left" },
+          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "idle-left" },
+        ],
+        "Room104": [
+          { id: "npc-104-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right" },
+          { id: "npc-104-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left" },
+        ],
       };
-      const assignedNpcId = roomNpcMap[this.scene.key];
 
-      if (assignedNpcId) {
-        this.npcId = assignedNpcId;
-        this.npc = this.physics.add.staticSprite(
-          leftX + 70,
-          row2Y + 10,
-          "player_idle",
-          0
-        );
-        this.npc.setScale(pixelScale);
-        this.npc.setDepth(this.npc.y);
-        this.npc.refreshBody();
-        this.npc.anims.play("idle-right");
+      this.npcs = this.physics.add.staticGroup();
+      this.npcIcons = []; // track icons for update loop
 
-        // Quest icon (show when near NPC)
-        const iconOffsetY = 36;
-        this.questIcon = this.add.image(this.npc.x, this.npc.y - iconOffsetY, "quest_icon");
-        this.questIcon.setScale(pixelScale * 0.65);
-        this.questIcon.setDepth(99999);
-        this.questIcon.setVisible(false);
+      const configNpcs = roomNpcConfig[this.scene.key];
 
-        this.tweens.add({
-          targets: this.questIcon,
-          y: this.questIcon.y - 4,
-          duration: 800,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.easeInOut",
+      if (configNpcs) {
+        configNpcs.forEach(npcData => {
+          const npc = this.npcs.create(npcData.x, npcData.y, "main_character", "16x16 All Animations 0.aseprite");
+          npc.setScale(pixelScale);
+          npc.setDepth(npc.y);
+          npc.refreshBody();
+          npc.anims.play(npcData.anim);
+          npc.npcId = npcData.id;
+
+          // Quest icon
+          const iconOffsetY = 36;
+          const questIcon = this.add.image(npc.x, npc.y - iconOffsetY, "quest_icon");
+          questIcon.setScale(pixelScale * 0.65);
+          questIcon.setDepth(99999);
+          questIcon.setVisible(false);
+
+          this.tweens.add({
+            targets: questIcon,
+            y: questIcon.y - 4,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+          });
+
+          const happyIcon = this.add.image(npc.x, npc.y - iconOffsetY, "happy_icon");
+          happyIcon.setScale(pixelScale * 0.65);
+          happyIcon.setDepth(99999);
+          happyIcon.setVisible(false);
+
+          this.npcIcons.push({ npcId: npcData.id, questIcon, happyIcon, happyTimer: null });
+
+          if (this.scene.key === "Room103") {
+            this.tweens.add({
+              targets: npc,
+              y: npc.y - 2,
+              duration: 150 + Math.random() * 100,
+              yoyo: true,
+              repeat: -1,
+              delay: Math.random() * 500,
+              repeatDelay: 200 + Math.random() * 800,
+            });
+
+            const emitSoundWave = () => {
+              if (!npc.scene) return;
+              const graphics = this.add.graphics();
+              const waveX = npc.x;
+              const waveY = npc.y - 20;
+              graphics.setDepth(npc.depth + 1);
+
+              const waveObj = { r: 5, a: 1 };
+              this.tweens.add({
+                targets: waveObj,
+                r: 25,
+                a: 0,
+                duration: 600,
+                onUpdate: () => {
+                  graphics.clear();
+                  graphics.lineStyle(2, 0xffffff, waveObj.a);
+                  graphics.strokeCircle(waveX, waveY, waveObj.r);
+                },
+                onComplete: () => {
+                  graphics.destroy();
+                }
+              });
+
+              this.time.delayedCall(800 + Math.random() * 1500, emitSoundWave);
+            };
+
+            this.time.delayedCall(Math.random() * 1000, emitSoundWave);
+          }
         });
-
-        this.happyIcon = this.add.image(this.npc.x, this.npc.y - iconOffsetY, "happy_icon");
-        this.happyIcon.setScale(pixelScale * 0.65);
-        this.happyIcon.setDepth(99999);
-        this.happyIcon.setVisible(false);
-        this.happyTimer = null;
       }
       this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
       this.prevRight = false;
@@ -561,15 +623,15 @@ function App() {
       this.player = this.physics.add.sprite(
         spawnX,
         spawnY,
-        "player_idle",
-        0
+        "main_character",
+        "16x16 All Animations 0.aseprite"
       );
       this.player.setScale(pixelScale).setCollideWorldBounds(true);
       this.player.body.setSize(10, 8).setOffset(5, 12);
 
       this.physics.add.collider(this.player, obstacles);
-      if (this.npc) {
-        this.physics.add.collider(this.player, this.npc);
+      if (this.npcs) {
+        this.physics.add.collider(this.player, this.npcs);
       }
       this.physics.add.collider(this.player, walls);
 
@@ -583,12 +645,44 @@ function App() {
       });
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-      this.lastDirection = "down";
+      this.prevRight = false;
+      this.handItem = null;
       this.isJumping = false;
       this.jumpTween = null;
+      this.interactionCooldown = true;
+
+      this.time.delayedCall(500, () => {
+        this.interactionCooldown = false;
+      });
+
+      const handleNpcHappy = (e) => {
+        if (!this.sys) return;
+        const { npcId } = e.detail;
+        if (!this.npcIcons) return;
+        const iconSet = this.npcIcons.find((icon) => icon.npcId === npcId);
+        if (iconSet) {
+          iconSet.questIcon.setVisible(false);
+          iconSet.happyIcon.setVisible(true);
+          if (iconSet.happyTimer) {
+            iconSet.happyTimer.remove(false);
+          }
+          iconSet.happyTimer = this.time.delayedCall(1200, () => {
+            if (iconSet.happyIcon && iconSet.happyIcon.scene) {
+              iconSet.happyIcon.setVisible(false);
+            }
+          });
+        }
+      };
+      window.addEventListener("npc-happy", handleNpcHappy);
+      this.events.once(Phaser.Scenes.Events.DESTROY, () => {
+        window.removeEventListener("npc-happy", handleNpcHappy);
+      });
+
       this.jumpHeight = 8;
       this.jumpDuration = 140;
     }
+
+
 
     const startJump = () => {
       // Jump disabled to prevent wall clipping
@@ -611,13 +705,36 @@ function App() {
       }
 
       // Interaction & Jump logic
-      const isNearNPC = this.npc && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.npc.x, this.npc.y) < 60;
+      let closestNpc = null;
+      let minDistance = 60;
+
+      if (this.npcs) {
+        this.npcs.children.iterate((npc) => {
+          const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+          if (dist < minDistance) {
+            closestNpc = npc;
+            minDistance = dist;
+          }
+        });
+      }
+
+      const isNearNPC = !!closestNpc;
+      // Update this.npcId for interaction logic
+      if (closestNpc) {
+        this.npcId = closestNpc.npcId;
+      } else {
+        this.npcId = null;
+      }
+
       const isNearDoor = this.door && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.door.x, this.door.y) < 50;
-      const activeNpc = gameStateRef.current.getNpcState(this.npcId);
-      const activeNpcHasLetter = activeNpc?.hasLetter ?? false;
-      const activeNpcHasWritten = activeNpc?.hasWritten ?? false;
-      if (this.questIcon) {
-        this.questIcon.setVisible(!activeNpcHasLetter && !this.happyIcon?.visible);
+
+      // Update Icons for all NPCs
+      if (this.npcIcons) {
+        this.npcIcons.forEach(iconSet => {
+          const npcState = gameStateRef.current.getNpcState(iconSet.npcId);
+          const hasLetter = npcState?.hasLetter ?? false;
+          iconSet.questIcon.setVisible(!hasLetter && !iconSet.happyIcon.visible);
+        });
       }
       const pointer = this.input.activePointer;
       const rightDown = pointer.rightButtonDown();
@@ -625,15 +742,17 @@ function App() {
       this.prevRight = rightDown;
 
       // Door interaction
-      if (isNearDoor) {
+      if (isNearDoor && !this.interactionCooldown) {
         this.exitText.setVisible(true);
         if (rightJustDown) {
+          setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
           this.player.anims.play(`idle-${this.lastDirection}`, true);
           return;
         }
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+          setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
           this.player.anims.play(`idle-${this.lastDirection}`, true);
@@ -644,58 +763,46 @@ function App() {
       }
 
       // NPC interaction
-      if (isNearNPC) {
-        setActiveNpcId(this.npcId);
+      if (isNearNPC && !this.interactionCooldown) {
+        const npcState = gameStateRef.current.getNpcState(this.npcId);
+        const activeNpcHasLetter = npcState?.hasLetter ?? false;
+        const activeNpcHasWritten = npcState?.hasWritten ?? false;
+        const canWrite =
+          !activeNpcHasLetter &&
+          !activeNpcHasWritten &&
+          gameStateRef.current.getLetterCount() > 0 &&
+          gameStateRef.current.getSelectedSlot() === 0;
+        const canGiveWritten =
+          !activeNpcHasLetter &&
+          gameStateRef.current.getWrittenCount() > 0 &&
+          (() => {
+            const slot = gameStateRef.current.getSelectedSlot();
+            if (slot === 0) return false;
+            const groups = gameStateRef.current.getLetterGroups();
+            const group = groups[slot - 1]; // slot 1 -> group 0
+            return group && group.npcId === this.npcId;
+          })();
+
         if (rightJustDown) {
-          const canWrite =
-            !activeNpcHasLetter &&
-            !activeNpcHasWritten &&
-            gameStateRef.current.getLetterCount() > 0 &&
-            gameStateRef.current.getSelectedSlot() === 0;
-          const canGiveWritten =
-            !activeNpcHasLetter &&
-            gameStateRef.current.getWrittenCount() > 0 &&
-            gameStateRef.current.getSelectedSlot() === 1 &&
-            writtenLettersRef.current.some((l) => l.npcId === this.npcId);
           if (canWrite) {
+            setInteractionTargetId(this.npcId);
+            setConfirmMode("write");
             gameStateRef.current.setShowWriteConfirm(true);
             return;
           }
           if (canGiveWritten) {
-            setWrittenLetters((prev) => {
-              const index = prev.findIndex((l) => l.npcId === this.npcId);
-              if (index === -1) return prev;
-              const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
-              setWrittenCount(next.length);
-              try {
-                localStorage.setItem("writtenLetters", JSON.stringify(next));
-              } catch {
-                // Ignore localStorage errors
-              }
-              return next;
-            });
-            gameStateRef.current.setNpcHasLetter(this.npcId);
-            this.questIcon.setVisible(false);
-            this.happyIcon.setVisible(true);
-            if (this.happyTimer) {
-              this.happyTimer.remove(false);
-            }
-            this.happyTimer = this.time.delayedCall(1200, () => {
-              if (this.happyIcon) {
-                this.happyIcon.setVisible(false);
-              }
-            });
+            setInteractionTargetId(this.npcId);
+            setConfirmMode("give");
+            gameStateRef.current.setShowWriteConfirm(true);
             return;
           }
         }
+
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           // NPC interaction no longer opens mini game
           return;
         }
       } else {
-        if (!activeNpcHasLetter) {
-          this.happyIcon.setVisible(false);
-        }
         // Jump only when not near NPC
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           startJump();
@@ -763,14 +870,29 @@ function App() {
       }
     }
 
-    const game = new Phaser.Game(config);
-    gameRef.current = game;
-    return () => {
-      if (game.sound) {
-        game.sound.stopAll();
+    const startGame = async () => {
+      try {
+        await Promise.all([document.fonts.load('16px "Galmuri11-Bold"'), document.fonts.load('16px "Galmuri11"')]);
+        await document.fonts.ready;
+      } catch {
+        // Ignore font loading errors
       }
-      gameRef.current = null;
-      game.destroy(true);
+      if (cancelled) return;
+      const game = new Phaser.Game(config);
+      gameRef.current = game;
+    };
+
+    startGame();
+
+    return () => {
+      cancelled = true;
+      if (gameRef.current) {
+        if (gameRef.current.sound) {
+          gameRef.current.sound.stopAll();
+        }
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+      }
     };
   }, [showIntro]);
 
@@ -785,9 +907,9 @@ function App() {
           font-display: swap;
         }
         @font-face {
-          font-family: "Galmuri11";
-          src: url("/assets/fonts/galmuri11.ttf") format("truetype");
-          font-weight: normal;
+          font-family: "Galmuri11-Bold";
+          src: url("/assets/fonts/Galmuri11-Bold.ttf") format("truetype");
+          font-weight: 700;
           font-style: normal;
           font-display: swap;
         }
@@ -814,14 +936,14 @@ function App() {
                 justifyContent: "center",
                 alignItems: "center",
                 zIndex: 1400,
-                backgroundColor: "rgba(0,0,0,0.6)",
+                backgroundColor: "rgba(0,0,0,0.7)",
               }}
             >
               <div
                 style={{
-                  width: "300px",
-                  minHeight: "130px",
-                  backgroundImage: "url('/assets/common/minigame_modal.png')",
+                  width: "270px",
+                  minHeight: "140px",
+                  backgroundImage: "url('/assets/common/modal1.png')",
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: "center",
@@ -829,30 +951,50 @@ function App() {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "16px",
+                  padding: "24px",
                   color: "#4E342E",
                   imageRendering: "pixelated",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri", fontSize: "14px", textAlign: "center" }}>
-                  {`${npcs.find((n) => n.id === activeNpcId)?.name ?? "전하은"}에게 편지를 쓰시겠습니까?`}
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "14px", textAlign: "center" }}>
+                  {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? "누군가"}에게 편지를 ${confirmMode === "give" ? "주시겠습니까?" : "쓰시겠습니까?"}`}
                 </div>
-                <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <div
                     onClick={() => {
                       setShowWriteConfirm(false);
-                      const activeNpc = npcs.find((n) => n.id === activeNpcId);
-                      const alreadyWritten = writtenLetters.some((l) => l.npcId === activeNpcId);
-                      if (
-                        letterCount > 0 &&
-                        activeNpc &&
-                        !activeNpc.hasLetter &&
-                        !activeNpc.hasWritten &&
-                        !alreadyWritten
-                      ) {
-                        setLetterCount((prev) => Math.max(0, prev - 1));
-                        setSelectedSlot(1);
-                        setShowLetterWrite(true);
+                      const targetId = interactionTargetId;
+                      if (confirmMode === "write") {
+                        const activeNpc = npcs.find((n) => n.id === targetId);
+                        const alreadyWritten = writtenLetters.some((l) => l.npcId === targetId);
+                        if (
+                          letterCount > 0 &&
+                          activeNpc &&
+                          !activeNpc.hasLetter &&
+                          !activeNpc.hasWritten &&
+                          !alreadyWritten
+                        ) {
+                          setLetterCount((prev) => Math.max(0, prev - 1));
+                          setSelectedSlot(1);
+                          setShowLetterWrite(true);
+                        }
+                      } else if (confirmMode === "give") {
+                        setWrittenLetters((prev) => {
+                          const index = prev.findIndex((l) => l.npcId === targetId);
+                          if (index === -1) return prev;
+                          const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
+                          setWrittenCount(next.length);
+                          try {
+                            localStorage.setItem("writtenLetters", JSON.stringify(next));
+                          } catch { /* Ignore */ }
+                          return next;
+                        });
+                        setNpcs((prev) =>
+                          prev.map((n) =>
+                            n.id === targetId ? { ...n, hasLetter: true } : n
+                          )
+                        );
+                        window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: targetId } }));
                       }
                     }}
                     style={{
@@ -860,10 +1002,20 @@ function App() {
                       width: "48px",
                       height: "48px",
                       backgroundImage: "url('/assets/common/o.png')",
-                      backgroundSize: "contain",
+                      backgroundSize: "44px 48px",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
+                      transition: "transform 0.1s",
+                    }}
+                    onMouseDown={(e) => {
+                      e.currentTarget.style.transform = "scale(0.95)";
+                    }}
+                    onMouseUp={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
                     }}
                   />
                   <div
@@ -873,10 +1025,20 @@ function App() {
                       width: "48px",
                       height: "48px",
                       backgroundImage: "url('/assets/common/x.png')",
-                      backgroundSize: "contain",
+                      backgroundSize: "44px 48px",
                       backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
                       imageRendering: "pixelated",
+                      transition: "transform 0.1s",
+                    }}
+                    onMouseDown={(e) => {
+                      e.currentTarget.style.transform = "scale(0.95)";
+                    }}
+                    onMouseUp={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
                     }}
                   />
                 </div>
@@ -900,23 +1062,14 @@ function App() {
             >
               <div
                 style={{
-                  width: `${letterPaper.width + 160}px`,
-                  minHeight: `${letterPaper.height + 180}px`,
-                  backgroundImage: "url('/assets/common/minigame_modal.png')",
-                  backgroundSize: "contain",
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "20px",
-                  color: "#4E342E",
-                  imageRendering: "pixelated",
                   gap: "12px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri", fontSize: "16px" }}>편지를 작성하세요</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지를 작성하세요</div>
                 <div
                   style={{
                     position: "relative",
@@ -957,12 +1110,12 @@ function App() {
                         onChange={(e) => setLetterText(e.target.value)}
                         style={{
                           position: "absolute",
-                          top: `${letterPaper.padTop}px`,
-                          left: `${letterPaper.padX}px`,
-                          width: `${letterPaper.width - letterPaper.padX * 2}px`,
-                          height: `${letterPaper.height - letterPaper.padTop - letterPaper.padBottom}px`,
+                          top: `${letterPaper.padTop + 36}px`,
+                          left: `${letterPaper.padX + 36}px`,
+                          width: `${letterPaper.width - letterPaper.padX * 2 - 72}px`,
+                          height: `${letterPaper.height - letterPaper.padTop - letterPaper.padBottom - 72}px`,
                           resize: "none",
-                          fontFamily: "Galmuri11",
+                          fontFamily: "Galmuri11-Bold",
                           fontSize: "12px",
                           color: "#4E342E",
                           backgroundColor: "transparent",
@@ -976,14 +1129,24 @@ function App() {
                 <button
                   onClick={() => {
                     setShowLetterWrite(false);
+                    const targetId = interactionTargetId;
                     const payload = {
-                      npcId: activeNpcId,
+                      npcId: targetId,
                       text: letterText,
                       createdAt: Date.now(),
                     };
                     setWrittenLetters((prev) => {
-                      if (prev.some((l) => l.npcId === activeNpcId)) {
-                        return prev;
+                      const existingIndex = prev.findIndex((l) => l.npcId === targetId);
+                      if (existingIndex !== -1) {
+                         const next = [...prev];
+                         next[existingIndex] = payload;
+                         try {
+                           localStorage.setItem("writtenLetters", JSON.stringify(next));
+                          } catch {
+                            // Ignore localStorage errors
+                          }
+                         setWrittenCount(next.length);
+                         return next;
                       }
                       const next = [...prev, payload];
                       try {
@@ -996,19 +1159,21 @@ function App() {
                     });
                     setNpcs((prev) =>
                       prev.map((n) =>
-                        n.id === activeNpcId ? { ...n, hasWritten: true } : n
+                        n.id === targetId ? { ...n, hasWritten: true } : n
                       )
                     );
                     setLetterText("");
                   }}
                   style={{
-                    fontFamily: "Galmuri",
-                    fontSize: "12px",
-                    padding: "6px 14px",
-                    backgroundColor: "transparent",
-                    color: "#4E342E",
-                    border: "2px solid #4E342E",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "14px",
+                    padding: "8px 20px",
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    color: "white",
+                    border: "2px solid white",
+                    borderRadius: "8px",
                     cursor: "pointer",
+                    marginTop: "12px",
                   }}
                 >
                   작성 완료
@@ -1033,24 +1198,15 @@ function App() {
             >
               <div
                 style={{
-                  width: `${letterPaper.width + 160}px`,
-                  minHeight: `${letterPaper.height + 180}px`,
-                  backgroundImage: "url('/assets/common/minigame_modal.png')",
-                  backgroundSize: "contain",
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "20px",
-                  color: "#4E342E",
-                  imageRendering: "pixelated",
                   gap: "10px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri", fontSize: "16px" }}>작성한 편지</div>
-                {writtenLetters.length > 0 && (
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>작성한 편지</div>
+                {readingLetters.length > 0 && (
                   <div
                     style={{
                       position: "relative",
@@ -1067,14 +1223,14 @@ function App() {
                         position: "absolute",
                         top: "6px",
                         right: "14px",
-                        fontFamily: "Galmuri11",
+                        fontFamily: "Galmuri11-Bold",
                         fontSize: "10px",
                         color: "#4E342E",
                         pointerEvents: "none",
                       }}
                     >
                       {npcs.find(
-                        (n) => n.id === writtenLetters[Math.min(readIndex, writtenLetters.length - 1)]?.npcId
+                        (n) => n.id === readingLetters[Math.min(readIndex, readingLetters.length - 1)]?.npcId
                       )?.name ?? ""}
                     </div>
                     <img
@@ -1093,59 +1249,53 @@ function App() {
                         left: `${letterPaper.padX}px`,
                         width: `${letterPaper.width - letterPaper.padX * 2}px`,
                         height: `${letterPaper.height - letterPaper.padTop - letterPaper.padBottom}px`,
-                        fontFamily: "Galmuri11",
+                        fontFamily: "Galmuri11-Bold",
                         fontSize: "12px",
                         color: "#4E342E",
                         whiteSpace: "pre-wrap",
                         overflow: "hidden",
                       }}
                     >
-                      {writtenLetters[Math.min(readIndex, writtenLetters.length - 1)]?.text}
+                      {readingLetters[Math.min(readIndex, readingLetters.length - 1)]?.text}
                     </div>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <button
-                    onClick={() => setReadIndex((prev) => Math.max(0, prev - 1))}
+                    onClick={() => {
+                        const currentLetter = readingLetters[Math.min(readIndex, readingLetters.length - 1)];
+                        if (currentLetter) {
+                            setLetterText(currentLetter.text);
+                            setInteractionTargetId(currentLetter.npcId);
+                            setConfirmMode("write");
+                            setShowLetterRead(false);
+                            setShowLetterWrite(true);
+                            setEnvelopeFrame(3); 
+                        }
+                    }}
                     style={{
-                      fontFamily: "Galmuri",
-                      fontSize: "12px",
-                      padding: "4px 10px",
-                      backgroundColor: "transparent",
-                      color: "#4E342E",
-                      border: "2px solid #4E342E",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "14px",
+                      padding: "6px 16px",
+                      backgroundColor: "rgba(0,0,0,0.5)",
+                      color: "white",
+                      border: "2px solid white",
+                      borderRadius: "8px",
                       cursor: "pointer",
                     }}
                   >
-                    이전
-                  </button>
-                  <button
-                    onClick={() =>
-                      setReadIndex((prev) =>
-                        Math.min(writtenLetters.length - 1, prev + 1)
-                      )
-                    }
-                    style={{
-                      fontFamily: "Galmuri",
-                      fontSize: "12px",
-                      padding: "4px 10px",
-                      backgroundColor: "transparent",
-                      color: "#4E342E",
-                      border: "2px solid #4E342E",
-                      cursor: "pointer",
-                    }}
-                  >
-                    다음
+                    수정
                   </button>
                   <button
                     onClick={() => setShowLetterRead(false)}
                     style={{
-                      fontFamily: "Galmuri",
-                      fontSize: "12px",
-                      padding: "4px 10px",
-                      backgroundColor: "transparent",
-                      color: "#4E342E",
-                      border: "2px solid #4E342E",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "14px",
+                      padding: "6px 16px",
+                      backgroundColor: "rgba(0,0,0,0.5)",
+                      color: "white",
+                      border: "2px solid white",
+                      borderRadius: "8px",
                       cursor: "pointer",
                     }}
                   >
@@ -1162,7 +1312,7 @@ function App() {
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "12px",
+            bottom: "24px",
             transform: "translateX(-50%)",
             zIndex: 120,
             width: `${inventoryConfig.width}px`,
@@ -1173,126 +1323,174 @@ function App() {
             imageRendering: "pixelated",
           }}
         >
-          {Array.from({ length: inventoryConfig.slots }).map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => {
-                setSelectedSlot(index);
-                if (index === 1 && writtenLetters.length > 0) {
-                  setReadIndex(0);
-                  setShowLetterRead(true);
-                }
-              }}
-              aria-label={`Inventory slot ${index + 1}`}
-              style={{
-                position: "absolute",
-                left: `${inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap)}px`,
-                top: `${inventoryConfig.padY}px`,
-                width: `${inventoryConfig.slotSize}px`,
-                height: `${inventoryConfig.slotSize}px`,
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-              }}
-            />
-          ))}
-          <img
-            src="/assets/common/letter.png"
-            alt="Letter"
-            style={{
-              position: "absolute",
-              left: `${inventoryConfig.padX + 4}px`,
-              top: `${inventoryConfig.padY + 4}px`,
-              width: `${inventoryConfig.slotSize - 8}px`,
-              height: `${inventoryConfig.slotSize - 8}px`,
-              imageRendering: "pixelated",
-              opacity: letterCount > 0 ? 1 : 0,
-              pointerEvents: "none",
-            }}
-          />
-          <img
-            src="/assets/common/letter_wirte.png"
-            alt="Written Letter"
-            style={{
-              position: "absolute",
-              left: `${inventoryConfig.padX + (inventoryConfig.slotSize + inventoryConfig.gap) + 4}px`,
-              top: `${inventoryConfig.padY + 4}px`,
-              width: `${inventoryConfig.slotSize - 8}px`,
-              height: `${inventoryConfig.slotSize - 8}px`,
-              imageRendering: "pixelated",
-              opacity: writtenCount > 0 ? 1 : 0,
-              pointerEvents: "none",
-            }}
-          />
-          {letterCount > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                left: `${inventoryConfig.padX + inventoryConfig.slotSize - 16}px`,
-                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 16}px`,
-                fontFamily: "PixelFont",
-                fontSize: "11px",
-                color: "#774c30",
-                backgroundColor: "rgba(230, 210, 181, 0.85)",
-                borderRadius: "999px",
-                minWidth: "16px",
-                height: "16px",
-                lineHeight: "16px",
-                textAlign: "center",
-                zIndex: 5,
-                pointerEvents: "none",
-              }}
-            >
-              {letterCount}
-            </span>
-          )}
-          {writtenCount > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                left: `${inventoryConfig.padX + (inventoryConfig.slotSize + inventoryConfig.gap) + inventoryConfig.slotSize - 16}px`,
-                top: `${inventoryConfig.padY + inventoryConfig.slotSize - 16}px`,
-                fontFamily: "PixelFont",
-                fontSize: "11px",
-                color: "#5B3A24",
-                backgroundColor: "rgba(230, 210, 181, 0.85)",
-                borderRadius: "999px",
-                minWidth: "16px",
-                height: "16px",
-                lineHeight: "16px",
-                textAlign: "center",
-                zIndex: 5,
-                pointerEvents: "none",
-              }}
-            >
-              {writtenCount}
-            </span>
-          )}
-          <img
-            src="/assets/common/focus.png"
-            alt=""
-            style={{
-              position: "absolute",
-              left: `${inventoryConfig.padX + selectedSlot * (inventoryConfig.slotSize + inventoryConfig.gap) - 3}px`,
-              top: `${inventoryConfig.padY - 3}px`,
-              width: `${inventoryConfig.slotSize + 6}px`,
-              height: `${inventoryConfig.slotSize + 6}px`,
-              imageRendering: "pixelated",
-              pointerEvents: "none",
-            }}
-          />
+          {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
+            const isSlot0 = index === 0;
+            const groupIndex = index - 1;
+            const group = index > 0 ? letterGroups[groupIndex] : null;
+            const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
+            const topPos = inventoryConfig.padY;
+
+            return (
+              <React.Fragment key={index}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlot(index);
+                    if (group) {
+                      setReadingLetters(group.letters);
+                      setReadIndex(0);
+                      setShowLetterRead(true);
+                    }
+                  }}
+                  aria-label={`Inventory slot ${index + 1}`}
+                  style={{
+                    position: "absolute",
+                    left: `${leftPos}px`,
+                    top: `${topPos}px`,
+                    width: `${inventoryConfig.slotSize}px`,
+                    height: `${inventoryConfig.slotSize}px`,
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    zIndex: 10,
+                  }}
+                />
+
+                {/* Slot Content */}
+                {isSlot0 && letterCount > 0 && (
+                  <>
+                    <img
+                      src="/assets/common/letter.png"
+                      alt="Letter"
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos + 4}px`,
+                        top: `${topPos + 4}px`,
+                        width: `${inventoryConfig.slotSize - 8}px`,
+                        height: `${inventoryConfig.slotSize - 8}px`,
+                        imageRendering: "pixelated",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                        top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#774c30",
+                        backgroundColor: "rgba(230, 210, 181, 0.85)",
+                        borderRadius: "999px",
+                        minWidth: "16px",
+                        height: "16px",
+                        lineHeight: "16px",
+                        textAlign: "center",
+                        zIndex: 5,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {letterCount}
+                    </span>
+                  </>
+                )}
+
+                {group && (
+                  <>
+                    <img
+                      src="/assets/common/letter_wirte.png"
+                      alt="Written Letter"
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos + 4}px`,
+                        top: `${topPos + 4}px`,
+                        width: `${inventoryConfig.slotSize - 8}px`,
+                        height: `${inventoryConfig.slotSize - 8}px`,
+                        imageRendering: "pixelated",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                        top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#5B3A24",
+                        backgroundColor: "rgba(230, 210, 181, 0.85)",
+                        borderRadius: "999px",
+                        minWidth: "16px",
+                        height: "16px",
+                        lineHeight: "16px",
+                        textAlign: "center",
+                        zIndex: 5,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {group.letters.length}
+                    </span>
+                  </>
+                )}
+
+                {/* Focus Ring */}
+                {selectedSlot === index && (
+                  <img
+                    src="/assets/common/focus.png"
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      left: `${leftPos - 3}px`,
+                      top: `${topPos - 3}px`,
+                      width: `${inventoryConfig.slotSize + 6}px`,
+                      height: `${inventoryConfig.slotSize + 6}px`,
+                      imageRendering: "pixelated",
+                      pointerEvents: "none",
+                      zIndex: 15,
+                    }}
+                  />
+                )}
+
+                {/* Tooltip */}
+                {selectedSlot === index && (
+                  <>
+                    {group ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize / 2}px`,
+                          top: "-30px",
+                          transform: "translateX(-50%)",
+                          backgroundColor: "rgba(0, 0, 0, 0.7)",
+                          color: "white",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          whiteSpace: "nowrap",
+                          pointerEvents: "none",
+                          zIndex: 20,
+                        }}
+                      >
+                        {`${npcs.find((n) => n.id === group.npcId)?.name ?? "누군가"}에게 줄 편지`}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
       {!showIntro && (
         <div
           style={{
             position: "absolute",
-            top: "8px",
-            left: "8px",
-            width: "380px",
-            height: "170px",
+            top: "16px",
+            left: "28px",
+            width: "410px",
+            height: "185px",
             backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
               ? "morning"
               : 9 + Math.floor(gameMinutes / 60) < 15
@@ -1308,14 +1506,14 @@ function App() {
             alignItems: "flex-end",
             justifyContent: "flex-start",
             paddingBottom: "24px",
-            paddingLeft: "42px",
+            paddingLeft: "48px",
             boxSizing: "border-box",
           }}
         >
           <span
             style={{
-              fontFamily: "PixelFont",
-              fontSize: "30px",
+              fontFamily: "Galmuri11-Bold",
+              fontSize: "26px",
               color: "#bc9368",
             }}
           >
@@ -1330,50 +1528,71 @@ function App() {
           </span>
         </div>
       )}
-      {!showIntro && (
-        <div
-          onClick={() => alert("퀘스트 메뉴 준비중!")}
-          style={{
-            position: "absolute",
-            top: "12px",
-            right: "16px",
-            cursor: "pointer",
-            zIndex: 125,
-            transition: "transform 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-          onMouseDown={(e) => {
-            e.currentTarget.style.transform = "scale(0.95)";
-          }}
-          onMouseUp={(e) => {
-            e.currentTarget.style.transform = "scale(1.05)";
-          }}
-        >
-          <img
-            src="/assets/common/quest.png"
-            alt="Quest"
+      {!showIntro && (() => {
+        const panelWidth = 220;
+        const panelHeight = 120;
+        const visibleHeight = 34;
+        const hiddenOffset = visibleHeight - panelHeight;
+        return (
+          <div
+            onClick={handleChecklistClick}
             style={{
-              width: "52px",
-              height: "auto",
-              imageRendering: "pixelated",
-              filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))",
+              position: "absolute",
+              top: "6px",
+              right: "14px",
+              width: `${panelWidth}px`,
+              height: checklistOpen ? `${panelHeight}px` : `${visibleHeight}px`,
+              overflow: "hidden",
+              zIndex: 125,
+              cursor: "pointer",
+              transition: "height 0.28s ease",
             }}
-          />
-        </div>
-      )}
+          >
+            <div
+              style={{
+                width: `${panelWidth}px`,
+                height: `${panelHeight}px`,
+                backgroundImage: "url('/assets/common/check2.png')",
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right top",
+                imageRendering: "pixelated",
+                transform: checklistOpen ? "translateY(0)" : `translateY(${hiddenOffset}px)`,
+                transition: "transform 0.28s ease",
+                position: "relative",
+              }}
+            >
+              <div
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowHeartQuest(true);
+                }}
+                style={{
+                  position: "absolute",
+                  top: "82px",
+                  left: "18px",
+                  right: "16px",
+                  fontFamily: "Galmuri11-Bold",
+                  fontSize: "12px",
+                  color: "#8d684e",
+                  lineHeight: "1.2",
+                  cursor: "pointer",
+                }}
+              >
+                1. 103호에게 편지를 전달하자
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {!showIntro && showBanToast && (
         <div
           style={{
             position: "absolute",
             top: "78px",
             right: "16px",
-            width: "170px",
-            height: "56px",
+            width: "290px",
+            height: "48px",
             backgroundImage: "url('/assets/common/ui1.png')",
             backgroundSize: "contain",
             backgroundRepeat: "no-repeat",
@@ -1383,7 +1602,7 @@ function App() {
             alignItems: "center",
             justifyContent: "center",
             color: "#8d684e",
-            fontFamily: "Galmuri",
+            fontFamily: "Galmuri11-Bold",
             fontSize: "13px",
             pointerEvents: "none",
             opacity: banToastVisible ? 1 : 0,
@@ -1391,7 +1610,7 @@ function App() {
             transition: "opacity 0.3s ease, transform 0.3s ease",
           }}
         >
-          들어갈 수 없는 것 같다..
+          들어갈 수 없는 것 같아..
         </div>
       )}
       {!showIntro && (
@@ -1403,15 +1622,25 @@ function App() {
           />
           <ExitConfirmModal
             isOpen={showExitConfirm}
+            roomNumber={exitRoomKey ? exitRoomKey.replace("Room", "") : ""}
             onConfirm={() => {
               setShowExitConfirm(false);
               const game = gameRef.current;
               if (game) {
-                game.scene.stop("Room103");
-                game.scene.start("Hallway", { x: 1000, y: 450 });
+                if (exitRoomKey) {
+                  game.scene.stop(exitRoomKey);
+                }
+                const exitCoords = exitRoomKey === "Room103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
+                game.scene.start("Hallway", exitCoords);
               }
             }}
             onCancel={() => setShowExitConfirm(false)}
+          />
+          <HeartQuestModal
+            isOpen={showHeartQuest}
+            onClose={() => setShowHeartQuest(false)}
+            onWin={() => alert("퀘스트 완료!")}
+            onFail={() => alert("실패...")}
           />
         </>
       )}
@@ -1439,3 +1668,11 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
+
+

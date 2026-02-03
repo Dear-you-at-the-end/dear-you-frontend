@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+﻿import Phaser from "phaser";
 
 const MAP_WIDTH = 1500;
 const MAP_HEIGHT = 400;
@@ -36,20 +36,16 @@ export default class HallwayScene extends Phaser.Scene {
     this.load.image("hall_door", `${dormitoryPath}door.png`);
     this.load.image("ban_icon", `${commonPath}ban.png`);
     this.load.image("notice_icon", `${commonPath}notice.png`);
+    this.load.image("dialog_bubble", `${commonPath}dialogbig.png`);
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
     const characterPath = `${commonPath}character/`;
-    const spriteConfig = {
-      frameWidth: spriteFrame.size,
-      frameHeight: spriteFrame.size,
-      margin: spriteFrame.margin,
-      spacing: spriteFrame.spacing,
-    };
-
-    this.load.spritesheet("player_walk", `${characterPath}16x16 Walk-Sheet.png`, spriteConfig);
-    this.load.spritesheet("player_run", `${characterPath}16x16 Run-Sheet.png`, spriteConfig);
-    this.load.spritesheet("player_idle", `${characterPath}16x16 Idle-Sheet.png`, spriteConfig);
+    this.load.atlas(
+      "main_character",
+      `${characterPath}main_character.png`,
+      `${characterPath}main_character.json`
+    );
   }
 
   create() {
@@ -141,7 +137,7 @@ export default class HallwayScene extends Phaser.Scene {
       this.add
         .text(x, doorY - doorHeight / 2 - 8, room, {
           fontSize: "12px",
-          fontFamily: "Galmuri",
+          fontFamily: "Galmuri11-Bold",
           color: "#4E342E",
         })
         .setOrigin(0.5)
@@ -185,7 +181,8 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.createPlayerAnimations();
 
-    this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "player_idle", 0);
+    const firstFrame = "16x16 All Animations 0.aseprite";
+    this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
     this.player.setScale(pixelScale).setCollideWorldBounds(true);
     this.player.body.setSize(10, 8).setOffset(5, 12);
     this.player.setDepth(100);
@@ -196,6 +193,7 @@ export default class HallwayScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
     this.cameras.main.setZoom(1.2);
+    this.cameras.main.roundPixels = true;
 
     this.moveKeys = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -211,53 +209,44 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.nearDoor = null;
     this.prevRight = false;
-
+    this.speechBubble = null;
+    this.speechOffsetY = -28;
+    this.speechTween = null;
+    this.speechTimer = null;
     this.createVignette();
   }
 
   createPlayerAnimations() {
-    const getFramesPerRow = (textureKey) => {
-      const source = this.textures.get(textureKey).getSourceImage();
-      const denom = spriteFrame.size + spriteFrame.spacing;
-      const numer = source.width - spriteFrame.margin * 2 + spriteFrame.spacing;
-      return Math.max(1, Math.floor(numer / denom));
-    };
+    if (this.anims.exists("idle-down")) return;
 
-    const createDirectionalAnims = ({ action, textureKey, frameRate, repeat }) => {
-      const framesPerRow = getFramesPerRow(textureKey);
-      directionOrder.forEach((dir) => {
-        const rowIndex = rowIndexByDir[dir];
-        const start = rowIndex * framesPerRow;
-        const end = start + framesPerRow - 1;
-        if (!this.anims.exists(`${action}-${dir}`)) {
-          this.anims.create({
-            key: `${action}-${dir}`,
-            frames: this.anims.generateFrameNumbers(textureKey, { start, end }),
-            frameRate,
-            repeat,
-          });
-        }
+    const makeAnim = (key, start, end, frameRate, repeat) => {
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNames("main_character", {
+          start,
+          end,
+          prefix: "16x16 All Animations ",
+          suffix: ".aseprite",
+        }),
+        frameRate,
+        repeat,
       });
     };
 
-    createDirectionalAnims({
-      action: "idle",
-      textureKey: "player_idle",
-      frameRate: 4,
-      repeat: -1,
-    });
-    createDirectionalAnims({
-      action: "walk",
-      textureKey: "player_walk",
-      frameRate: 10,
-      repeat: -1,
-    });
-    createDirectionalAnims({
-      action: "run",
-      textureKey: "player_run",
-      frameRate: 14,
-      repeat: -1,
-    });
+    makeAnim("idle-down", 0, 3, 4, -1);
+    makeAnim("idle-left", 4, 7, 4, -1);
+    makeAnim("idle-right", 8, 11, 4, -1);
+    makeAnim("idle-up", 0, 3, 4, -1);
+
+    makeAnim("walk-down", 12, 15, 10, -1);
+    makeAnim("walk-right", 16, 19, 10, -1);
+    makeAnim("walk-left", 20, 23, 10, -1);
+    makeAnim("walk-up", 24, 27, 10, -1);
+
+    makeAnim("run-right", 28, 33, 14, -1);
+    makeAnim("run-left", 34, 39, 14, -1);
+    makeAnim("run-down", 12, 15, 14, -1);
+    makeAnim("run-up", 24, 27, 14, -1);
   }
 
   createVignette() {
@@ -277,6 +266,91 @@ export default class HallwayScene extends Phaser.Scene {
       .setOrigin(0)
       .setScrollFactor(0)
       .setDepth(9999);
+  }
+
+  showSpeechBubble(x, y, text) {
+    const bubbleHeight = 22;
+    const baseOffsetY = -34;
+    const style = {
+      fontFamily: "Galmuri11-Bold",
+      fontSize: "9px",
+      color: "#6a4b37",
+      align: "center",
+    };
+
+    if (this.speechTween) {
+      this.speechTween.stop();
+      this.speechTween = null;
+    }
+    if (this.speechTimer) {
+      this.speechTimer.remove(false);
+      this.speechTimer = null;
+    }
+    if (this.speechBubble) {
+      this.speechBubble.destroy();
+      this.speechBubble = null;
+    }
+
+    const measure = this.make.text({
+      x: 0,
+      y: 0,
+      text,
+      style,
+      add: false,
+    });
+    const measuredWidth = measure.width;
+    measure.destroy();
+
+    const bubbleWidth = Phaser.Math.Clamp(Math.ceil(measuredWidth + 16), 30, 160);
+    const bubble = this.add.nineslice(
+      0,
+      0,
+      "dialog_bubble",
+      0,
+      bubbleWidth,
+      bubbleHeight,
+      3,
+      3,
+      3,
+      3
+    );
+    bubble.setOrigin(0.5);
+
+    const label = this.add.text(0, 0, text, {
+      ...style,
+    });
+    label.setOrigin(0.5);
+
+    const container = this.add.container(x, y + baseOffsetY, [bubble, label]);
+    container.setDepth(10000);
+    container.setAlpha(0);
+    container.setScale(0.95);
+    this.speechBubble = container;
+    this.speechOffsetY = baseOffsetY;
+
+    this.speechTween = this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scale: 1,
+      duration: 120,
+      ease: "Quad.out",
+      onComplete: () => {
+        this.speechTimer = this.time.delayedCall(2000, () => {
+          this.tweens.add({
+            targets: container,
+            alpha: 0,
+            duration: 250,
+            ease: "Quad.in",
+            onComplete: () => {
+              if (this.speechBubble) {
+                this.speechBubble.destroy();
+                this.speechBubble = null;
+              }
+            },
+          });
+        });
+      },
+    });
   }
 
   update() {
@@ -315,7 +389,7 @@ export default class HallwayScene extends Phaser.Scene {
 
     if (this.nearDoor && rightJustDown) {
       if (this.nearDoor.banIcon) {
-        window.dispatchEvent(new CustomEvent("ban-door"));
+        this.showSpeechBubble(this.player.x, this.player.y, "들어갈 수 없는 것 같아..");
         return;
       }
       if (["103", "104"].includes(this.nearDoor.roomNumber)) {
@@ -336,27 +410,35 @@ export default class HallwayScene extends Phaser.Scene {
     const isRunning = this.shiftKey.isDown;
     const speed = isRunning ? 200 : 110;
     const animPrefix = isRunning ? "run" : "walk";
+    const animKey = (action, dir) => {
+      const map = {
+        idle: { down: "idle-down", left: "idle-left", right: "idle-right", up: "idle-down" },
+        walk: { down: "walk-down", left: "walk-left", right: "walk-right", up: "walk-up" },
+        run: { down: "run-down", left: "run-left", right: "run-right", up: "run-up" },
+      };
+      return map[action]?.[dir] ?? "idle-down";
+    };
 
     this.player.body.setVelocity(0);
 
     if (this.moveKeys.left.isDown) {
       this.player.body.setVelocityX(-speed);
-      this.player.anims.play(`${animPrefix}-left`, true);
+      this.player.anims.play(animKey(animPrefix, "left"), true);
       this.lastDirection = "left";
     } else if (this.moveKeys.right.isDown) {
       this.player.body.setVelocityX(speed);
-      this.player.anims.play(`${animPrefix}-right`, true);
+      this.player.anims.play(animKey(animPrefix, "right"), true);
       this.lastDirection = "right";
     } else if (this.moveKeys.up.isDown) {
       this.player.body.setVelocityY(-speed);
-      this.player.anims.play(`${animPrefix}-up`, true);
+      this.player.anims.play(animKey(animPrefix, "up"), true);
       this.lastDirection = "up";
     } else if (this.moveKeys.down.isDown) {
       this.player.body.setVelocityY(speed);
-      this.player.anims.play(`${animPrefix}-down`, true);
+      this.player.anims.play(animKey(animPrefix, "down"), true);
       this.lastDirection = "down";
     } else {
-      this.player.anims.play(`idle-${this.lastDirection}`, true);
+      this.player.anims.play(animKey("idle", this.lastDirection), true);
     }
 
     this.player.setDepth(this.player.y);
@@ -382,5 +464,15 @@ export default class HallwayScene extends Phaser.Scene {
         this.handItem.setDepth(this.player.depth + 1);
       }
     }
+
+    if (this.speechBubble) {
+      this.speechBubble.x = this.player.x;
+      this.speechBubble.y = this.player.y + this.speechOffsetY;
+    }
   }
 }
+
+
+
+
+

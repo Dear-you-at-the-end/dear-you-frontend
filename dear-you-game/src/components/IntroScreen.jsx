@@ -144,22 +144,33 @@ const IntroScreen = ({ onStart }) => {
           }}
         >
           {showCreator && (
-            <img
-              src="/assets/common/creator.png"
-              alt="Creator"
+            <div
               style={{
                 position: "absolute",
                 left: "50%",
                 top: "0",
-                transform: "translate(-50%, -200%)",
-                width: "140px",
-                height: "auto",
-                imageRendering: "pixelated",
-                animation: "pop 0.2s ease-out, float 3s ease-in-out infinite",
-                animationDelay: "0s, 0.2s",
+                transform: "translate(-50%, -110%)",
                 pointerEvents: "none",
               }}
-            />
+            >
+              <div
+                style={{
+                  animation: "float 3s ease-in-out infinite",
+                  animationDelay: "0.2s",
+                }}
+              >
+                <img
+                  src="/assets/common/creator.png"
+                  alt="Creator"
+                  style={{
+                    width: "140px",
+                    height: "auto",
+                    imageRendering: "pixelated",
+                    animation: "pop 0.2s ease-out",
+                  }}
+                />
+              </div>
+            </div>
           )}
           <div
             style={{
