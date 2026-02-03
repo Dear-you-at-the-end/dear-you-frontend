@@ -134,14 +134,14 @@ export default class Room103Scene extends Phaser.Scene {
 
         // Left side furniture
         createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
-        createFurniture({ x: leftX, y: row2Y, texture: "bed", scaleX: 0.85 });
+        createFurniture({ x: leftX + 20, y: row2Y, texture: "bed", scaleX: 0.85 });
         createFurniture({ x: leftX, y: row3Y, texture: "closet", scaleX: 1 });
         createFurniture({ x: leftX, y: row4Y, texture: "closet", scaleX: 1 });
 
         // Right side furniture
         createFurniture({ x: rightX, y: row1Y, texture: "deskr", scaleX: 1 });
         createFurniture({ x: rightX, y: row2Y, texture: "deskr", scaleX: 1 });
-        createFurniture({ x: rightX, y: row3Y, texture: "bed", scaleX: 0.85 });
+        createFurniture({ x: rightX - 20, y: row3Y, texture: "bed", scaleX: 0.85 });
         createFurniture({ x: rightX, y: row4Y, texture: "closet", scaleX: 1 });
 
         // Outlines

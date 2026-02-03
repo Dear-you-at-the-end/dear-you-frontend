@@ -21,8 +21,11 @@
 
 body {
   -webkit-font-smoothing: none;
+  -moz-font-smoothing: never;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeSpeed;
+  font-smooth: never;
+  -webkit-text-size-adjust: 100%;
 }
 
 #game-container {
@@ -37,6 +40,11 @@ body {
 #game-container,
 #game-container * {
   cursor: none;
+  -webkit-font-smoothing: none;
+  -moz-font-smoothing: never;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
 }
 
 #game-container canvas {

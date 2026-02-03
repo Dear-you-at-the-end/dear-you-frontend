@@ -146,8 +146,8 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
             >
                 <div
                     style={{
-                    width: "420px",
-                    minHeight: "320px",
+                        width: "420px",
+                        minHeight: "320px",
                         backgroundImage: "url('/assets/common/minigame_modal.png')",
                         backgroundSize: "contain",
                         backgroundRepeat: "no-repeat",
@@ -167,7 +167,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         src="/assets/dormitory/logo.png"
                         alt="Mini Game Logo"
                         style={{
-                        width: "300px",
+                            width: "340px",
                             height: "auto",
                             marginBottom: "30px",
                             imageRendering: "pixelated",

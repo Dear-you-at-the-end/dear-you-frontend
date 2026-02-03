@@ -4,19 +4,6 @@ const MAP_WIDTH = 1500;
 const MAP_HEIGHT = 400;
 const FLOOR_HEIGHT = 120;
 
-const directionOrder = ["down", "right", "up", "left"];
-const rowIndexByDir = {
-  down: 0,
-  right: 2,
-  left: 3,
-  up: 4,
-};
-const spriteFrame = {
-  size: 20,
-  spacing: 0,
-  margin: 0,
-};
-
 export default class HallwayScene extends Phaser.Scene {
   constructor() {
     super({ key: "Hallway" });
@@ -33,6 +20,7 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.load.image("hall_floor", `${dormitoryPath}tile2.png`);
     this.load.image("hall_wall", `${dormitoryPath}wall2.png`);
+    this.load.image("hall_outline", `${dormitoryPath}outline2.png`);
     this.load.image("hall_door", `${dormitoryPath}door.png`);
     this.load.image("ban_icon", `${commonPath}ban.png`);
     this.load.image("notice_icon", `${commonPath}notice.png`);
@@ -96,6 +84,33 @@ export default class HallwayScene extends Phaser.Scene {
       { x: 1350, room: "105" },
     ];
 
+    // Create outline segments (skip doors)
+    const outlineTexture = this.textures.get("hall_outline").getSourceImage();
+    const outlineHeight = outlineTexture.height * pixelScale;
+    const doorRealWidth = doorTexture.width * pixelScale;
+
+    let currentX = 0;
+    doorPositions.forEach((door) => {
+      const doorLeft = door.x - doorRealWidth / 2;
+      const width = doorLeft - currentX;
+
+      if (width > 0) {
+        this.add
+          .tileSprite(currentX + width / 2, floorTop, width, outlineHeight, "hall_outline")
+          .setTileScale(pixelScale)
+          .setDepth(1);
+      }
+      currentX = door.x + doorRealWidth / 2;
+    });
+
+    if (currentX < MAP_WIDTH) {
+      const width = MAP_WIDTH - currentX;
+      this.add
+        .tileSprite(currentX + width / 2, floorTop, width, outlineHeight, "hall_outline")
+        .setTileScale(pixelScale)
+        .setDepth(1);
+    }
+
     doorPositions.forEach(({ x, room }) => {
       const door = this.doors.create(x, doorY, "hall_door");
       if (room === "103") this.door103 = door;
@@ -135,12 +150,13 @@ export default class HallwayScene extends Phaser.Scene {
       }
 
       this.add
-        .text(x, doorY - doorHeight / 2 - 8, room, {
-          fontSize: "12px",
+        .text(Math.round(x), Math.round(doorY - doorHeight / 2 - 8), room, {
+          fontSize: "11px",
           fontFamily: "Galmuri11-Bold",
           color: "#4E342E",
         })
         .setOrigin(0.5)
+        .setResolution(1)
         .setDepth(3);
     });
 
@@ -196,10 +212,14 @@ export default class HallwayScene extends Phaser.Scene {
     this.cameras.main.roundPixels = true;
 
     this.moveKeys = this.input.keyboard.addKeys({
-      up: Phaser.Input.Keyboard.KeyCodes.W,
-      left: Phaser.Input.Keyboard.KeyCodes.A,
-      down: Phaser.Input.Keyboard.KeyCodes.S,
-      right: Phaser.Input.Keyboard.KeyCodes.D,
+      up: Phaser.Input.Keyboard.KeyCodes.UP,
+      left: Phaser.Input.Keyboard.KeyCodes.LEFT,
+      down: Phaser.Input.Keyboard.KeyCodes.DOWN,
+      right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      w: Phaser.Input.Keyboard.KeyCodes.W,
+      a: Phaser.Input.Keyboard.KeyCodes.A,
+      s: Phaser.Input.Keyboard.KeyCodes.S,
+      d: Phaser.Input.Keyboard.KeyCodes.D,
     });
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
@@ -214,6 +234,7 @@ export default class HallwayScene extends Phaser.Scene {
     this.speechTween = null;
     this.speechTimer = null;
     this.createVignette();
+    this.inExitZone = false;
   }
 
   createPlayerAnimations() {
@@ -270,12 +291,14 @@ export default class HallwayScene extends Phaser.Scene {
 
   showSpeechBubble(x, y, text) {
     const bubbleHeight = 22;
-    const baseOffsetY = -34;
+    const baseOffsetY = -42; // 위치를 캐릭터 머리 위로 더 올림
+
     const style = {
       fontFamily: "Galmuri11-Bold",
-      fontSize: "9px",
+      fontSize: "9px", // 폰트 크기 축소
       color: "#6a4b37",
       align: "center",
+      padding: { x: 2, y: 2 }, // 글자 잘림 방지 패딩
     };
 
     if (this.speechTween) {
@@ -291,6 +314,7 @@ export default class HallwayScene extends Phaser.Scene {
       this.speechBubble = null;
     }
 
+    // 텍스트 너비 측정
     const measure = this.make.text({
       x: 0,
       y: 0,
@@ -302,6 +326,8 @@ export default class HallwayScene extends Phaser.Scene {
     measure.destroy();
 
     const bubbleWidth = Phaser.Math.Clamp(Math.ceil(measuredWidth + 16), 30, 160);
+
+    // 말풍선 배경 (9-slice)
     const bubble = this.add.nineslice(
       0,
       0,
@@ -316,33 +342,43 @@ export default class HallwayScene extends Phaser.Scene {
     );
     bubble.setOrigin(0.5);
 
-    const label = this.add.text(0, 0, text, {
-      ...style,
-    });
+    // 텍스트 객체 생성 및 해상도 고정
+    const label = this.add.text(0, 0, text, style);
     label.setOrigin(0.5);
+    label.y = -2;
+    label.setResolution(1); // Retina 디스플레이 흐림 방지 핵심
 
-    const container = this.add.container(x, y + baseOffsetY, [bubble, label]);
+    // 컨테이너 생성 (좌표 정수화)
+    const startY = Math.round(y + baseOffsetY + 5);
+    const targetY = Math.round(y + baseOffsetY);
+    const fixedX = Math.round(x);
+
+    const container = this.add.container(fixedX, startY, [bubble, label]);
+
     container.setDepth(10000);
     container.setAlpha(0);
-    container.setScale(0.95);
+    container.setScale(1); // Scale 애니메이션 제거 (1로 고정)
+
     this.speechBubble = container;
     this.speechOffsetY = baseOffsetY;
 
+    // 등장 애니메이션: 투명도 + Y축 이동 (픽셀 깨짐 없음)
     this.speechTween = this.tweens.add({
       targets: container,
       alpha: 1,
-      scale: 1,
-      duration: 120,
+      y: targetY,
+      duration: 150,
       ease: "Quad.out",
       onComplete: () => {
         this.speechTimer = this.time.delayedCall(2000, () => {
           this.tweens.add({
             targets: container,
             alpha: 0,
+            y: targetY - 5,
             duration: 250,
             ease: "Quad.in",
             onComplete: () => {
-              if (this.speechBubble) {
+              if (this.speechBubble === container) {
                 this.speechBubble.destroy();
                 this.speechBubble = null;
               }
@@ -383,28 +419,37 @@ export default class HallwayScene extends Phaser.Scene {
     });
 
     const pointer = this.input.activePointer;
-    const rightDown = pointer.rightButtonDown();
-    const rightJustDown = rightDown && !this.prevRight;
-    this.prevRight = rightDown;
+    const pointerRightDown = pointer.rightButtonDown();
+    const rightJustDown = pointerRightDown && !this.prevRight;
+    this.prevRight = pointerRightDown;
 
-    if (this.nearDoor && rightJustDown) {
+    const canTrigger = !this.lastTriggerTime || (this.time.now - this.lastTriggerTime > 1000);
+    const isMovingUp = this.moveKeys.up.isDown;
+
+    if (this.nearDoor && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) {
+      // Stop movement if triggering
+      this.player.body.setVelocity(0);
+      this.lastTriggerTime = this.time.now;
+
       if (this.nearDoor.banIcon) {
         this.showSpeechBubble(this.player.x, this.player.y, "들어갈 수 없는 것 같아..");
         return;
       }
       if (["103", "104"].includes(this.nearDoor.roomNumber)) {
-        this.scene.start(`Room${this.nearDoor.roomNumber}`);
+        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: `EnterRoom${this.nearDoor.roomNumber}` } }));
         return;
       }
       console.log(`Enter Room ${this.nearDoor.roomNumber}`);
     }
 
-    if (this.nearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-      if (["103", "104"].includes(this.nearDoor.roomNumber)) {
-        this.scene.start(`Room${this.nearDoor.roomNumber}`);
-      } else {
-        console.log(`Enter Room ${this.nearDoor.roomNumber}`);
+    // Exit Zone Trigger (Left end of hallway)
+    if (this.player.x < 40) {
+      if (!this.inExitZone) {
+        this.inExitZone = true;
+        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "LeaveHallway" } }));
       }
+    } else {
+      this.inExitZone = false;
     }
 
     const isRunning = this.shiftKey.isDown;
@@ -421,19 +466,24 @@ export default class HallwayScene extends Phaser.Scene {
 
     this.player.body.setVelocity(0);
 
-    if (this.moveKeys.left.isDown) {
+    const leftDown = this.moveKeys.left.isDown || this.moveKeys.a.isDown;
+    const moveRightDown = this.moveKeys.right.isDown || this.moveKeys.d.isDown;
+    const upDown = this.moveKeys.up.isDown || this.moveKeys.w.isDown;
+    const downDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
+
+    if (leftDown) {
       this.player.body.setVelocityX(-speed);
       this.player.anims.play(animKey(animPrefix, "left"), true);
       this.lastDirection = "left";
-    } else if (this.moveKeys.right.isDown) {
+    } else if (moveRightDown) {
       this.player.body.setVelocityX(speed);
       this.player.anims.play(animKey(animPrefix, "right"), true);
       this.lastDirection = "right";
-    } else if (this.moveKeys.up.isDown) {
+    } else if (upDown) {
       this.player.body.setVelocityY(-speed);
       this.player.anims.play(animKey(animPrefix, "up"), true);
       this.lastDirection = "up";
-    } else if (this.moveKeys.down.isDown) {
+    } else if (downDown) {
       this.player.body.setVelocityY(speed);
       this.player.anims.play(animKey(animPrefix, "down"), true);
       this.lastDirection = "down";
@@ -466,13 +516,8 @@ export default class HallwayScene extends Phaser.Scene {
     }
 
     if (this.speechBubble) {
-      this.speechBubble.x = this.player.x;
-      this.speechBubble.y = this.player.y + this.speechOffsetY;
+      this.speechBubble.x = Math.round(this.player.x);
+      this.speechBubble.y = Math.round(this.player.y + this.speechOffsetY);
     }
   }
 }
-
-
-
-
-

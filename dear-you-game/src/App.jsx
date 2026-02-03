@@ -6,6 +6,8 @@ import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
+import RoadScene from "./scenes/RoadScene";
+import DevelopmentRoomScene from "./scenes/DevelopmentRoomScene";
 
 const canvasWidth = 600;
 const canvasHeight = 400;
@@ -18,6 +20,10 @@ function App() {
   const [bgm, setBgm] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [debugWarpOpen, setDebugWarpOpen] = useState(false);
+
+  const [debugTab, setDebugTab] = useState("Place"); // Place | MiniGame
+  const [isQuestCompleted, setIsQuestCompleted] = useState(false);
   const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
   const [letterCount, setLetterCount] = useState(21);
@@ -113,6 +119,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handleExitConfirm = (e) => {
+      setExitRoomKey(e.detail.key);
+      setShowExitConfirm(true);
+    };
+    window.addEventListener("open-exit-confirm", handleExitConfirm);
+    return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
+  }, []);
+
+  useEffect(() => {
     const handleMove = (event) => {
       setCursorPos({ x: event.clientX, y: event.clientY });
     };
@@ -162,6 +177,17 @@ function App() {
       }
       return nextOpen;
     });
+  }, []);
+
+  const handleWarp = useCallback((sceneKey, data) => {
+    const game = gameRef.current;
+    if (!game) return;
+    const activeKeys = game.scene.getScenes(true).map((scene) => scene.scene.key);
+    activeKeys.forEach((key) => {
+      game.scene.stop(key);
+    });
+    game.scene.start(sceneKey, data);
+    setDebugWarpOpen(false);
   }, []);
 
   const handleIntroStart = useCallback(() => {
@@ -315,7 +341,7 @@ function App() {
           debug: true,
         },
       },
-      scene: [HallwayScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
+      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
     };
 
     function preload() {
@@ -328,6 +354,9 @@ function App() {
       this.load.image("outline_top", `${dormitoryPath}outline_top.png`);
       this.load.image("outline_side", `${dormitoryPath}outline_side.png`);
       this.load.image("bed", `${dormitoryPath}bed.png`);
+      this.load.image("bed_2", `${dormitoryPath}bed_2_floor.png`);
+      this.load.image("chair_left", `${dormitoryPath}chair_left.png`);
+      this.load.image("chair_right", `${dormitoryPath}chair_right.png`);
       this.load.image("closet", `${dormitoryPath}closet.png`);
       this.load.image("deskl", `${dormitoryPath}deskl.png`);
       this.load.image("deskr", `${dormitoryPath}deskr.png`);
@@ -339,9 +368,11 @@ function App() {
       this.load.image("letter_icon", `${commonPath}letter.png`);
       this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
-      
-      this.load.atlas("main_character", `${commonPath}character/main_character.png`, `${commonPath}character/main_character.json`);
-      
+      this.load.atlas(
+        "main_character",
+        `${commonPath}character/main_character.png`,
+        `${commonPath}character/main_character.json`
+      );
     }
 
     function create() {
@@ -367,33 +398,19 @@ function App() {
         .setTileScale(pixelScale)
         .setDepth(1);
 
-      // Create wall collision barriers (all 4 sides)
       const walls = this.physics.add.staticGroup();
-
-      // Top wall
       const wallBottomY = wallCenterY + wallHeight / 2;
       const topWall = walls.create(centerX, wallBottomY - 12, null);
       topWall.setSize(roomW, 24).setVisible(false).refreshBody();
 
-      // Bottom wall
       const bottomWall = walls.create(centerX, startY + roomH, null);
       bottomWall.setSize(roomW, 10).setVisible(false).refreshBody();
 
-      // Left wall
       const leftWall = walls.create(startX, centerY, null);
       leftWall.setSize(10, roomH).setVisible(false).refreshBody();
 
-      // Right wall
       const rightWall = walls.create(startX + roomW, centerY, null);
       rightWall.setSize(10, roomH).setVisible(false).refreshBody();
-
-      // Top shoe rack area
-      const shoeRackTopW = 110;
-      const shoeRackTopH = 36;
-      this.add
-        .tileSprite(centerX, startY + 50, shoeRackTopW, shoeRackTopH, "tile2")
-        .setTileScale(pixelScale)
-        .setDepth(0);
 
       const obstacles = this.physics.add.staticGroup();
       const createFurniture = ({ x, y, texture, scaleX = 1, scaleY = 1 }) => {
@@ -404,27 +421,24 @@ function App() {
         return furniture;
       };
 
-      const marginX = 15;  // Furniture attached to walls
+      const marginX = 15;
       const leftX = startX + marginX;
       const rightX = startX + roomW - marginX;
 
-      // Y positions for 4 rows - tighter spacing, realistic overlap
-      const row1Y = startY + 95;   // Top row - below wall
-      const row2Y = startY + 155;  // Second row
-      const row3Y = startY + 215;  // Third row
-      const row4Y = startY + 265;  // Bottom row - above door
+      const row1Y = startY + 95;
+      const row2Y = startY + 155;
+      const row3Y = startY + 215;
+      const row4Y = startY + 265;
 
-      // Left side (from top to bottom): 책상, 침대, 옷장, 옷장
       createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
-      createFurniture({ x: leftX, y: row2Y, texture: "bed", scaleX: 0.85 });
-      createFurniture({ x: leftX, y: row3Y, texture: "closet", scaleX: 1 });
-      createFurniture({ x: leftX, y: row4Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: leftX + 25, y: row2Y, texture: "bed_2", scaleX: 0.85 });
+      createFurniture({ x: leftX - 1, y: row3Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: leftX - 1, y: row4Y, texture: "closet", scaleX: 1 });
 
-      // Right side (from top to bottom): 책상, 책상, 침대, 옷장
       createFurniture({ x: rightX, y: row1Y, texture: "deskr", scaleX: 1 });
       createFurniture({ x: rightX, y: row2Y, texture: "deskr", scaleX: 1 });
-      createFurniture({ x: rightX, y: row3Y, texture: "bed", scaleX: 0.85 });
-      createFurniture({ x: rightX, y: row4Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: rightX - 25, y: row3Y, texture: "bed", scaleX: 0.85 });
+      createFurniture({ x: rightX + 1, y: row4Y, texture: "closet", scaleX: 1 });
 
       const outlineTopH =
         this.textures.get("outline_top").getSourceImage().height * pixelScale;
@@ -474,77 +488,32 @@ function App() {
       this.cameras.main.roundPixels = true;
       this.cameras.main.centerOn(centerX, centerY);
 
-      
-      // Idle
-      this.anims.create({ key: 'idle-down', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 3, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
-      this.anims.create({ key: 'idle-left', frames: this.anims.generateFrameNames('main_character', { start: 4, end: 7, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
-      this.anims.create({ key: 'idle-right', frames: this.anims.generateFrameNames('main_character', { start: 8, end: 11, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
-      this.anims.create({ key: 'idle-up', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 3, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 4, repeat: -1 });
-
-      // Walk
-      this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNames('main_character', { start: 12, end: 15, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
-      this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNames('main_character', { start: 16, end: 19, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
-      this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNames('main_character', { start: 20, end: 23, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
-      this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNames('main_character', { start: 24, end: 27, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: -1 });
-
-      // Run
-      this.anims.create({ key: 'run-right', frames: this.anims.generateFrameNames('main_character', { start: 28, end: 33, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
-      this.anims.create({ key: 'run-left', frames: this.anims.generateFrameNames('main_character', { start: 34, end: 39, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
-      this.anims.create({ key: 'run-down', frames: this.anims.generateFrameNames('main_character', { start: 12, end: 15, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
-      this.anims.create({ key: 'run-up', frames: this.anims.generateFrameNames('main_character', { start: 24, end: 27, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 14, repeat: -1 });
-
-      // Jump (Fallback)
-      this.anims.create({ key: 'jump-down', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 0, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
-      this.anims.create({ key: 'jump-left', frames: this.anims.generateFrameNames('main_character', { start: 4, end: 4, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
-      this.anims.create({ key: 'jump-right', frames: this.anims.generateFrameNames('main_character', { start: 8, end: 8, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
-      this.anims.create({ key: 'jump-up', frames: this.anims.generateFrameNames('main_character', { start: 0, end: 0, prefix: '16x16 All Animations ', suffix: '.aseprite' }), frameRate: 10, repeat: 0 });
-          
-
-      // ?좊컻???곸뿭 (?섎떒 以묒븰)
-      const shoeRackW = 110;
-      const shoeRackH = 32;
-      this.add
-        .tileSprite(centerX, startY + roomH - 20, shoeRackW, shoeRackH, "tile2")
-        .setTileScale(pixelScale)
-        .setDepth(0);
-
       this.door = this.add
         .image(centerX, startY + roomH, "door_inside")
         .setOrigin(0.5, 1)
         .setScale(pixelScale)
         .setDepth(startY + roomH);
 
-
-      // 臾????곹샇?묒슜 ?띿뒪??
-      this.exitText = this.add.text(centerX, startY + roomH - 46, "Press SPACE", {
-        fontSize: "18px",
-        fontFamily: "Galmuri11-Bold",
-        color: "#C49A6C",
-        backgroundColor: "#000000",
-        padding: { x: 4, y: 4 }
-      }).setOrigin(0.5).setDepth(99999).setVisible(false);
-
-      // NPC Logic
       const roomNpcConfig = {
-        "Room103": [
-          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right" },
-          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left" },
-          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "idle-left" },
+        Room103: [
+          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right", texture: "main_character" },
+          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left", texture: "main_character" },
+          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "idle-left", texture: "main_character" },
         ],
-        "Room104": [
-          { id: "npc-104-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right" },
-          { id: "npc-104-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left" },
+        Room104: [
+          { id: "npc-104-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right", texture: "main_character" },
+          { id: "npc-104-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left", texture: "main_character" },
         ],
       };
 
       this.npcs = this.physics.add.staticGroup();
-      this.npcIcons = []; // track icons for update loop
+      this.npcIcons = [];
 
       const configNpcs = roomNpcConfig[this.scene.key];
 
       if (configNpcs) {
         configNpcs.forEach(npcData => {
-          const npc = this.npcs.create(npcData.x, npcData.y, "main_character", "16x16 All Animations 0.aseprite");
+          const npc = this.npcs.create(npcData.x, npcData.y, npcData.texture, "16x16 All Animations 0.aseprite");
           npc.setScale(pixelScale);
           npc.setDepth(npc.y);
           npc.refreshBody();
@@ -613,6 +582,21 @@ function App() {
 
             this.time.delayedCall(Math.random() * 1000, emitSoundWave);
           }
+
+          if (this.scene.key === "Room104") {
+            // Suspicious behavior: Nervous looking around & Shaking
+            this.time.addEvent({
+              delay: 600 + Math.random() * 1200,
+              loop: true,
+              callback: () => {
+                if (!npc.active) return;
+                // Randomly look around
+                const anims = ["idle-left", "idle-right", "idle-up", "idle-down"];
+                const randAnim = anims[Math.floor(Math.random() * anims.length)];
+                npc.play(randAnim, true);
+              }
+            });
+          }
         });
       }
       this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
@@ -638,10 +622,14 @@ function App() {
       this.player.anims.play("idle-down");
 
       this.moveKeys = this.input.keyboard.addKeys({
-        up: Phaser.Input.Keyboard.KeyCodes.W,
-        left: Phaser.Input.Keyboard.KeyCodes.A,
-        down: Phaser.Input.Keyboard.KeyCodes.S,
-        right: Phaser.Input.Keyboard.KeyCodes.D,
+        up: Phaser.Input.Keyboard.KeyCodes.UP,
+        left: Phaser.Input.Keyboard.KeyCodes.LEFT,
+        down: Phaser.Input.Keyboard.KeyCodes.DOWN,
+        right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+        w: Phaser.Input.Keyboard.KeyCodes.W,
+        a: Phaser.Input.Keyboard.KeyCodes.A,
+        s: Phaser.Input.Keyboard.KeyCodes.S,
+        d: Phaser.Input.Keyboard.KeyCodes.D,
       });
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
@@ -737,9 +725,9 @@ function App() {
         });
       }
       const pointer = this.input.activePointer;
-      const rightDown = pointer.rightButtonDown();
-      const rightJustDown = rightDown && !this.prevRight;
-      this.prevRight = rightDown;
+      const mouseRightDown = pointer.rightButtonDown();
+      const rightJustDown = mouseRightDown && !this.prevRight;
+      this.prevRight = mouseRightDown;
 
       // Door interaction
       if (isNearDoor && !this.interactionCooldown) {
@@ -752,6 +740,15 @@ function App() {
           return;
         }
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+          setExitRoomKey(this.scene.key);
+          gameStateRef.current.setShowExitConfirm(true);
+          this.player.body.setVelocity(0);
+          this.player.anims.play(`idle-${this.lastDirection}`, true);
+          return;
+        }
+
+        const isMovingDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
+        if (isMovingDown) {
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -823,19 +820,24 @@ function App() {
       this.player.body.setVelocity(0);
 
       // Movement with walk/run animations
-      if (this.moveKeys.left.isDown) {
+      const leftDown = this.moveKeys.left.isDown || this.moveKeys.a.isDown;
+      const rightDown = this.moveKeys.right.isDown || this.moveKeys.d.isDown;
+      const upDown = this.moveKeys.up.isDown || this.moveKeys.w.isDown;
+      const downDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
+
+      if (leftDown) {
         this.player.body.setVelocityX(-speed);
         this.player.anims.play(`${animPrefix}-left`, true);
         this.lastDirection = "left";
-      } else if (this.moveKeys.right.isDown) {
+      } else if (rightDown) {
         this.player.body.setVelocityX(speed);
         this.player.anims.play(`${animPrefix}-right`, true);
         this.lastDirection = "right";
-      } else if (this.moveKeys.up.isDown) {
+      } else if (upDown) {
         this.player.body.setVelocityY(-speed);
         this.player.anims.play(`${animPrefix}-up`, true);
         this.lastDirection = "up";
-      } else if (this.moveKeys.down.isDown) {
+      } else if (downDown) {
         this.player.body.setVelocityY(speed);
         this.player.anims.play(`${animPrefix}-down`, true);
         this.lastDirection = "down";
@@ -1138,15 +1140,15 @@ function App() {
                     setWrittenLetters((prev) => {
                       const existingIndex = prev.findIndex((l) => l.npcId === targetId);
                       if (existingIndex !== -1) {
-                         const next = [...prev];
-                         next[existingIndex] = payload;
-                         try {
-                           localStorage.setItem("writtenLetters", JSON.stringify(next));
-                          } catch {
-                            // Ignore localStorage errors
-                          }
-                         setWrittenCount(next.length);
-                         return next;
+                        const next = [...prev];
+                        next[existingIndex] = payload;
+                        try {
+                          localStorage.setItem("writtenLetters", JSON.stringify(next));
+                        } catch {
+                          // Ignore localStorage errors
+                        }
+                        setWrittenCount(next.length);
+                        return next;
                       }
                       const next = [...prev, payload];
                       try {
@@ -1263,15 +1265,15 @@ function App() {
                 <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <button
                     onClick={() => {
-                        const currentLetter = readingLetters[Math.min(readIndex, readingLetters.length - 1)];
-                        if (currentLetter) {
-                            setLetterText(currentLetter.text);
-                            setInteractionTargetId(currentLetter.npcId);
-                            setConfirmMode("write");
-                            setShowLetterRead(false);
-                            setShowLetterWrite(true);
-                            setEnvelopeFrame(3); 
-                        }
+                      const currentLetter = readingLetters[Math.min(readIndex, readingLetters.length - 1)];
+                      if (currentLetter) {
+                        setLetterText(currentLetter.text);
+                        setInteractionTargetId(currentLetter.npcId);
+                        setConfirmMode("write");
+                        setShowLetterRead(false);
+                        setShowLetterWrite(true);
+                        setEnvelopeFrame(3);
+                      }
                     }}
                     style={{
                       fontFamily: "Galmuri11-Bold",
@@ -1531,55 +1533,51 @@ function App() {
       {!showIntro && (() => {
         const panelWidth = 220;
         const panelHeight = 120;
-        const visibleHeight = 34;
-        const hiddenOffset = visibleHeight - panelHeight;
         return (
           <div
             onClick={handleChecklistClick}
             style={{
               position: "absolute",
-              top: "6px",
+              top: checklistOpen ? "0px" : "-5px",
               right: "14px",
               width: `${panelWidth}px`,
-              height: checklistOpen ? `${panelHeight}px` : `${visibleHeight}px`,
-              overflow: "hidden",
-              zIndex: 125,
+              height: isQuestCompleted ? `${panelHeight * 1.8}px` : `${panelHeight}px`,
+              zIndex: 150,
               cursor: "pointer",
-              transition: "height 0.28s ease",
+              transition: "top 0.5s ease, height 0.5s ease",
             }}
           >
             <div
               style={{
                 width: `${panelWidth}px`,
-                height: `${panelHeight}px`,
-                backgroundImage: "url('/assets/common/check2.png')",
+                height: isQuestCompleted ? `${panelHeight * 1.8}px` : `${panelHeight}px`,
+                backgroundImage: `url('/assets/common/${isQuestCompleted ? "check.png" : "check2.png"}')`,
                 backgroundSize: "contain",
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "right top",
                 imageRendering: "pixelated",
-                transform: checklistOpen ? "translateY(0)" : `translateY(${hiddenOffset}px)`,
-                transition: "transform 0.28s ease",
                 position: "relative",
+                transition: "height 0.5s ease, background-image 0.5s ease"
               }}
             >
               <div
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setShowHeartQuest(true);
-                }}
                 style={{
                   position: "absolute",
-                  top: "82px",
-                  left: "18px",
+                  top: "38px",
+                  left: "56px",
                   right: "16px",
                   fontFamily: "Galmuri11-Bold",
                   fontSize: "12px",
                   color: "#8d684e",
                   lineHeight: "1.2",
-                  cursor: "pointer",
+                  cursor: "default",
+                  whiteSpace: "nowrap",
+                  textDecoration: isQuestCompleted ? "line-through" : "none",
+                  opacity: isQuestCompleted ? 0.6 : 1,
+                  transition: "all 0.5s ease",
                 }}
               >
-                1. 103호에게 편지를 전달하자
+                103호에게 편지를 전달하자
               </div>
             </div>
           </div>
@@ -1614,6 +1612,242 @@ function App() {
         </div>
       )}
       {!showIntro && (
+        <button
+          type="button"
+          onClick={() => setDebugWarpOpen(true)}
+          style={{
+            position: "absolute",
+            right: "22px",
+            bottom: "26px",
+            width: "38px",
+            height: "38px",
+            backgroundImage: "url('/assets/common/setting.png')",
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+            border: "none",
+            backgroundColor: "transparent",
+            imageRendering: "pixelated",
+            cursor: "pointer",
+            zIndex: 130,
+          }}
+          aria-label="Debug Warp"
+        />
+      )}
+      {!showIntro && debugWarpOpen && (
+        <div
+          onClick={() => setDebugWarpOpen(false)}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1500,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "360px",
+              height: "240px",
+              backgroundImage: "url('/assets/common/modal1.png')",
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              imageRendering: "pixelated",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              padding: "16px 18px 20px",
+              boxSizing: "border-box",
+              color: "#4E342E",
+              fontFamily: "Galmuri11-Bold",
+            }}
+          >
+            <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+              {["Place", "MiniGame"].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setDebugTab(tab)}
+                  style={{
+                    width: "80px",
+                    height: "24px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "11px",
+                    color: debugTab === tab ? "#4E342E" : "#8d684e",
+                    backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
+                    border: debugTab === tab ? "2px solid #caa47d" : "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: debugTab === tab ? "bold" : "normal",
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {debugTab === "Place" && (
+              <>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("Road")}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Road
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Hall
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("DevelopmentRoom")}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Dev
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("Room103")}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    103
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWarp("Room104")}
+                    style={{
+                      width: "64px",
+                      height: "28px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "11px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    104
+                  </button>
+                </div>
+              </>
+            )}
+
+            {debugTab === "MiniGame" && (
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowMiniGame(true)}
+                  style={{
+                    width: "80px",
+                    height: "32px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "11px",
+                    color: "#4E342E",
+                    backgroundColor: "#f1d1a8",
+                    border: "2px solid #caa47d",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  아케이드
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowHeartQuest(true)}
+                  style={{
+                    width: "80px",
+                    height: "32px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "11px",
+                    color: "#4E342E",
+                    backgroundColor: "#f1d1a8",
+                    border: "2px solid #caa47d",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  하트퀘스트
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setDebugWarpOpen(false)}
+              style={{
+                width: "70px",
+                height: "22px",
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "10px",
+                color: "#4E342E",
+                backgroundColor: "#f1d1a8",
+                border: "2px solid #caa47d",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+      {!showIntro && (
         <>
           <MiniGameModal
             isOpen={showMiniGame}
@@ -1622,16 +1856,42 @@ function App() {
           />
           <ExitConfirmModal
             isOpen={showExitConfirm}
-            roomNumber={exitRoomKey ? exitRoomKey.replace("Room", "") : ""}
+            roomNumber={(() => {
+              if (!exitRoomKey) return "";
+              if (exitRoomKey === "EnterHallway") return "기숙사";
+              if (exitRoomKey === "LeaveHallway") return "Outside";
+              if (exitRoomKey.startsWith("EnterRoom")) return exitRoomKey.replace("EnterRoom", "");
+              if (exitRoomKey.startsWith("Room")) return "복도"; // Exiting a room
+              return "";
+            })()}
             onConfirm={() => {
               setShowExitConfirm(false);
               const game = gameRef.current;
               if (game) {
-                if (exitRoomKey) {
-                  game.scene.stop(exitRoomKey);
+                // Road -> Hallway
+                if (exitRoomKey === "EnterHallway") {
+                  game.scene.stop("Road");
+                  game.scene.start("Hallway", { x: 150, y: 340 });
                 }
-                const exitCoords = exitRoomKey === "Room103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
-                game.scene.start("Hallway", exitCoords);
+                // Hallway -> Outside (Road)
+                else if (exitRoomKey === "LeaveHallway") {
+                  game.scene.stop("Hallway");
+                  game.scene.start("Road", { x: 600, y: 150 });
+                }
+                // Hallway -> Room
+                else if (exitRoomKey.startsWith("EnterRoom")) {
+                  const roomNum = exitRoomKey.replace("EnterRoom", "");
+                  game.scene.stop("Hallway");
+                  game.scene.start(`Room${roomNum}`);
+                }
+                // Room -> Hallway
+                else if (exitRoomKey.startsWith("Room")) {
+                  const roomNum = exitRoomKey.replace("Room", "");
+                  game.scene.stop(exitRoomKey);
+                  const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
+                  // Default fallback for other rooms if added
+                  game.scene.start("Hallway", exitCoords);
+                }
               }
             }}
             onCancel={() => setShowExitConfirm(false)}
@@ -1639,7 +1899,10 @@ function App() {
           <HeartQuestModal
             isOpen={showHeartQuest}
             onClose={() => setShowHeartQuest(false)}
-            onWin={() => alert("퀘스트 완료!")}
+            onWin={() => {
+              setIsQuestCompleted(true);
+              alert("퀘스트 완료!");
+            }}
             onFail={() => alert("실패...")}
           />
         </>
