@@ -8,9 +8,11 @@ import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
 import DevelopmentRoomScene from "./scenes/DevelopmentRoomScene";
+import KaimaruScene from "./scenes/KaimaruScene";
+import HospitalScene from "./scenes/HospitalScene";
 
-const canvasWidth = 600;
-const canvasHeight = 400;
+const canvasWidth = 1200;
+const canvasHeight = 720;
 
 function App() {
   const [showMiniGame, setShowMiniGame] = useState(false);
@@ -22,8 +24,9 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
 
-  const [debugTab, setDebugTab] = useState("Place"); // Place | MiniGame
+  const [debugTab, setDebugTab] = useState("장소"); // Place | MiniGame
   const [isQuestCompleted, setIsQuestCompleted] = useState(false);
+  const [showNextQuest, setShowNextQuest] = useState(false);
   const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
   const [letterCount, setLetterCount] = useState(21);
@@ -120,7 +123,8 @@ function App() {
 
   useEffect(() => {
     const handleExitConfirm = (e) => {
-      setExitRoomKey(e.detail.key);
+      const key = e.detail?.roomKey ?? e.detail?.key;
+      setExitRoomKey(key);
       setShowExitConfirm(true);
     };
     window.addEventListener("open-exit-confirm", handleExitConfirm);
@@ -153,14 +157,6 @@ function App() {
     window.addEventListener("contextmenu", handleContextMenu);
     return () => {
       window.removeEventListener("contextmenu", handleContextMenu);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (checklistTimerRef.current) {
-        clearTimeout(checklistTimerRef.current);
-      }
     };
   }, []);
 
@@ -341,7 +337,7 @@ function App() {
           debug: true,
         },
       },
-      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
+      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
     };
 
     function preload() {
@@ -506,10 +502,10 @@ function App() {
         ],
       };
 
+      const configNpcs = roomNpcConfig[this.scene.key] ?? [];
+
       this.npcs = this.physics.add.staticGroup();
       this.npcIcons = [];
-
-      const configNpcs = roomNpcConfig[this.scene.key];
 
       if (configNpcs) {
         configNpcs.forEach(npcData => {
@@ -583,22 +579,23 @@ function App() {
             this.time.delayedCall(Math.random() * 1000, emitSoundWave);
           }
 
-          if (this.scene.key === "Room104") {
-            // Suspicious behavior: Nervous looking around & Shaking
-            this.time.addEvent({
-              delay: 600 + Math.random() * 1200,
-              loop: true,
-              callback: () => {
-                if (!npc.active) return;
-                // Randomly look around
-                const anims = ["idle-left", "idle-right", "idle-up", "idle-down"];
-                const randAnim = anims[Math.floor(Math.random() * anims.length)];
-                npc.play(randAnim, true);
-              }
-            });
-          }
+          // NPC Name Text
+          const npcState = gameStateRef.current.getNpcState(npcData.id);
+          const nameText = this.add.text(npc.x, npc.y - 45, npcState?.name ?? "", {
+            fontFamily: "Galmuri11-Bold",
+            fontSize: "12px",
+            color: "#ffffff",
+            stroke: "#000000",
+            strokeThickness: 3,
+            resolution: 2, // For crisp pixel text
+          });
+          nameText.setOrigin(0.5);
+          nameText.setDepth(99999);
+          nameText.setVisible(false);
+          npc.nameText = nameText;
         });
       }
+
       this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
       this.prevRight = false;
 
@@ -666,36 +663,83 @@ function App() {
         window.removeEventListener("npc-happy", handleNpcHappy);
       });
 
-      this.jumpHeight = 8;
-      this.jumpDuration = 140;
+      // Character animations
+
+      // We rely on 'main_character' atlas for everyone currently as per recent changes?
+      // Or 'ig', 'inj' etc. loaded with main_character.json.
+
+      // Function to create standard character animations
+      const createCharAnims = () => {
+        if (this.anims.exists('idle-down')) return;
+        const animConfig = {
+          'idle-down': { start: 0, end: 3 },
+          'idle-right': { start: 4, end: 7 },
+          'idle-up': { start: 8, end: 11 },
+          'idle-left': { start: 12, end: 15 },
+          'walk-down': { start: 16, end: 19 },
+          'walk-right': { start: 20, end: 23 },
+          'walk-up': { start: 24, end: 27 },
+          'walk-left': { start: 28, end: 31 },
+          'run-down': { start: 32, end: 35 },
+          'run-right': { start: 36, end: 39 },
+          'run-up': { start: 40, end: 43 },
+          'run-left': { start: 44, end: 47 },
+        };
+
+        for (const [key, range] of Object.entries(animConfig)) {
+          this.anims.create({
+            key,
+            frames: this.anims.generateFrameNames('main_character', {
+              start: range.start,
+              end: range.end,
+              prefix: "16x16 All Animations ",
+              suffix: ".aseprite",
+            }),
+            frameRate: 6,
+            repeat: -1
+          });
+        }
+      };
+      createCharAnims();
+
+      // Also create specific NPC anims if needed (using same sprite sheet structure)
+      ["ig", "inj"].forEach(name => {
+        if (this.anims.exists(`${name}-idle-left`)) return;
+        // Example: reuse main_character frames but with different texture key
+        this.anims.create({
+          key: `${name}-idle-left`,
+          frames: this.anims.generateFrameNames(name, {
+            start: 12, end: 15, // idle-left
+            prefix: "16x16 All Animations ",
+            suffix: ".aseprite"
+          }),
+          frameRate: 4,
+          repeat: -1
+        });
+        this.anims.create({
+          key: `${name}-idle-right`,
+          frames: this.anims.generateFrameNames(name, {
+            start: 4, end: 7, // idle-right
+            prefix: "16x16 All Animations ",
+            suffix: ".aseprite"
+          }),
+          frameRate: 4,
+          repeat: -1
+        });
+      });
     }
-
-
-
-    const startJump = () => {
-      // Jump disabled to prevent wall clipping
-      return;
-    };
 
     function update() {
       if (!this.player) return;
 
-      // Handle MiniGame state
       if (gameStateRef.current.isMiniGameOpen) {
-        if (this.jumpTween) {
-          this.jumpTween.stop();
-          this.jumpTween = null;
-        }
-        this.isJumping = false;
         this.player.body.setVelocity(0);
-        this.player.anims.play(`idle-${this.lastDirection}`, true);
         return;
       }
 
-      // Interaction & Jump logic
+      // Interaction
       let closestNpc = null;
       let minDistance = 60;
-
       if (this.npcs) {
         this.npcs.children.iterate((npc) => {
           const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
@@ -706,17 +750,16 @@ function App() {
         });
       }
 
-      const isNearNPC = !!closestNpc;
-      // Update this.npcId for interaction logic
       if (closestNpc) {
         this.npcId = closestNpc.npcId;
       } else {
         this.npcId = null;
       }
 
+      const isNearNPC = !!closestNpc;
       const isNearDoor = this.door && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.door.x, this.door.y) < 50;
 
-      // Update Icons for all NPCs
+      // Update Icons
       if (this.npcIcons) {
         this.npcIcons.forEach(iconSet => {
           const npcState = gameStateRef.current.getNpcState(iconSet.npcId);
@@ -724,102 +767,71 @@ function App() {
           iconSet.questIcon.setVisible(!hasLetter && !iconSet.happyIcon.visible);
         });
       }
+
+      // Update NPC Name Visibility
+      if (this.npcs) {
+        this.npcs.children.iterate((npc) => {
+          if (npc.nameText) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+            // Show name if close enough (e.g., < 60px)
+            if (dist < 60) {
+              npc.nameText.setVisible(true);
+            } else {
+              npc.nameText.setVisible(false);
+            }
+          }
+        });
+      }
+
       const pointer = this.input.activePointer;
       const mouseRightDown = pointer.rightButtonDown();
       const rightJustDown = mouseRightDown && !this.prevRight;
       this.prevRight = mouseRightDown;
 
-      // Door interaction
+      // Door
       if (isNearDoor && !this.interactionCooldown) {
-        this.exitText.setVisible(true);
-        if (rightJustDown) {
+        if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
-          this.player.anims.play(`idle-${this.lastDirection}`, true);
           return;
         }
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        // Move down check
+        if (this.moveKeys.down.isDown || this.moveKeys.s.isDown) {
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
-          this.player.anims.play(`idle-${this.lastDirection}`, true);
           return;
         }
-
-        const isMovingDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
-        if (isMovingDown) {
-          setExitRoomKey(this.scene.key);
-          gameStateRef.current.setShowExitConfirm(true);
-          this.player.body.setVelocity(0);
-          this.player.anims.play(`idle-${this.lastDirection}`, true);
-          return;
-        }
-      } else {
-        this.exitText.setVisible(false);
       }
 
-      // NPC interaction
+      // NPC Interaction
       if (isNearNPC && !this.interactionCooldown) {
-        const npcState = gameStateRef.current.getNpcState(this.npcId);
-        const activeNpcHasLetter = npcState?.hasLetter ?? false;
-        const activeNpcHasWritten = npcState?.hasWritten ?? false;
-        const canWrite =
-          !activeNpcHasLetter &&
-          !activeNpcHasWritten &&
-          gameStateRef.current.getLetterCount() > 0 &&
-          gameStateRef.current.getSelectedSlot() === 0;
-        const canGiveWritten =
-          !activeNpcHasLetter &&
-          gameStateRef.current.getWrittenCount() > 0 &&
-          (() => {
-            const slot = gameStateRef.current.getSelectedSlot();
-            if (slot === 0) return false;
-            const groups = gameStateRef.current.getLetterGroups();
-            const group = groups[slot - 1]; // slot 1 -> group 0
-            return group && group.npcId === this.npcId;
-          })();
-
         if (rightJustDown) {
-          if (canWrite) {
-            setInteractionTargetId(this.npcId);
-            setConfirmMode("write");
-            gameStateRef.current.setShowWriteConfirm(true);
-            return;
+          // ... Logic for write/give ...
+          const npcState = gameStateRef.current.getNpcState(this.npcId);
+          if (npcState) {
+            const { hasLetter, hasWritten } = npcState;
+            if (!hasLetter && !hasWritten && gameStateRef.current.getLetterCount() > 0 && gameStateRef.current.getSelectedSlot() === 0) {
+              setInteractionTargetId(this.npcId);
+              setConfirmMode("write");
+              gameStateRef.current.setShowWriteConfirm(true);
+            } else if (!hasLetter && gameStateRef.current.getWrittenCount() > 0 && gameStateRef.current.getSelectedSlot() !== 0) {
+              // Check if letter matches
+              setInteractionTargetId(this.npcId);
+              setConfirmMode("give");
+              gameStateRef.current.setShowWriteConfirm(true);
+            }
           }
-          if (canGiveWritten) {
-            setInteractionTargetId(this.npcId);
-            setConfirmMode("give");
-            gameStateRef.current.setShowWriteConfirm(true);
-            return;
-          }
-        }
-
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-          // NPC interaction no longer opens mini game
-          return;
-        }
-      } else {
-        // Jump only when not near NPC
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-          startJump();
         }
       }
 
-      if (this.isJumping) {
-        this.player.body.setVelocity(0);
-        this.player.setDepth(this.player.y);
-        return;
-      }
-
-      // Determine speed based on Shift key (walk vs run)
+      // Movement
       const isRunning = this.shiftKey.isDown;
       const speed = isRunning ? 200 : 100;
       const animPrefix = isRunning ? "run" : "walk";
-
       this.player.body.setVelocity(0);
 
-      // Movement with walk/run animations
       const leftDown = this.moveKeys.left.isDown || this.moveKeys.a.isDown;
       const rightDown = this.moveKeys.right.isDown || this.moveKeys.d.isDown;
       const upDown = this.moveKeys.up.isDown || this.moveKeys.w.isDown;
@@ -844,28 +856,22 @@ function App() {
       } else {
         this.player.anims.play(`idle-${this.lastDirection}`, true);
       }
-
       this.player.setDepth(this.player.y);
 
-      // Hand Item Logic
+      // Hand item
       if (this.handItem) {
-        const gState = gameStateRef.current;
-        const currentSlot = gState.getSelectedSlot();
-        const currentLCount = gState.getLetterCount();
-        const currentWCount = gState.getWrittenCount();
-
-        if (currentSlot === 0 && currentLCount > 0) {
+        const slot = gameStateRef.current.getSelectedSlot();
+        if (slot === 0 && gameStateRef.current.getLetterCount() > 0) {
           this.handItem.setTexture("letter_icon");
           this.handItem.setVisible(true);
-        } else if (currentSlot === 1 && currentWCount > 0) {
+        } else if (slot > 0) {
           this.handItem.setTexture("letter_written");
           this.handItem.setVisible(true);
         } else {
           this.handItem.setVisible(false);
         }
-
         if (this.handItem.visible) {
-          this.handItem.x = this.player.x + (this.lastDirection === "left" ? -8 : 8);
+          this.handItem.x = this.player.x + (this.lastDirection === 'left' ? -8 : 8);
           this.handItem.y = this.player.y + 10;
           this.handItem.setDepth(this.player.depth + 1);
         }
@@ -876,9 +882,7 @@ function App() {
       try {
         await Promise.all([document.fonts.load('16px "Galmuri11-Bold"'), document.fonts.load('16px "Galmuri11"')]);
         await document.fonts.ready;
-      } catch {
-        // Ignore font loading errors
-      }
+      } catch { /* ignore font load errors */ }
       if (cancelled) return;
       const game = new Phaser.Game(config);
       gameRef.current = game;
@@ -889,9 +893,7 @@ function App() {
     return () => {
       cancelled = true;
       if (gameRef.current) {
-        if (gameRef.current.sound) {
-          gameRef.current.sound.stopAll();
-        }
+        if (gameRef.current.sound) gameRef.current.sound.stopAll();
         gameRef.current.destroy(true);
         gameRef.current = null;
       }
@@ -915,17 +917,158 @@ function App() {
           font-style: normal;
           font-display: swap;
         }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes popIn {
-          0% { transform: scale(0.8); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
-        }
       `}</style>
+
+      {/* UI Elements */}
       {!showIntro && (
         <>
+          {/* Quest Modal */}
+          {(() => {
+            const panelWidth = 220;
+            const panelHeight = 120;
+            // If check1.png (showNextQuest), it is a longer paper.
+            // check.png / check2.png are shorter.
+
+            const isExtended = showNextQuest;
+            // Approximate height for the extended paper
+            const extendedHeight = 216;
+
+            // If checklistOpen is true:
+            //  Normal -> visible fully (top: 0)
+            //  Extended -> visible fully (top: 0)
+            // If checklistOpen is false:
+            //  Normal -> peek (top: -XX)
+            //  Extended -> peek ? (top: -XX)
+
+            // Let's rely on standard logic:
+            // check2.png (Quest 1 Active)
+            // check.png (Quest 1 Done) -> Click -> check1.png (Quest 1 Done + Quest 2 Active)
+
+            const currentHeight = isExtended ? extendedHeight : panelHeight;
+
+            // Peek offset calculation if needed, or simple fixed check.
+            // User likes "modal down" on click.
+
+            return (
+              <div
+                onClick={() => {
+                  // Logic:
+                  // If Quest 1 is done AND next quest not yet revealed: use the special transition.
+                  if (isQuestCompleted && !showNextQuest) {
+                    setShowNextQuest(true);
+                    setChecklistOpen(true);
+
+                    // Auto-close after 3 seconds as "Disappears then goes back up" implies
+                    if (checklistTimerRef.current) clearTimeout(checklistTimerRef.current);
+                    checklistTimerRef.current = setTimeout(() => {
+                      setChecklistOpen(false);
+                    }, 3000);
+
+                  } else {
+                    // Normal toggle
+                    handleChecklistClick();
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  top: checklistOpen ? "0px" : "-80px",
+                  // Keeping -5px for normal peek. If extended is hidden, it might need more offset or same.
+                  // If "check1.png" (extended) is hidden, we usually want to show just the bottom edge?
+                  // "check1" has quest 1 at top, quest 2 at bottom. 
+                  // If we only want to peek the bottom, we need a large negative top.
+                  // But usually the user wants to see the "Current" quest?
+                  // Actually, if showNextQuest is true, keeping it open until auto-close is good.
+                  // If closed with showNextQuest, maybe revert to "check2" or "check" visual or just peek?
+                  // Let's assume standard behavior:
+                  // top: open ? 0 : -85px (hide most)
+                  // But original code had "-5px" which implies it's ALREADY mostly hidden or that's the visible 'tab'?
+                  // Wait, original `top: checklistOpen ? "0px" : "-5px"` means it is mostly ON SCREEN by default? 
+                  // NO. "0px" is top of screen.
+                  // If "-5px", it's slightly shifted up?
+                  // Actually, let's look at the background image alignment.
+                  // Usually these modals stick to the top.
+                  // If "checklistOpen" means "Expanded/Dropped Down":
+                  //   Then "0px" might be "Fully Visible".
+                  //   And "Closed" might be "-90px".
+                  // The previous code had `checklistOpen ? "0px" : "-5px"`. 
+                  // If it was "-5px", it basically barely moves.
+                  // The user said "Click -> Modal comes down". This implies it WAS up (hidden).
+                  // So `checklistOpen` = false should be `top: -Height + TabSize`.
+                  // Let's assume the "Tab" is at the bottom of the image.
+                  // If images are drawn from Top-Left.
+
+                  // User previous complaint: "modal down".
+                  // Let's try: `top: checklistOpen ? "0px" : \`-\${currentHeight - 40}px\``
+                  // This keeps 40px visible.
+
+                  right: "14px",
+                  width: `${panelWidth}px`,
+                  height: `${currentHeight}px`,
+                  zIndex: 150,
+                  cursor: "pointer",
+                  transition: "top 0.5s ease, height 0.5s ease",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${panelWidth}px`,
+                    height: `${currentHeight}px`,
+                    backgroundImage: `url('/assets/common/${showNextQuest ? "check1.png" : (isQuestCompleted ? "check.png" : "check2.png")}')`,
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center top",
+                    imageRendering: "pixelated",
+                    position: "relative",
+                    transition: "height 0.5s ease, background-image 0.5s ease"
+                  }}
+                >
+                  {/* Quest 1 Text */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "38px", // Adjust based on asset
+                      left: "56px",
+                      right: "16px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "12px",
+                      color: "#8d684e",
+                      lineHeight: "1.2",
+                      cursor: "default",
+                      whiteSpace: "nowrap",
+                      textDecoration: isQuestCompleted ? "line-through" : "none",
+                      opacity: isQuestCompleted ? 0.6 : 1,
+                      transition: "all 0.5s ease",
+                    }}
+                  >
+                    103호에게 편지를 전달하자
+                  </div>
+
+                  {/* Quest 2 Text (Next Quest) */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      // This needs to be positioned below Quest 1
+                      top: "78px", // Adjusted for check1.png layout
+                      left: "56px",
+                      right: "16px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "12px",
+                      color: "#8d684e",
+                      lineHeight: "1.2",
+                      cursor: "default",
+                      whiteSpace: "nowrap",
+                      opacity: showNextQuest ? 1 : 0,
+                      pointerEvents: showNextQuest ? "auto" : "none",
+                      transition: "opacity 0.5s ease",
+                    }}
+                  >
+                    104호에게 편지를 전달하자
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {showWriteConfirm && (
             <div
               style={{
@@ -1307,607 +1450,571 @@ function App() {
               </div>
             </div>
           )}
-        </>
-      )}
-      {!showIntro && (
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "24px",
-            transform: "translateX(-50%)",
-            zIndex: 120,
-            width: `${inventoryConfig.width}px`,
-            height: `${inventoryConfig.height}px`,
-            backgroundImage: "url('/assets/common/inventory.png')",
-            backgroundSize: "contain",
-            backgroundRepeat: "no-repeat",
-            imageRendering: "pixelated",
-          }}
-        >
-          {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
-            const isSlot0 = index === 0;
-            const groupIndex = index - 1;
-            const group = index > 0 ? letterGroups[groupIndex] : null;
-            const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
-            const topPos = inventoryConfig.padY;
 
-            return (
-              <React.Fragment key={index}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSlot(index);
-                    if (group) {
-                      setReadingLetters(group.letters);
-                      setReadIndex(0);
-                      setShowLetterRead(true);
-                    }
-                  }}
-                  aria-label={`Inventory slot ${index + 1}`}
-                  style={{
-                    position: "absolute",
-                    left: `${leftPos}px`,
-                    top: `${topPos}px`,
-                    width: `${inventoryConfig.slotSize}px`,
-                    height: `${inventoryConfig.slotSize}px`,
-                    background: "transparent",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    zIndex: 10,
-                  }}
-                />
-
-                {/* Slot Content */}
-                {isSlot0 && letterCount > 0 && (
-                  <>
-                    <img
-                      src="/assets/common/letter.png"
-                      alt="Letter"
-                      style={{
-                        position: "absolute",
-                        left: `${leftPos + 4}px`,
-                        top: `${topPos + 4}px`,
-                        width: `${inventoryConfig.slotSize - 8}px`,
-                        height: `${inventoryConfig.slotSize - 8}px`,
-                        imageRendering: "pixelated",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: `${leftPos + inventoryConfig.slotSize - 16}px`,
-                        top: `${topPos + inventoryConfig.slotSize - 16}px`,
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "11px",
-                        color: "#774c30",
-                        backgroundColor: "rgba(230, 210, 181, 0.85)",
-                        borderRadius: "999px",
-                        minWidth: "16px",
-                        height: "16px",
-                        lineHeight: "16px",
-                        textAlign: "center",
-                        zIndex: 5,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {letterCount}
-                    </span>
-                  </>
-                )}
-
-                {group && (
-                  <>
-                    <img
-                      src="/assets/common/letter_wirte.png"
-                      alt="Written Letter"
-                      style={{
-                        position: "absolute",
-                        left: `${leftPos + 4}px`,
-                        top: `${topPos + 4}px`,
-                        width: `${inventoryConfig.slotSize - 8}px`,
-                        height: `${inventoryConfig.slotSize - 8}px`,
-                        imageRendering: "pixelated",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: `${leftPos + inventoryConfig.slotSize - 16}px`,
-                        top: `${topPos + inventoryConfig.slotSize - 16}px`,
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "11px",
-                        color: "#5B3A24",
-                        backgroundColor: "rgba(230, 210, 181, 0.85)",
-                        borderRadius: "999px",
-                        minWidth: "16px",
-                        height: "16px",
-                        lineHeight: "16px",
-                        textAlign: "center",
-                        zIndex: 5,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {group.letters.length}
-                    </span>
-                  </>
-                )}
-
-                {/* Focus Ring */}
-                {selectedSlot === index && (
-                  <img
-                    src="/assets/common/focus.png"
-                    alt=""
-                    style={{
-                      position: "absolute",
-                      left: `${leftPos - 3}px`,
-                      top: `${topPos - 3}px`,
-                      width: `${inventoryConfig.slotSize + 6}px`,
-                      height: `${inventoryConfig.slotSize + 6}px`,
-                      imageRendering: "pixelated",
-                      pointerEvents: "none",
-                      zIndex: 15,
-                    }}
-                  />
-                )}
-
-                {/* Tooltip */}
-                {selectedSlot === index && (
-                  <>
-                    {group ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: `${leftPos + inventoryConfig.slotSize / 2}px`,
-                          top: "-30px",
-                          transform: "translateX(-50%)",
-                          backgroundColor: "rgba(0, 0, 0, 0.7)",
-                          color: "white",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          whiteSpace: "nowrap",
-                          pointerEvents: "none",
-                          zIndex: 20,
-                        }}
-                      >
-                        {`${npcs.find((n) => n.id === group.npcId)?.name ?? "누군가"}에게 줄 편지`}
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      )}
-      {!showIntro && (
-        <div
-          style={{
-            position: "absolute",
-            top: "16px",
-            left: "28px",
-            width: "410px",
-            height: "185px",
-            backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
-              ? "morning"
-              : 9 + Math.floor(gameMinutes / 60) < 15
-                ? "afternoon"
-                : "evening"
-              }.png')`,
-            backgroundSize: "contain",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "left top",
-            imageRendering: "pixelated",
-            zIndex: 130,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "flex-start",
-            paddingBottom: "24px",
-            paddingLeft: "48px",
-            boxSizing: "border-box",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "Galmuri11-Bold",
-              fontSize: "26px",
-              color: "#bc9368",
-            }}
-          >
-            {(() => {
-              const total = 9 * 60 + gameMinutes;
-              const hours = Math.min(18, Math.floor(total / 60));
-              const minutes = Math.min(59, total % 60);
-              return `${hours.toString().padStart(2, "0")}:${minutes
-                .toString()
-                .padStart(2, "0")}`;
-            })()}
-          </span>
-        </div>
-      )}
-      {!showIntro && (() => {
-        const panelWidth = 220;
-        const panelHeight = 120;
-        return (
           <div
-            onClick={handleChecklistClick}
             style={{
               position: "absolute",
-              top: checklistOpen ? "0px" : "-5px",
-              right: "14px",
-              width: `${panelWidth}px`,
-              height: isQuestCompleted ? `${panelHeight * 1.8}px` : `${panelHeight}px`,
-              zIndex: 150,
-              cursor: "pointer",
-              transition: "top 0.5s ease, height 0.5s ease",
+              left: "50%",
+              bottom: "24px",
+              transform: "translateX(-50%)",
+              zIndex: 120,
+              width: `${inventoryConfig.width}px`,
+              height: `${inventoryConfig.height}px`,
+              backgroundImage: "url('/assets/common/inventory.png')",
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              imageRendering: "pixelated",
             }}
           >
-            <div
+            {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
+              const isSlot0 = index === 0;
+              const groupIndex = index - 1;
+              const group = index > 0 ? letterGroups[groupIndex] : null;
+              const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
+              const topPos = inventoryConfig.padY;
+
+              return (
+                <React.Fragment key={index}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSlot(index);
+                      if (group) {
+                        setReadingLetters(group.letters);
+                        setReadIndex(0);
+                        setShowLetterRead(true);
+                      }
+                    }}
+                    aria-label={`Inventory slot ${index + 1}`}
+                    style={{
+                      position: "absolute",
+                      left: `${leftPos}px`,
+                      top: `${topPos}px`,
+                      width: `${inventoryConfig.slotSize}px`,
+                      height: `${inventoryConfig.slotSize}px`,
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      zIndex: 10,
+                    }}
+                  />
+
+                  {isSlot0 && letterCount > 0 && (
+                    <>
+                      <img
+                        src="/assets/common/letter.png"
+                        alt="Letter"
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + 4}px`,
+                          top: `${topPos + 4}px`,
+                          width: `${inventoryConfig.slotSize - 8}px`,
+                          height: `${inventoryConfig.slotSize - 8}px`,
+                          imageRendering: "pixelated",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                          top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#774c30",
+                          backgroundColor: "rgba(230, 210, 181, 0.85)",
+                          borderRadius: "999px",
+                          minWidth: "16px",
+                          height: "16px",
+                          lineHeight: "16px",
+                          textAlign: "center",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {letterCount}
+                      </span>
+                    </>
+                  )}
+
+                  {group && (
+                    <>
+                      <img
+                        src="/assets/common/letter_wirte.png"
+                        alt="Written Letter"
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + 4}px`,
+                          top: `${topPos + 4}px`,
+                          width: `${inventoryConfig.slotSize - 8}px`,
+                          height: `${inventoryConfig.slotSize - 8}px`,
+                          imageRendering: "pixelated",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                          top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#5B3A24",
+                          backgroundColor: "rgba(230, 210, 181, 0.85)",
+                          borderRadius: "999px",
+                          minWidth: "16px",
+                          height: "16px",
+                          lineHeight: "16px",
+                          textAlign: "center",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {group.letters.length}
+                      </span>
+                    </>
+                  )}
+
+                  {selectedSlot === index && (
+                    <img
+                      src="/assets/common/focus.png"
+                      alt=""
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos - 3}px`,
+                        top: `${topPos - 3}px`,
+                        width: `${inventoryConfig.slotSize + 6}px`,
+                        height: `${inventoryConfig.slotSize + 6}px`,
+                        imageRendering: "pixelated",
+                        pointerEvents: "none",
+                        zIndex: 15,
+                      }}
+                    />
+                  )}
+
+                  {selectedSlot === index && group && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: `${leftPos + inventoryConfig.slotSize / 2}px`,
+                        top: "-30px",
+                        transform: "translateX(-50%)",
+                        backgroundColor: "rgba(0, 0, 0, 0.7)",
+                        color: "white",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "10px",
+                        whiteSpace: "nowrap",
+                        pointerEvents: "none",
+                        zIndex: 20,
+                      }}
+                    >
+                      {`${npcs.find((n) => n.id === group.npcId)?.name ?? "누군가"}에게 줄 편지`}
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              position: "absolute",
+              top: "16px",
+              left: "28px",
+              width: "410px",
+              height: "185px",
+              backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
+                ? "morning"
+                : 9 + Math.floor(gameMinutes / 60) < 15
+                  ? "afternoon"
+                  : "evening"
+                }.png')`,
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "left top",
+              imageRendering: "pixelated",
+              zIndex: 130,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "flex-start",
+              paddingBottom: "24px",
+              paddingLeft: "48px",
+              boxSizing: "border-box",
+            }}
+          >
+            <span
               style={{
-                width: `${panelWidth}px`,
-                height: isQuestCompleted ? `${panelHeight * 1.8}px` : `${panelHeight}px`,
-                backgroundImage: `url('/assets/common/${isQuestCompleted ? "check.png" : "check2.png"}')`,
-                backgroundSize: "contain",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right top",
-                imageRendering: "pixelated",
-                position: "relative",
-                transition: "height 0.5s ease, background-image 0.5s ease"
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "26px",
+                color: "#bc9368",
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: "38px",
-                  left: "56px",
-                  right: "16px",
-                  fontFamily: "Galmuri11-Bold",
-                  fontSize: "12px",
-                  color: "#8d684e",
-                  lineHeight: "1.2",
-                  cursor: "default",
-                  whiteSpace: "nowrap",
-                  textDecoration: isQuestCompleted ? "line-through" : "none",
-                  opacity: isQuestCompleted ? 0.6 : 1,
-                  transition: "all 0.5s ease",
-                }}
-              >
-                103호에게 편지를 전달하자
-              </div>
-            </div>
+              {(() => {
+                const total = 9 * 60 + gameMinutes;
+                const hours = Math.min(18, Math.floor(total / 60));
+                const minutes = Math.min(59, total % 60);
+                return `${hours.toString().padStart(2, "0")}:${minutes
+                  .toString()
+                  .padStart(2, "0")}`;
+              })()}
+            </span>
           </div>
-        );
-      })()}
-      {!showIntro && showBanToast && (
-        <div
-          style={{
-            position: "absolute",
-            top: "78px",
-            right: "16px",
-            width: "290px",
-            height: "48px",
-            backgroundImage: "url('/assets/common/ui1.png')",
-            backgroundSize: "contain",
-            backgroundRepeat: "no-repeat",
-            imageRendering: "pixelated",
-            zIndex: 126,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#8d684e",
-            fontFamily: "Galmuri11-Bold",
-            fontSize: "13px",
-            pointerEvents: "none",
-            opacity: banToastVisible ? 1 : 0,
-            transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
-            transition: "opacity 0.3s ease, transform 0.3s ease",
-          }}
-        >
-          들어갈 수 없는 것 같아..
-        </div>
-      )}
-      {!showIntro && (
-        <button
-          type="button"
-          onClick={() => setDebugWarpOpen(true)}
-          style={{
-            position: "absolute",
-            right: "22px",
-            bottom: "26px",
-            width: "38px",
-            height: "38px",
-            backgroundImage: "url('/assets/common/setting.png')",
-            backgroundSize: "contain",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center",
-            border: "none",
-            backgroundColor: "transparent",
-            imageRendering: "pixelated",
-            cursor: "pointer",
-            zIndex: 130,
-          }}
-          aria-label="Debug Warp"
-        />
-      )}
-      {!showIntro && debugWarpOpen && (
-        <div
-          onClick={() => setDebugWarpOpen(false)}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1500,
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
+
+          {showBanToast && (
+            <div style={{
+              position: "absolute",
+              top: "78px",
+              right: "16px",
+              width: "290px",
+              height: "48px",
+              backgroundImage: "url('/assets/common/ui1.png')",
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              imageRendering: "pixelated",
+              zIndex: 126,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#8d684e",
+              fontFamily: "Galmuri11-Bold",
+              fontSize: "13px",
+              pointerEvents: "none",
+              opacity: banToastVisible ? 1 : 0,
+              transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
+              transition: "opacity 0.3s ease, transform 0.3s ease",
+            }}>
+              들어갈 수 없는 것 같아..
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setDebugWarpOpen(true)}
             style={{
-              width: "360px",
-              height: "240px",
-              backgroundImage: "url('/assets/common/modal1.png')",
+              position: "absolute",
+              right: "22px",
+              bottom: "26px",
+              width: "38px",
+              height: "38px",
+              backgroundImage: "url('/assets/common/setting.png')",
               backgroundSize: "contain",
               backgroundRepeat: "no-repeat",
               backgroundPosition: "center",
+              border: "none",
+              backgroundColor: "transparent",
               imageRendering: "pixelated",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              padding: "16px 18px 20px",
-              boxSizing: "border-box",
-              color: "#4E342E",
-              fontFamily: "Galmuri11-Bold",
+              cursor: "pointer",
+              zIndex: 130,
             }}
-          >
-            <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
-              {["Place", "MiniGame"].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setDebugTab(tab)}
-                  style={{
-                    width: "80px",
-                    height: "24px",
-                    fontFamily: "Galmuri11-Bold",
-                    fontSize: "11px",
-                    color: debugTab === tab ? "#4E342E" : "#8d684e",
-                    backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
-                    border: debugTab === tab ? "2px solid #caa47d" : "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontWeight: debugTab === tab ? "bold" : "normal",
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            aria-label="Debug Warp"
+          />
 
-            {debugTab === "Place" && (
-              <>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("Road")}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Road
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Hall
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("DevelopmentRoom")}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Dev
-                  </button>
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("Room103")}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    103
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("Room104")}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    104
-                  </button>
-                </div>
-              </>
-            )}
-
-            {debugTab === "MiniGame" && (
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={() => setShowMiniGame(true)}
-                  style={{
-                    width: "80px",
-                    height: "32px",
-                    fontFamily: "Galmuri11-Bold",
-                    fontSize: "11px",
-                    color: "#4E342E",
-                    backgroundColor: "#f1d1a8",
-                    border: "2px solid #caa47d",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
-                  아케이드
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowHeartQuest(true)}
-                  style={{
-                    width: "80px",
-                    height: "32px",
-                    fontFamily: "Galmuri11-Bold",
-                    fontSize: "11px",
-                    color: "#4E342E",
-                    backgroundColor: "#f1d1a8",
-                    border: "2px solid #caa47d",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
-                  하트퀘스트
-                </button>
-              </div>
-            )}
-            <button
-              type="button"
+          {debugWarpOpen && (
+            <div
               onClick={() => setDebugWarpOpen(false)}
               style={{
-                width: "70px",
-                height: "22px",
-                fontFamily: "Galmuri11-Bold",
-                fontSize: "10px",
-                color: "#4E342E",
-                backgroundColor: "#f1d1a8",
-                border: "2px solid #caa47d",
-                borderRadius: "6px",
-                cursor: "pointer",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(0,0,0,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1500,
               }}
             >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
-      {!showIntro && (
-        <>
-          <MiniGameModal
-            isOpen={showMiniGame}
-            onClose={() => setShowMiniGame(false)}
-            onWin={() => alert("미니게임 클리어!")}
-          />
-          <ExitConfirmModal
-            isOpen={showExitConfirm}
-            roomNumber={(() => {
-              if (!exitRoomKey) return "";
-              if (exitRoomKey === "EnterHallway") return "기숙사";
-              if (exitRoomKey === "LeaveHallway") return "Outside";
-              if (exitRoomKey.startsWith("EnterRoom")) return exitRoomKey.replace("EnterRoom", "");
-              if (exitRoomKey.startsWith("Room")) return "복도"; // Exiting a room
-              return "";
-            })()}
-            onConfirm={() => {
-              setShowExitConfirm(false);
-              const game = gameRef.current;
-              if (game) {
-                // Road -> Hallway
-                if (exitRoomKey === "EnterHallway") {
-                  game.scene.stop("Road");
-                  game.scene.start("Hallway", { x: 150, y: 340 });
-                }
-                // Hallway -> Outside (Road)
-                else if (exitRoomKey === "LeaveHallway") {
-                  game.scene.stop("Hallway");
-                  game.scene.start("Road", { x: 600, y: 150 });
-                }
-                // Hallway -> Room
-                else if (exitRoomKey.startsWith("EnterRoom")) {
-                  const roomNum = exitRoomKey.replace("EnterRoom", "");
-                  game.scene.stop("Hallway");
-                  game.scene.start(`Room${roomNum}`);
-                }
-                // Room -> Hallway
-                else if (exitRoomKey.startsWith("Room")) {
-                  const roomNum = exitRoomKey.replace("Room", "");
-                  game.scene.stop(exitRoomKey);
-                  const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
-                  // Default fallback for other rooms if added
-                  game.scene.start("Hallway", exitCoords);
-                }
-              }
-            }}
-            onCancel={() => setShowExitConfirm(false)}
-          />
-          <HeartQuestModal
-            isOpen={showHeartQuest}
-            onClose={() => setShowHeartQuest(false)}
-            onWin={() => {
-              setIsQuestCompleted(true);
-              alert("퀘스트 완료!");
-            }}
-            onFail={() => alert("실패...")}
-          />
+              <div
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  width: "360px",
+                  height: "240px",
+                  backgroundImage: "url('/assets/common/modal1.png')",
+                  backgroundSize: "contain",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                  imageRendering: "pixelated",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  padding: "16px 18px 20px",
+                  boxSizing: "border-box",
+                  color: "#4E342E",
+                  fontFamily: "Galmuri11-Bold",
+                }}
+              >
+                <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                  {["장소", "미니게임"].map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setDebugTab(tab)}
+                      style={{
+                        width: "80px",
+                        height: "24px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: debugTab === tab ? "#4E342E" : "#8d684e",
+                        backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
+                        border: debugTab === tab ? "2px solid #caa47d" : "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontWeight: debugTab === tab ? "bold" : "normal",
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {debugTab === "장소" && (
+                  <>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Road")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Road
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hospital")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Hospital
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Hall
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Kaimaru")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Kaimaru
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("DevelopmentRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Dev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room103")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        103
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room104")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        104
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {debugTab === "미니게임" && (
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowMiniGame(true)}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      아케이드
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowHeartQuest(true)}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      하트퀘스트
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDebugWarpOpen(false)}
+                  style={{
+                    width: "70px",
+                    height: "22px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "10px",
+                    color: "#4E342E",
+                    backgroundColor: "#f1d1a8",
+                    border: "2px solid #caa47d",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
+
+      <MiniGameModal
+        isOpen={showMiniGame}
+        onClose={() => {
+          setShowMiniGame(false);
+          setIsQuestCompleted(true);
+        }}
+        onWin={() => alert("미니게임 클리어!")}
+      />
+      <ExitConfirmModal
+        isOpen={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        onConfirm={() => {
+          setShowExitConfirm(false);
+          const sceneKey = exitRoomKey;
+          const game = gameRef.current;
+          if (!game) return;
+          const activeKeys = game.scene.getScenes(true).map(s => s.scene.key);
+          activeKeys.forEach(k => game.scene.stop(k));
+
+          if (sceneKey === 'EnterHallway') game.scene.start('Hallway', { x: 150, y: 340 });
+          else if (sceneKey === 'EnterRoom103') game.scene.start('Room103');
+          else if (sceneKey === 'EnterRoom104') game.scene.start('Room104');
+          else if (sceneKey === 'Room103' || sceneKey === 'Room104') game.scene.start('Hallway');
+          else if (sceneKey === 'LeaveHallway') game.scene.start('Road');
+          else if (sceneKey === 'EnterKaimaru') game.scene.start('Kaimaru');
+          else if (sceneKey?.startsWith("Room")) {
+            const roomNum = sceneKey.replace("Room", "");
+            const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
+            game.scene.start("Hallway", exitCoords);
+          }
+        }}
+        roomNumber={(() => {
+          if (!exitRoomKey) return "";
+          if (exitRoomKey === "EnterHallway") return "";
+          if (exitRoomKey === "LeaveHallway") return "";
+          if (exitRoomKey === "EnterKaimaru") return "카이마루";
+          if (exitRoomKey.startsWith("EnterRoom")) return exitRoomKey.replace("EnterRoom", "") + "호";
+          if (exitRoomKey.startsWith("Room")) return "사랑관 복도";
+          return "이동";
+        })()}
+      />
+      <HeartQuestModal
+        isOpen={showHeartQuest}
+        onClose={() => setShowHeartQuest(false)}
+        onWin={() => {
+          setIsQuestCompleted(true);
+          alert("하트 퀘스트 완료!");
+        }}
+        onFail={() => alert("실패...")}
+      />
+
       {showIntro && <IntroScreen onStart={handleIntroStart} />}
+
       <div
         style={{
           position: "fixed",
@@ -1931,6 +2038,9 @@ function App() {
 }
 
 export default App;
+
+
+
 
 
 

@@ -29,8 +29,8 @@ body {
 }
 
 #game-container {
-  width: 980px;
-  height: 100vh;
+  width: 1200px;
+  height: 720px;
   margin: 0 auto;
   border: none;
   box-shadow: none;
