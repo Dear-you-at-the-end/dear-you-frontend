@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+﻿import React, { useCallback, useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import "./App.css";
 import MiniGameModal from "./components/MiniGameModal";
@@ -62,6 +62,7 @@ function App() {
   const [readIndex, setReadIndex] = useState(0);
   const writtenLettersRef = useRef([]);
   const accumulatedTimeRef = useRef(0);
+  const isSceneTransitioningRef = useRef(false);
   const gameRef = useRef(null);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
@@ -176,16 +177,22 @@ function App() {
     });
   }, []);
 
-  const handleWarp = useCallback((sceneKey, data) => {
+  const transitionToScene = useCallback((sceneKey, data) => {
     const game = gameRef.current;
-    if (!game) return;
-    const activeKeys = game.scene.getScenes(true).map((scene) => scene.scene.key);
-    activeKeys.forEach((key) => {
-      game.scene.stop(key);
-    });
+    if (!game || !sceneKey) return;
+
+    // Stop all active scenes
+    const activeScenes = game.scene.getScenes(true);
+    activeScenes.forEach((scene) => game.scene.stop(scene.scene.key));
+
+    // Start target scene instantly
     game.scene.start(sceneKey, data);
-    setDebugWarpOpen(false);
   }, []);
+
+  const handleWarp = useCallback((sceneKey, data) => {
+    transitionToScene(sceneKey, data);
+    setDebugWarpOpen(false);
+  }, [transitionToScene]);
 
   const handleIntroStart = useCallback(() => {
     setShowIntro(false);
@@ -473,7 +480,7 @@ function App() {
         .setScale(pixelScale * 1.3)
         .setDepth(windowY + 1);
 
-        const zoom = 1.2;
+      const zoom = 1.2;
       const viewW = canvasWidth / zoom;
       const viewH = canvasHeight / zoom;
       const cameraBoundsW = Math.max(roomW + outlineSideW * 2, viewW);
@@ -1063,7 +1070,7 @@ function App() {
                       transition: "opacity 0.5s ease",
                     }}
                   >
-                    104 
+                    104호에게 편지를 전달하자
                   </div>
                 </div>
               </div>
@@ -1430,7 +1437,7 @@ function App() {
                       cursor: "pointer",
                     }}
                   >
-                    
+
                   </button>
                   <button
                     onClick={() => setShowLetterRead(false)}
@@ -1809,7 +1816,7 @@ function App() {
                           cursor: "pointer",
                         }}
                       >
-                        Road
+                        길
                       </button>
                       <button
                         type="button"
@@ -1826,7 +1833,7 @@ function App() {
                           cursor: "pointer",
                         }}
                       >
-                        Hospital
+                        병원
                       </button>
                       <button
                         type="button"
@@ -1843,7 +1850,7 @@ function App() {
                           cursor: "pointer",
                         }}
                       >
-                        Hall
+                        복도
                       </button>
                       <button
                         type="button"
@@ -1860,7 +1867,7 @@ function App() {
                           cursor: "pointer",
                         }}
                       >
-                        Kaimaru
+                        카마
                       </button>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
@@ -1879,7 +1886,7 @@ function App() {
                           cursor: "pointer",
                         }}
                       >
-                        Dev
+                        개발실
                       </button>
                       <button
                         type="button"
@@ -1953,7 +1960,7 @@ function App() {
                         cursor: "pointer",
                       }}
                     >
-                      하트쿼스트
+                      산수
                     </button>
                   </div>
                 )}
@@ -1990,36 +1997,52 @@ function App() {
       />
       <ExitConfirmModal
         isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
+        onCancel={() => setShowExitConfirm(false)}
         onConfirm={() => {
           setShowExitConfirm(false);
           const sceneKey = exitRoomKey;
-          const game = gameRef.current;
-          if (!game) return;
-          const activeKeys = game.scene.getScenes(true).map(s => s.scene.key);
-          activeKeys.forEach(k => game.scene.stop(k));
+          if (!sceneKey) return;
 
-          if (sceneKey === 'EnterHallway') game.scene.start('Hallway', { x: 150, y: 340 });
-          else if (sceneKey === 'EnterRoom103') game.scene.start('Room103');
-          else if (sceneKey === 'EnterRoom104') game.scene.start('Room104');
-          else if (sceneKey === 'Room103' || sceneKey === 'Room104') game.scene.start('Hallway');
-          else if (sceneKey === 'LeaveHallway') game.scene.start('Road');
-          else if (sceneKey === 'EnterKaimaru') game.scene.start('Kaimaru');
-          else if (sceneKey?.startsWith("Room")) {
+          let targetScene = null;
+          let targetData = undefined;
+
+          if (sceneKey === "EnterHallway") {
+            targetScene = "Hallway";
+            targetData = { x: 150, y: 340 };
+          } else if (sceneKey === "EnterRoom103") {
+            targetScene = "Room103";
+          } else if (sceneKey === "EnterRoom104") {
+            targetScene = "Room104";
+          } else if (sceneKey === "LeaveHallway") {
+            targetScene = "Road";
+            targetData = { x: 260, y: 340 };
+          } else if (sceneKey === "EnterKaimaru") {
+            targetScene = "Kaimaru";
+          } else if (sceneKey === "LeaveKaimaru") {
+            targetScene = "Road";
+            targetData = { x: 900, y: 360 };
+          } else if (sceneKey === "LeaveMyRoom") {
+            targetScene = "Hallway";
+            targetData = { x: 750, y: 330 };
+          } else if (sceneKey.startsWith("Room")) {
             const roomNum = sceneKey.replace("Room", "");
             const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
-            game.scene.start("Hallway", exitCoords);
+            targetScene = "Hallway";
+            targetData = exitCoords;
+          }
+
+          if (targetScene) {
+            transitionToScene(targetScene, targetData);
           }
         }}
-        roomNumber={(() => {
+        message={(() => {
           if (!exitRoomKey) return "";
-          if (exitRoomKey === "EnterHallway") return "Dorm";
-          if (exitRoomKey === "LeaveHallway") return "Outside";
-          if (exitRoomKey === "EnterKaimaru") return "Kaimaru";
-          if (exitRoomKey === "LeaveMyRoom") return "My Room";
-          if (exitRoomKey.startsWith("EnterRoom")) return `Room ${exitRoomKey.replace("EnterRoom", "")}`;
-          if (exitRoomKey.startsWith("Room")) return "Hallway";
-          return "Move";
+          if (exitRoomKey === "EnterHallway") return "사랑관으로 들어가시겠습니까?";
+          if (exitRoomKey === "LeaveHallway") return "밖으로 나가시겠습니까?";
+          if (exitRoomKey === "EnterKaimaru") return "카이마루로 들어가시겠습니까?";
+          if (exitRoomKey.startsWith("EnterRoom")) return `${exitRoomKey.replace("EnterRoom", "")}호로 들어가시겠습니까?`;
+          if (exitRoomKey.startsWith("Room")) return "복도로 나가시겠습니까?";
+          return "이동하시겠습니까?";
         })()}
       />
       <HeartQuestModal

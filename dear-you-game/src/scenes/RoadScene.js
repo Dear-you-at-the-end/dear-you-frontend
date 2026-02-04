@@ -138,13 +138,13 @@ export default class RoadScene extends Phaser.Scene {
     bus.setScale(0.25);
     bus.setDepth(busY);
     bus.refreshBody();
-    bus.body.setSize(bus.displayWidth * 0.9, bus.displayHeight * 0.5);
-    bus.body.setOffset(bus.displayWidth * 0.05, bus.displayHeight * 0.45);
+    bus.body.setSize(bus.displayWidth * 0.9, bus.displayHeight * 0.6);
+    bus.body.setOffset(bus.displayWidth * 0.05, bus.displayHeight * 0.25);
     // Add bus boundary to building blocks so random items don't overlap heavily
     // Using a larger 'half' value to ensure clear space around it
     buildingBlocks.push({ x: busX, half: (bus.displayWidth) / 2 + 80 });
 
-    const bushScale = 1.2;
+    const bushScale = 1.8;
     const treeScale = 1.6;
     const lampScale = 1.5;
     // Scattered Decorations (Bushes, Trees, Lamps)
@@ -163,11 +163,49 @@ export default class RoadScene extends Phaser.Scene {
 
     const placedDecorations = [];
 
+    const fixedDecorations = [
+      // Gap between Sarang(260) and Kaimaru(1060)
+      { x: 380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 500, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 600, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
+      { x: 740, y: roadTopY - 80, key: "road_bush", scale: bushScale },
+      { x: 800, y: roadBottomY + 50, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+
+      // Gap between Kaimaru(1060) and Bus(1530)
+      { x: 1260, y: roadTopY - 90, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 1300, y: roadTopY - 50, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
+      { x: 1380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+
+      // Gap between Bus(1530) and Flag(2000)
+      { x: 1750, y: roadBottomY + 70, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 1850, y: roadTopY - 70, key: "road_bush", scale: bushScale },
+      { x: 1940, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+
+      // Far right
+      { x: 2200, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
+      { x: 2300, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+    ];
+
+    fixedDecorations.forEach(deco => {
+      const item = obstacles.create(deco.x, deco.y, deco.key);
+      item.setScale(deco.scale);
+      item.setDepth(deco.y);
+      item.refreshBody();
+      if (deco.body) {
+        const w = item.displayWidth * deco.body.w;
+        const h = item.displayHeight * deco.body.h;
+        item.body.setSize(w, h);
+        item.body.setOffset((item.displayWidth - w) / 2, item.displayHeight * deco.body.offY);
+      }
+      // treat fixed ones as buildings for random logic to avoid overlap
+      buildingBlocks.push({ x: deco.x, half: 40 });
+    });
+
     decorations.forEach(deco => {
       for (let i = 0; i < deco.count; i++) {
         let attempts = 0;
         let placed = false;
-        while (attempts < 28 && !placed) {
+        while (attempts < 50 && !placed) {
           const x = Phaser.Math.Between(50, MAP_WIDTH - 50);
           const range = grassYRanges[Phaser.Math.Between(0, 1)];
           const y = Phaser.Math.Between(range.min, range.max);
@@ -186,12 +224,12 @@ export default class RoadScene extends Phaser.Scene {
 
             // Physics Body Customization (Collision)
             if (deco.body) {
-              const w = item.width * deco.body.w;
-              const h = item.height * deco.body.h;
+              const w = item.displayWidth * deco.body.w;
+              const h = item.displayHeight * deco.body.h;
               item.body.setSize(w, h);
               item.body.setOffset(
-                (item.width - w) / 2,
-                item.height * deco.body.offY
+                (item.displayWidth - w) / 2,
+                item.displayHeight * deco.body.offY
               );
             }
             placedDecorations.push({ x, y, minGap: deco.minGap });
@@ -214,7 +252,6 @@ export default class RoadScene extends Phaser.Scene {
     // Bicycles (mixed colors) near road edges
     const bikeScaleLarge = 2.4;
     const bikeScaleSmall = 2.0;
-    const mixedBikeKeys = ["b1", "b2", "b3", "b4", "b5", "b6"];
     const upperStripY = roadTopY + 12;
     const lowerStripY = roadBottomY - 12;
     const scatteredPositions = [
@@ -243,8 +280,8 @@ export default class RoadScene extends Phaser.Scene {
       bike.setScale(scale);
       bike.setDepth(bike.y);
       bike.refreshBody();
-      bike.body.setSize(bike.width * 0.8, bike.height * 0.5);
-      bike.body.setOffset(bike.width * 0.1, bike.height * 0.5);
+      bike.body.setSize(bike.displayWidth * 0.8, bike.displayHeight * 0.5);
+      bike.body.setOffset(bike.displayWidth * 0.1, bike.displayHeight * 0.5);
     });
 
 
@@ -359,7 +396,7 @@ export default class RoadScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.player) return;
+    if (!this.player || !this.player.body) return;
 
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
@@ -384,14 +421,14 @@ export default class RoadScene extends Phaser.Scene {
     const canTrigger = !this.lastTriggerTime || (this.time.now - this.lastTriggerTime > 1000);
     const isMovingUp = this.moveKeys.up.isDown;
 
-    if (distanceToKaimaru < 50 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) {
+    if (canTrigger && ((distanceToKaimaru < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) || distanceToKaimaru < 30)) {
       this.lastTriggerTime = this.time.now;
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterKaimaru" } }));
       this.player.body.setVelocity(0);
       return;
     }
 
-    if (distanceToEntrance < 50 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) {
+    if (canTrigger && ((distanceToEntrance < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) || distanceToEntrance < 30)) {
       this.lastTriggerTime = this.time.now;
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterHallway" } }));
       this.player.body.setVelocity(0);

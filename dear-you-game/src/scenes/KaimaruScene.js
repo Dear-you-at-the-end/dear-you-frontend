@@ -1,8 +1,7 @@
 import Phaser from "phaser";
 
-const MAP_WIDTH = 640;
-const MAP_HEIGHT = 440;
-const FLOOR_TOP = 100;
+const MAP_WIDTH = 1200;
+const MAP_HEIGHT = 720;
 
 export default class KaimaruScene extends Phaser.Scene {
   constructor() {
@@ -11,7 +10,7 @@ export default class KaimaruScene extends Phaser.Scene {
 
   init(data) {
     this.spawnX = data?.x ?? MAP_WIDTH / 2;
-    this.spawnY = data?.y ?? MAP_HEIGHT - 60;
+    this.spawnY = data?.y ?? MAP_HEIGHT - 80;
   }
 
   preload() {
@@ -42,10 +41,10 @@ export default class KaimaruScene extends Phaser.Scene {
 
   create() {
     const pixelScale = 3;
-    const canvasWidth = 800;
-    const canvasHeight = 600;
-    const roomW = 380;
-    const roomH = 450;
+    const canvasWidth = this.scale.width;
+    const canvasHeight = this.scale.height;
+    const roomW = 800;
+    const roomH = 560;
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
     const startX = centerX - roomW / 2;
@@ -97,37 +96,23 @@ export default class KaimaruScene extends Phaser.Scene {
     door.setDepth(Math.round(doorY) + 2);
     this.exitDoor = door;
 
-    // Tables
-    // Distribute them in grid logic within the room
-    const margin = 80;
-    const colSpacing = (roomW - margin * 2) / 2;
-    const rowStart = startY + 140;
-    const rowSpacing = 100;
-
-    // We have 6 tables originally.
-    // Let's create a 2x3 grid or 3x2?
-    // User had: 3 cols x 2 rows. Room is narrower now (380).
-    // Maybe 2 cols x 3 rows is better for 380 width? Or keep 3 cols but tighter?
-    // 380 width allows roughly 3 tables if small.
-    // Table width approx 32 * 3 = 96.
-    // 96 * 3 = 288. 380 - 288 = 92 space. It fits tightly.
-    // Let's try 2 columns for better spacing?
-    // Actually user had 6 tables.
-    // Let's do 2 columns, 3 rows.
-    const tablePositions = [
-      { x: centerX - 80, y: rowStart },
-      { x: centerX + 80, y: rowStart },
-      { x: centerX - 80, y: rowStart + rowSpacing },
-      { x: centerX + 80, y: rowStart + rowSpacing },
-      { x: centerX - 80, y: rowStart + rowSpacing * 2 },
-      { x: centerX + 80, y: rowStart + rowSpacing * 2 },
-    ];
+    // Tables - 3 columns x 3 rows (more spacing, centered)
+    const rowSpacing = 120;
+    const rowStart = centerY - rowSpacing;
+    const colOffsets = [-200, 0, 200];
+    const rowOffsets = [0, rowSpacing, rowSpacing * 2];
+    const tablePositions = [];
+    rowOffsets.forEach((rowOffset) => {
+      colOffsets.forEach((colOffset) => {
+        tablePositions.push({ x: centerX + colOffset, y: rowStart + rowOffset });
+      });
+    });
 
     tablePositions.forEach((pos, index) => {
       // Main table logic: Let's make the top-right one main? Or top-left?
       // Old logic: index 1 was main (top-center).
       // Let's make index 1 (top-right) main.
-      const isMainTable = index === 1;
+      const isMainTable = index === 4;
 
       let textureKey;
       if (isMainTable) {
@@ -152,13 +137,14 @@ export default class KaimaruScene extends Phaser.Scene {
       table.setDepth(Math.round(table.y));
 
       if (isMainTable) {
-        // NPCs around main table
-        const offX = 36;
-        const offY = 12;
-        const npcLeft = this.add.image(pos.x - offX, pos.y + offY, "npc_bsy").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcLeft2 = this.add.image(pos.x - 12, pos.y + offY, "npc_kys").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcRight = this.add.image(pos.x + 12, pos.y + offY, "npc_thj").setScale(pixelScale).setDepth(pos.y + offY);
-        const npcRight2 = this.add.image(pos.x + offX, pos.y + offY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + offY);
+        // NPCs around main table (match reference: top/bottom on each side)
+        const sideX = 56;
+        const topY = -18;
+        const bottomY = 18;
+        this.add.image(pos.x - sideX, pos.y + topY, "npc_bsy").setScale(pixelScale).setDepth(pos.y + topY);
+        this.add.image(pos.x - sideX, pos.y + bottomY, "npc_kys").setScale(pixelScale).setDepth(pos.y + bottomY);
+        this.add.image(pos.x + sideX, pos.y + topY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + topY);
+        this.add.image(pos.x + sideX, pos.y + bottomY, "npc_thj").setScale(pixelScale).setDepth(pos.y + bottomY);
       }
     });
 
@@ -170,12 +156,12 @@ export default class KaimaruScene extends Phaser.Scene {
 
     this.handItem = this.add.image(0, 0, "letter_icon").setScale(1).setDepth(200).setVisible(false);
 
-    this.physics.add.collider(this.player, wallBody);
+    this.physics.add.collider(this.player, walls);
     this.physics.add.collider(this.player, obstacles);
 
-    this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    this.cameras.main.setBounds(startX, startY, roomW, roomH);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
-    this.cameras.main.setZoom(1.6);
+    this.cameras.main.setZoom(1.3);
     this.cameras.main.roundPixels = true;
 
     this.moveKeys = this.input.keyboard.addKeys({

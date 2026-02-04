@@ -40,8 +40,8 @@ export default class HospitalScene extends Phaser.Scene {
 
     create() {
         const pixelScale = 3;
-        const canvasWidth = 800;
-        const canvasHeight = 600;
+    const canvasWidth = this.scale.width;
+    const canvasHeight = this.scale.height;
         const roomW = 380;
         const roomH = 450;
         const centerX = canvasWidth / 2;
@@ -159,9 +159,8 @@ export default class HospitalScene extends Phaser.Scene {
         this.physics.add.collider(this.player, obstacles);
 
         // Camera
-        // Center camera on the room
         this.cameras.main.setBounds(0, 0, canvasWidth, canvasHeight);
-        this.cameras.main.centerOn(centerX, centerY);
+        this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
         this.cameras.main.roundPixels = true;
 
         // Controls

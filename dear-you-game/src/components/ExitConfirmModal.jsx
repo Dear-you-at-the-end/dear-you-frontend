@@ -1,6 +1,6 @@
 import React from "react";
 
-const ExitConfirmModal = ({ isOpen, onConfirm, onCancel, roomNumber }) => {
+const ExitConfirmModal = ({ isOpen, onConfirm, onCancel, roomNumber, message }) => {
     if (!isOpen) return null;
 
     return (
@@ -44,7 +44,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel, roomNumber }) => {
                         textAlign: "center",
                     }}
                 >
-                    {roomNumber ? `${roomNumber}호를 나가시겠습니까?` : "나가시겠습니까?"}
+                    {message ? message : (roomNumber ? `${roomNumber}호를 나가시겠습니까?` : "나가시겠습니까?")}
                 </h2>
 
                 {/* Buttons Container */}
