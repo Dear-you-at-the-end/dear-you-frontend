@@ -22,11 +22,13 @@ const MathMiniGameModal = ({ isOpen, onClose, onWin }) => {
     }, []);
 
     useEffect(() => {
-        if (isOpen) {
+        if (!isOpen) return;
+        const timer = setTimeout(() => {
             generateProblem();
             setUserAnswer("");
             setFeedback("");
-        }
+        }, 0);
+        return () => clearTimeout(timer);
     }, [isOpen, generateProblem]);
 
     const handleSubmit = (e) => {

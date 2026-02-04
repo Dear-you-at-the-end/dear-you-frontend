@@ -38,9 +38,9 @@ function App() {
 
   // Quest System
   const [quests, setQuests] = useState([
-    { id: 1, text: "103호에게 편지를 전달하자", room: "103", completed: false },
-    { id: 2, text: "104호에게 편지를 전달하자", room: "104", completed: false },
-    { id: 3, text: "카이마루에게 편지를 전달하자", room: "kaimaru", completed: false },
+    { id: 1, text: "103호에 편지를 전달하자", room: "103", completed: false },
+    { id: 2, text: "104호에 편지를 전달하자", room: "104", completed: false },
+    { id: 3, text: "개발실에 편지를 전달하자", room: "development_room", completed: false },
   ]);
   const [currentQuestIndex, setCurrentQuestIndex] = useState(0);
 
@@ -246,6 +246,24 @@ function App() {
       return nextOpen;
     });
   }, []);
+
+  // Auto-show quest modal when quests are updated
+  useEffect(() => {
+    const completedCount = quests.filter(q => q.completed).length;
+
+    // Show modal when a quest is completed (but not on initial load)
+    if (completedCount > 0) {
+      setChecklistOpen(true);
+
+      if (checklistTimerRef.current) {
+        clearTimeout(checklistTimerRef.current);
+      }
+
+      checklistTimerRef.current = setTimeout(() => {
+        setChecklistOpen(false);
+      }, 3000);
+    }
+  }, [quests]);
 
   const transitionToScene = useCallback((sceneKey, data) => {
     const game = gameRef.current;
@@ -717,9 +735,9 @@ function App() {
 
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "swy-idle-right", texture: "swy" },
-          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "kms-idle-down", texture: "kms" },
-          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "pcw-idle-down", texture: "pcw" },
+          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "swy-idle-right", texture: "swy" },
+          { id: "npc-103-2", x: rightX - 40, y: row3Y + 20, anim: "kms-idle-down", texture: "kms" },
+          { id: "npc-103-3", x: rightX - 40, y: row2Y + 20, anim: "pcw-idle-down", texture: "pcw" },
         ],
         Room104: [
           { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },
@@ -729,7 +747,7 @@ function App() {
 
       const configNpcs = roomNpcConfig[this.scene.key] ?? [];
 
-      this.npcs = this.physics.add.staticGroup();
+      this.npcs = this.physics.add.group({ immovable: true, allowGravity: false });
       this.npcIcons = [];
       let igPos = null;
       let injPos = null;
@@ -737,13 +755,9 @@ function App() {
       if (configNpcs) {
         configNpcs.forEach(npcData => {
           let npc;
-          if (npcData.isStatic) {
-            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
-          } else {
-            // For spritesheets, just pass texture key
-            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
-            if (npcData.anim) npc.anims.play(npcData.anim);
-          }
+          npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
+          npc.body.setImmovable(true);
+          npc.body.setAllowGravity(false);
           npc.setScale(pixelScale);
           npc.setDepth(npc.y);
           npc.refreshBody();
@@ -1215,135 +1229,6 @@ function App() {
       {/* UI Elements */}
       {!showIntro && !isOpeningScene && (
         <>
-          {/* Quest Modal */}
-          {(() => {
-            const baseImage = "quest2.png";
-            const baseSize = { w: 75, h: 32 };
-            const panelScale = 2.7;
-            const panelWidth = Math.round(baseSize.w * panelScale);
-            const panelHeight = Math.round(baseSize.h * panelScale);
-            const currentHeight = panelHeight;
-            const peek = 38;
-            const textLeft = Math.round(panelWidth * 0.15);
-            const textRight = Math.round(panelWidth * 0.15);
-            const quest1Top = Math.round(currentHeight * 0.25);
-            const quest2Top = Math.round(currentHeight * 0.3);
-
-            return (
-              <div
-                onClick={() => {
-                  // Logic:
-                  // If Quest 1 is done AND next quest not yet revealed: use the special transition.
-                  if (isQuestCompleted && !showNextQuest) {
-                    setShowNextQuest(true);
-                    setChecklistOpen(true);
-
-                    // Auto-close after 3 seconds as "Disappears then goes back up" implies
-                    if (checklistTimerRef.current) clearTimeout(checklistTimerRef.current);
-                    checklistTimerRef.current = setTimeout(() => {
-                      setChecklistOpen(false);
-                    }, 3000);
-
-                  } else {
-                    // Normal toggle
-                    handleChecklistClick();
-                  }
-                }}
-                style={{
-                  position: "absolute",
-                  top: checklistOpen ? "60px" : `-${currentHeight - peek - 56}px`,
-                  right: "20px",
-                  width: `${panelWidth}px`,
-                  height: `${currentHeight}px`,
-                  zIndex: 150,
-                  cursor: "pointer",
-                  transition: "top 0.5s cubic-bezier(0.25, 1, 0.5, 1)",
-                  animation: "questFadeIn 2.0s ease-out", // Long smooth fade-in on mount
-                }}
-              >
-                <div
-                  style={{
-                    width: `${panelWidth}px`,
-                    height: `${currentHeight}px`,
-                    backgroundImage: `url('/assets/common/${baseImage}')`,
-                    backgroundSize: "100% 100%",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "center top",
-                    imageRendering: "pixelated",
-                    position: "relative",
-                    transition: "background-image 0.5s ease"
-                  }}
-                >
-                  {/* Current Quest (bottom slot) */}
-                  {quests[currentQuestIndex] && (
-                    <>
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: `${textLeft}px`,
-                          right: `${textRight}px`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "12px",
-                          color: "#5b3a24",
-                          lineHeight: "1.4",
-                          textAlign: "center",
-                          cursor: "default",
-                          whiteSpace: "nowrap",
-                          opacity: quests[currentQuestIndex].completed ? 0.85 : 1,
-                          transition: "opacity 0.5s ease",
-                        }}
-                      >
-                        {quests[currentQuestIndex].text}
-                      </div>
-                      {quests[currentQuestIndex].completed && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: `${quest1Top + Math.round(panelScale * 2)}px`,
-                            left: `${textLeft}px`,
-                            right: `${textRight}px`,
-                            height: "2px",
-                            backgroundColor: "#5b3a24",
-                            transformOrigin: "left center",
-                            animation: "questStrike 0.35s ease forwards",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
-
-                  {/* Next Quest (top slot) */}
-                  {quests[currentQuestIndex + 1] && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: `${quest2Top}px`,
-                        left: `${textLeft}px`,
-                        right: `${textRight}px`,
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "12px",
-                        color: "#5b3a24",
-                        lineHeight: "1.2",
-                        cursor: "default",
-                        whiteSpace: "nowrap",
-                        opacity: showNextQuest || quests[currentQuestIndex].completed ? 1 : 0,
-                        pointerEvents: showNextQuest || quests[currentQuestIndex].completed ? "auto" : "none",
-                        transition: "opacity 0.5s ease",
-                      }}
-                    >
-                      {quests[currentQuestIndex + 1].text}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
 
           {showWriteConfirm && (
             <div
@@ -1940,149 +1825,137 @@ function App() {
             </span>
           </div>
 
-          {/* Quest Modal - Top Right */}
-          {checklistOpen && (
-            <div
+          {/* Quest Modal - Slide from Right */}
+          <div
+            onClick={() => handleChecklistClick()}
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: checklistOpen ? "16px" : "-290px", // Slide in/out
+              width: "340px",
+              height: "230px",
+              backgroundImage: "url('/assets/common/modal1.png')",
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              imageRendering: "pixelated",
+              zIndex: 135,
+              display: "flex",
+              flexDirection: "column",
+              padding: "22px 28px",
+              boxSizing: "border-box",
+              transition: "right 0.5s cubic-bezier(0.25, 1, 0.5, 1)",
+              cursor: "pointer",
+            }}
+          >
+            <h3
               style={{
-                position: "absolute",
-                top: "16px",
-                right: "16px",
-                width: "420px",
-                height: "280px",
-                backgroundImage: "url('/assets/common/modal1.png')",
-                backgroundSize: "contain",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center",
-                imageRendering: "pixelated",
-                zIndex: 135,
-                display: "flex",
-                flexDirection: "column",
-                padding: "30px 35px",
-                boxSizing: "border-box",
-                animation: "questSlideIn 0.3s ease-out",
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "16px",
+                color: "#5B3A24",
+                marginBottom: "14px",
+                textAlign: "left",
               }}
             >
-              <style>{`
-                @keyframes questSlideIn {
-                  from {
-                    opacity: 0;
-                    transform: translateX(20px);
-                  }
-                  to {
-                    opacity: 1;
-                    transform: translateX(0);
-                  }
-                }
-              `}</style>
+              📋 퀘스트 목록
+            </h3>
 
-              <h3
-                style={{
-                  fontFamily: "Galmuri11-Bold",
-                  fontSize: "18px",
-                  color: "#5B3A24",
-                  marginBottom: "20px",
-                  textAlign: "left",
-                }}
-              >
-                📋 퀘스트 목록
-              </h3>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                {quests.map((quest, index) => (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "9px",
+              }}
+            >
+              {quests.map((quest, index) => (
+                <div
+                  key={quest.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    opacity: index <= currentQuestIndex ? 1 : 0.4,
+                    transition: "opacity 0.3s",
+                  }}
+                >
+                  {/* Quest Icon/Status */}
                   <div
-                    key={quest.id}
                     style={{
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "50%",
+                      backgroundColor: quest.completed
+                        ? "#4CAF50"
+                        : index === currentQuestIndex
+                          ? "#FFC107"
+                          : "#9E9E9E",
                       display: "flex",
                       alignItems: "center",
-                      gap: "12px",
-                      opacity: index <= currentQuestIndex ? 1 : 0.4,
-                      transition: "opacity 0.3s",
+                      justifyContent: "center",
+                      color: "white",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "12px",
+                      flexShrink: 0,
                     }}
                   >
-                    {/* Quest Icon/Status */}
-                    <div
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        backgroundColor: quest.completed
-                          ? "#4CAF50"
-                          : index === currentQuestIndex
-                            ? "#FFC107"
-                            : "#9E9E9E",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "white",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "14px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {quest.completed ? "✓" : index + 1}
-                    </div>
-
-                    {/* Quest Text */}
-                    <div
-                      style={{
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "15px",
-                        color: quest.completed ? "#6d8c54" : "#5B3A24",
-                        textDecoration: quest.completed ? "line-through" : "none",
-                        flex: 1,
-                      }}
-                    >
-                      {quest.text}
-                    </div>
+                    {quest.completed ? "✓" : index + 1}
                   </div>
-                ))}
-              </div>
 
-              {/* Progress bar */}
+                  {/* Quest Text */}
+                  <div
+                    style={{
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "13px",
+                      color: quest.completed ? "#6d8c54" : "#5B3A24",
+                      textDecoration: quest.completed ? "line-through" : "none",
+                      flex: 1,
+                    }}
+                  >
+                    {quest.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress bar */}
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: "14px",
+              }}
+            >
               <div
                 style={{
-                  marginTop: "auto",
-                  paddingTop: "20px",
+                  fontFamily: "Galmuri11-Bold",
+                  fontSize: "11px",
+                  color: "#8d684e",
+                  marginBottom: "6px",
+                }}
+              >
+                진행도: {quests.filter((q) => q.completed).length} / {quests.length}
+              </div>
+              <div
+                style={{
+                  width: "100%",
+                  height: "10px",
+                  backgroundColor: "rgba(0, 0, 0, 0.1)",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                  border: "1px solid #8d684e",
                 }}
               >
                 <div
                   style={{
-                    fontFamily: "Galmuri11-Bold",
-                    fontSize: "12px",
-                    color: "#8d684e",
-                    marginBottom: "8px",
+                    width: `${(quests.filter((q) => q.completed).length / quests.length) * 100}%`,
+                    height: "100%",
+                    backgroundColor: "#6d8c54",
+                    transition: "width 0.5s ease",
                   }}
-                >
-                  진행도: {quests.filter((q) => q.completed).length} / {quests.length}
-                </div>
-                <div
-                  style={{
-                    width: "100%",
-                    height: "12px",
-                    backgroundColor: "rgba(0, 0, 0, 0.1)",
-                    borderRadius: "6px",
-                    overflow: "hidden",
-                    border: "1px solid #8d684e",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${(quests.filter((q) => q.completed).length / quests.length) * 100}%`,
-                      height: "100%",
-                      backgroundColor: "#6d8c54",
-                      transition: "width 0.5s ease",
-                    }}
-                  />
-                </div>
+                />
               </div>
             </div>
-          )}
+          </div>
+
 
           {showBanToast && (
             <div style={{
@@ -2110,6 +1983,321 @@ function App() {
                   ..
             </div>
           )}
+
+          {/* Settings Button - Bottom Right */}
+          <button
+            type="button"
+            onClick={() => setDebugWarpOpen(true)}
+            style={{
+              position: "absolute",
+              right: "22px",
+              bottom: "26px",
+              width: "38px",
+              height: "38px",
+              backgroundImage: "url('/assets/common/setting.png')",
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              border: "none",
+              backgroundColor: "transparent",
+              imageRendering: "pixelated",
+              cursor: "pointer",
+              zIndex: 130,
+            }}
+            aria-label="Settings"
+          />
+
+          {/* Debug Warp Modal */}
+          {debugWarpOpen && (
+            <div
+              onClick={() => setDebugWarpOpen(false)}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: "rgba(0,0,0,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1500,
+              }}
+            >
+              <div
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                  width: "420px",
+                  height: "280px",
+                  backgroundImage: "url('/assets/common/modal1.png')",
+                  backgroundSize: "contain",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                  imageRendering: "pixelated",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                  padding: "20px 22px 24px",
+                  boxSizing: "border-box",
+                  color: "#4E342E",
+                  fontFamily: "Galmuri11-Bold",
+                }}
+              >
+                <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                  {["장소", "미니게임"].map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setDebugTab(tab)}
+                      style={{
+                        width: "80px",
+                        height: "24px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: debugTab === tab ? "#4E342E" : "#8d684e",
+                        backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
+                        border: debugTab === tab ? "2px solid #caa47d" : "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontWeight: debugTab === tab ? "bold" : "normal",
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {debugTab === "장소" && (
+                  <>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("GameScene")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        길
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hospital")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        병원
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        복도
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Kaimaru")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        카마
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("DevelopmentRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        개발실
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room103")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        103
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room104")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        104
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("MyRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        마이룸
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Ground")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        운동장
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {debugTab === "미니게임" && (
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMiniGame(true);
+                        setDebugWarpOpen(false);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      103호
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHeartQuest(true);
+                        setDebugWarpOpen(false);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "11px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      104호
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDebugWarpOpen(false)}
+                  style={{
+                    width: "70px",
+                    height: "22px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "10px",
+                    color: "#4E342E",
+                    backgroundColor: "#f1d1a8",
+                    border: "2px solid #caa47d",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+
         </>
       )
       }

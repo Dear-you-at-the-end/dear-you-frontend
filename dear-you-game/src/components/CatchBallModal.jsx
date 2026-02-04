@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 
 const CatchBallModal = ({ isOpen, onClose, onWin }) => {
     const [gameState, setGameState] = useState("intro"); // 'intro', 'playing', 'success', 'failed'
@@ -51,6 +51,57 @@ const CatchBallModal = ({ isOpen, onClose, onWin }) => {
     };
 
     const currentDifficulty = getDifficulty(currentRound);
+
+    const checkHit = useCallback(() => {
+        const { targetMin, targetMax } = currentDifficulty;
+
+        if (gaugePosition >= targetMin && gaugePosition <= targetMax) {
+            // Success!
+            setShowResult("success");
+            setGameState("result");
+
+            setTimeout(() => {
+                if (currentRound >= 3) {
+                    // Game Won!
+                    setGameState("success");
+                    setTimeout(() => {
+                        onWin();
+                        onClose();
+                    }, 2000);
+                } else {
+                    // Next round
+                    setCurrentRound(prev => prev + 1);
+                    setGaugePosition(0);
+                    setGaugeDirection(1);
+                    setShowResult(null);
+                    setGameState("playing");
+                }
+            }, 1500);
+        } else {
+            // Failed!
+            setShowResult("fail");
+            setGameState("result");
+
+            setTimeout(() => {
+                const newLives = lives - 1;
+                setLives(newLives);
+
+                if (newLives <= 0) {
+                    // Game Over
+                    setGameState("failed");
+                    setTimeout(() => {
+                        onClose();
+                    }, 2000);
+                } else {
+                    // Try again same round
+                    setGaugePosition(0);
+                    setGaugeDirection(1);
+                    setShowResult(null);
+                    setGameState("playing");
+                }
+            }, 1500);
+        }
+    }, [currentDifficulty, gaugePosition, currentRound, lives, onWin, onClose]);
 
     // Reset game state when modal opens
     useEffect(() => {
@@ -139,58 +190,7 @@ const CatchBallModal = ({ isOpen, onClose, onWin }) => {
 
         window.addEventListener("keydown", handleKeyPress);
         return () => window.removeEventListener("keydown", handleKeyPress);
-    }, [gameState, gaugePosition, currentRound, lives]);
-
-    const checkHit = () => {
-        const { targetMin, targetMax } = currentDifficulty;
-
-        if (gaugePosition >= targetMin && gaugePosition <= targetMax) {
-            // Success!
-            setShowResult("success");
-            setGameState("result");
-
-            setTimeout(() => {
-                if (currentRound >= 3) {
-                    // Game Won!
-                    setGameState("success");
-                    setTimeout(() => {
-                        onWin();
-                        onClose();
-                    }, 2000);
-                } else {
-                    // Next round
-                    setCurrentRound(prev => prev + 1);
-                    setGaugePosition(0);
-                    setGaugeDirection(1);
-                    setShowResult(null);
-                    setGameState("playing");
-                }
-            }, 1500);
-        } else {
-            // Failed!
-            setShowResult("fail");
-            setGameState("result");
-
-            setTimeout(() => {
-                const newLives = lives - 1;
-                setLives(newLives);
-
-                if (newLives <= 0) {
-                    // Game Over
-                    setGameState("failed");
-                    setTimeout(() => {
-                        onClose();
-                    }, 2000);
-                } else {
-                    // Try again same round
-                    setGaugePosition(0);
-                    setGaugeDirection(1);
-                    setShowResult(null);
-                    setGameState("playing");
-                }
-            }, 1500);
-        }
-    };
+    }, [gameState, checkHit]);
 
     if (!isOpen) return null;
 
