@@ -325,12 +325,12 @@ export default class RoadScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player, obstacles);
 
-    // Create Cat Animations
+    // Create Cat Animations - using 2 frames (alternating feet) for each direction
     if (!this.anims.exists("cat-walk-down")) {
-      this.anims.create({ key: "cat-walk-down", frames: this.anims.generateFrameNumbers("cat", { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
-      this.anims.create({ key: "cat-walk-left", frames: this.anims.generateFrameNumbers("cat", { start: 3, end: 5 }), frameRate: 8, repeat: -1 });
-      this.anims.create({ key: "cat-walk-right", frames: this.anims.generateFrameNumbers("cat", { start: 6, end: 8 }), frameRate: 8, repeat: -1 });
-      this.anims.create({ key: "cat-walk-up", frames: this.anims.generateFrameNumbers("cat", { start: 9, end: 11 }), frameRate: 8, repeat: -1 });
+      this.anims.create({ key: "cat-walk-down", frames: this.anims.generateFrameNumbers("cat", { frames: [0, 2] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "cat-walk-left", frames: this.anims.generateFrameNumbers("cat", { frames: [3, 5] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "cat-walk-right", frames: this.anims.generateFrameNumbers("cat", { frames: [6, 8] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "cat-walk-up", frames: this.anims.generateFrameNumbers("cat", { frames: [9, 11] }), frameRate: 6, repeat: -1 });
     }
 
     // Cat
@@ -456,6 +456,12 @@ export default class RoadScene extends Phaser.Scene {
       };
       return map[action]?.[dir] ?? "idle-down";
     };
+    const playIfExists = (target, key) => {
+      if (!key || !target?.anims) return;
+      const anim = this.anims.get(key);
+      if (!anim || !anim.frames || anim.frames.length === 0) return;
+      target.anims.play(key, true);
+    };
 
     this.player.body.setVelocity(0);
     const leftDown = this.moveKeys.left.isDown || this.moveKeys.a.isDown;
@@ -465,22 +471,22 @@ export default class RoadScene extends Phaser.Scene {
 
     if (leftDown) {
       this.player.body.setVelocityX(-speed);
-      this.player.anims.play(animKey(animPrefix, "left"), true);
+      playIfExists(this.player, animKey(animPrefix, "left"));
       this.lastDirection = "left";
     } else if (rightDown) {
       this.player.body.setVelocityX(speed);
-      this.player.anims.play(animKey(animPrefix, "right"), true);
+      playIfExists(this.player, animKey(animPrefix, "right"));
       this.lastDirection = "right";
     } else if (upDown) {
       this.player.body.setVelocityY(-speed);
-      this.player.anims.play(animKey(animPrefix, "up"), true);
+      playIfExists(this.player, animKey(animPrefix, "up"));
       this.lastDirection = "up";
     } else if (downDown) {
       this.player.body.setVelocityY(speed);
-      this.player.anims.play(animKey(animPrefix, "down"), true);
+      playIfExists(this.player, animKey(animPrefix, "down"));
       this.lastDirection = "down";
     } else {
-      this.player.anims.play(animKey("idle", this.lastDirection), true);
+      playIfExists(this.player, animKey("idle", this.lastDirection));
     }
 
     this.player.setDepth(10000);
@@ -537,16 +543,20 @@ export default class RoadScene extends Phaser.Scene {
       const speed = this.catMoveSpeed ?? 50;
       if (this.catMoveDir === "left") {
         this.cat.setVelocity(-speed, 0);
-        this.cat.anims.play("cat-walk-left", true);
+        this.cat.body.velocity.y = 0;
+        playIfExists(this.cat, "cat-walk-left");
       } else if (this.catMoveDir === "right") {
         this.cat.setVelocity(speed, 0);
-        this.cat.anims.play("cat-walk-right", true);
+        this.cat.body.velocity.y = 0;
+        playIfExists(this.cat, "cat-walk-right");
       } else if (this.catMoveDir === "up") {
         this.cat.setVelocity(0, -speed);
-        this.cat.anims.play("cat-walk-up", true);
+        this.cat.body.velocity.x = 0;
+        playIfExists(this.cat, "cat-walk-up");
       } else if (this.catMoveDir === "down") {
         this.cat.setVelocity(0, speed);
-        this.cat.anims.play("cat-walk-down", true);
+        this.cat.body.velocity.x = 0;
+        playIfExists(this.cat, "cat-walk-down");
       } else {
         this.cat.setVelocity(0);
         this.cat.anims.stop();

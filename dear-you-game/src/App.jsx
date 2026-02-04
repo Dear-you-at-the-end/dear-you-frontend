@@ -997,31 +997,17 @@ function App() {
         <>
           {/* Quest Modal */}
           {(() => {
-            const panelWidth = 220;
-            const panelHeight = 216; // Fixed for check1.png
-
-            // If check1.png (showNextQuest), it is a longer paper.
-            // check.png / check2.png are shorter.
-
-            const isExtended = showNextQuest;
-            // Approximate height for the extended paper
-            const extendedHeight = 216;
-
-            // If checklistOpen is true:
-            //  Normal -> visible fully (top: 0)
-            //  Extended -> visible fully (top: 0)
-            // If checklistOpen is false:
-            //  Normal -> peek (top: -XX)
-            //  Extended -> peek ? (top: -XX)
-
-            // Let's rely on standard logic:
-            // check2.png (Quest 1 Active)
-            // check.png (Quest 1 Done) -> Click -> check1.png (Quest 1 Done + Quest 2 Active)
-
+            const baseImage = "questnotice.png";
+            const baseSize = { w: 75, h: 46 };
+            const panelScale = 2.35;
+            const panelWidth = Math.round(baseSize.w * panelScale);
+            const panelHeight = Math.round(baseSize.h * panelScale);
             const currentHeight = panelHeight;
-
-            // Peek offset calculation if needed, or simple fixed check.
-            // User likes "modal down" on click.
+            const peek = 12;
+            const textLeft = Math.round(panelWidth * 0.25);
+            const textRight = Math.round(panelWidth * 0.07);
+            const quest1Top = Math.round(currentHeight * 0.28);
+            const quest2Top = Math.round(currentHeight * 0.07);
 
             return (
               <div
@@ -1045,7 +1031,7 @@ function App() {
                 }}
                 style={{
                   position: "absolute",
-                  top: checklistOpen ? "0px" : "-190px",
+                  top: checklistOpen ? "0px" : `-${currentHeight - peek}px`,
                   // Keeping -5px for normal peek. If extended is hidden, it might need more offset or same.
                   // If "check1.png" (extended) is hidden, we usually want to show just the bottom edge?
                   // "check1" has quest 1 at top, quest 2 at bottom. 
@@ -1080,29 +1066,29 @@ function App() {
                   height: `${currentHeight}px`,
                   zIndex: 150,
                   cursor: "pointer",
-                  transition: "top 0.5s ease, height 0.5s ease",
+                  transition: "top 0.5s ease",
                 }}
               >
                 <div
                   style={{
                     width: `${panelWidth}px`,
                     height: `${currentHeight}px`,
-                    backgroundImage: `url('/assets/common/check1.png')`,
+                    backgroundImage: `url('/assets/common/${baseImage}')`,
                     backgroundSize: "100% 100%",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center top",
                     imageRendering: "pixelated",
                     position: "relative",
-                    transition: "height 0.5s ease, background-image 0.5s ease"
+                    transition: "background-image 0.5s ease"
                   }}
                 >
                   {/* Quest 1 Text (bottom slot) */}
                   <div
                     style={{
                       position: "absolute",
-                      top: "60px", // Bottom slot - Adjusted UP per request
-                      left: "56px",
-                      right: "16px",
+                      top: `${quest1Top}px`,
+                      left: `${textLeft}px`,
+                      right: `${textRight}px`,
                       fontFamily: "Galmuri11-Bold",
                       fontSize: "12px",
                       color: "#5b3a24",
@@ -1119,9 +1105,9 @@ function App() {
                     <div
                       style={{
                         position: "absolute",
-                        top: "66px",
-                        left: "56px",
-                        right: "16px",
+                        top: `${quest1Top + Math.round(panelScale * 2)}px`,
+                        left: `${textLeft}px`,
+                        right: `${textRight}px`,
                         height: "2px",
                         backgroundColor: "#5b3a24",
                         transformOrigin: "left center",
@@ -1135,9 +1121,9 @@ function App() {
                   <div
                     style={{
                       position: "absolute",
-                      top: "15px", // Top slot - Adjusted UP per request
-                      left: "56px",
-                      right: "16px",
+                      top: `${quest2Top}px`,
+                      left: `${textLeft}px`,
+                      right: `${textRight}px`,
                       fontFamily: "Galmuri11-Bold",
                       fontSize: "12px",
                       color: "#5b3a24",
