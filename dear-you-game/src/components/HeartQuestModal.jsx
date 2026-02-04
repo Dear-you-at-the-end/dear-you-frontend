@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
     const [lives, setLives] = useState(3);
@@ -9,7 +9,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
     const [timeLeft, setTimeLeft] = useState(10);
     const [isGameOver, setIsGameOver] = useState(false);
 
-    const generateProblem = (currentLevel) => {
+    const generateProblem = useCallback((currentLevel) => {
         let num1, num2, answer, operator;
 
         switch (currentLevel) {
@@ -34,7 +34,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                 }
                 setTimeLeft(8);
                 break;
-            case 3: // Hard: Mixed Operation (e.g. A + B - C)
+            case 3: { // Hard: Mixed Operation (e.g. A + B - C)
                 num1 = Math.floor(Math.random() * 20) + 10;
                 num2 = Math.floor(Math.random() * 10) + 5;
                 const num3 = Math.floor(Math.random() * 10) + 1;
@@ -42,6 +42,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                 answer = num1 + num2 - num3;
                 setTimeLeft(5);
                 break;
+            }
             default:
                 break;
         }
@@ -63,37 +64,22 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
             answer
         });
         setOptions(shuffledOptions);
-    };
+    }, []);
 
-    useEffect(() => {
-        if (isOpen) {
-            resetGame();
-        }
-    }, [isOpen]);
-
-    const resetGame = () => {
+    const resetGame = useCallback(() => {
         setLives(3);
         setBreakingIndex(null);
         setLevel(1);
         setIsGameOver(false);
         generateProblem(1);
-    };
+    }, [generateProblem]);
 
     useEffect(() => {
-        if (!isOpen || lives <= 0 || isGameOver) return;
-
-        const timer = setInterval(() => {
-            setTimeLeft((prev) => {
-                if (prev <= 1) {
-                    handleWrongAnswer();
-                    return prev;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [isOpen, lives, problem, isGameOver]);
+        if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            resetGame();
+        }
+    }, [isOpen, resetGame]);
 
     const handleAnswer = (selectedAmount) => {
         if (selectedAmount === problem.answer) {
@@ -112,7 +98,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
         }
     };
 
-    const handleWrongAnswer = () => {
+    const handleWrongAnswer = useCallback(() => {
         if (lives > 0) {
             const targetIndex = lives - 1;
             setBreakingIndex(targetIndex);
@@ -129,7 +115,23 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                 }
             }, 500);
         }
-    };
+    }, [generateProblem, level, lives, onFail]);
+
+    useEffect(() => {
+        if (!isOpen || lives <= 0 || isGameOver) return;
+
+        const timer = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    handleWrongAnswer();
+                    return prev;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isOpen, lives, problem, isGameOver, handleWrongAnswer]);
 
     if (!isOpen) return null;
 

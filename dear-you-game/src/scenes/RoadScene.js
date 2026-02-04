@@ -120,8 +120,8 @@ export default class RoadScene extends Phaser.Scene {
       const building = obstacles.create(def.x, y, def.key);
       building.setScale(scale);
       building.refreshBody();
-      building.body.setSize(building.displayWidth, building.displayHeight * 0.3);
-      building.body.setOffset(0, building.displayHeight * 0.7);
+      building.body.setSize(building.displayWidth * 0.9, building.displayHeight * 0.35);
+      building.body.setOffset(building.displayWidth * 0.05, building.displayHeight * 0.65);
       building.setDepth(Math.round(bottomY));
       def.bottomY = bottomY;
     });
@@ -138,8 +138,8 @@ export default class RoadScene extends Phaser.Scene {
     bus.setScale(0.25);
     bus.setDepth(busY);
     bus.refreshBody();
-    bus.body.setSize(bus.displayWidth * 0.9, bus.displayHeight * 0.6);
-    bus.body.setOffset(bus.displayWidth * 0.05, bus.displayHeight * 0.25);
+    bus.body.setSize(bus.displayWidth * 0.8, bus.displayHeight * 0.5);
+    bus.body.setOffset(bus.displayWidth * 0.1, bus.displayHeight * 0.2);
     // Add bus boundary to building blocks so random items don't overlap heavily
     // Using a larger 'half' value to ensure clear space around it
     buildingBlocks.push({ x: busX, half: (bus.displayWidth) / 2 + 80 });
@@ -156,34 +156,34 @@ export default class RoadScene extends Phaser.Scene {
     ];
 
     const decorations = [
-      { key: "road_tree", count: 8, scale: treeScale, minGap: 140, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { key: "road_bush", count: 12, scale: bushScale, minGap: 90, body: { w: 0.7, h: 0.4, offY: 0.4 } },
-      { key: "road_lamp", count: 4, scale: lampScale, minGap: 160, body: { w: 0.2, h: 0.1, offY: 0.85 } }
+      { key: "road_tree", count: 8, scale: treeScale, minGap: 140, body: { w: 0.25, h: 0.25, offY: 0.75 } },
+      { key: "road_bush", count: 12, scale: bushScale, minGap: 90, body: { w: 0.8, h: 0.5, offY: 0.5 } },
+      { key: "road_lamp", count: 4, scale: lampScale, minGap: 160, body: { w: 0.2, h: 0.2, offY: 0.8 } }
     ];
 
     const placedDecorations = [];
 
     const fixedDecorations = [
       // Gap between Sarang(260) and Kaimaru(1060)
-      { x: 380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { x: 500, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { x: 600, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
-      { x: 740, y: roadTopY - 80, key: "road_bush", scale: bushScale },
-      { x: 800, y: roadBottomY + 50, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
+      { x: 500, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
+      { x: 600, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.2, offY: 0.8 } },
+      { x: 740, y: roadTopY - 80, key: "road_bush", scale: bushScale, body: { w: 0.8, h: 0.5, offY: 0.5 } },
+      { x: 800, y: roadBottomY + 50, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
 
       // Gap between Kaimaru(1060) and Bus(1530)
-      { x: 1260, y: roadTopY - 90, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { x: 1300, y: roadTopY - 50, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
-      { x: 1380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 1260, y: roadTopY - 90, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
+      { x: 1300, y: roadTopY - 50, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.2, offY: 0.8 } },
+      { x: 1380, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
 
       // Gap between Bus(1530) and Flag(2000)
-      { x: 1750, y: roadBottomY + 70, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
-      { x: 1850, y: roadTopY - 70, key: "road_bush", scale: bushScale },
-      { x: 1940, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 1750, y: roadBottomY + 70, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
+      { x: 1850, y: roadTopY - 70, key: "road_bush", scale: bushScale, body: { w: 0.8, h: 0.5, offY: 0.5 } },
+      { x: 1940, y: roadBottomY + 60, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
 
       // Far right
-      { x: 2200, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.1, offY: 0.85 } },
-      { x: 2300, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.4, h: 0.2, offY: 0.7 } },
+      { x: 2200, y: roadBottomY + 60, key: "road_lamp", scale: lampScale, body: { w: 0.2, h: 0.2, offY: 0.8 } },
+      { x: 2300, y: roadTopY - 60, key: "road_tree", scale: treeScale, body: { w: 0.25, h: 0.25, offY: 0.75 } },
     ];
 
     fixedDecorations.forEach(deco => {
@@ -280,8 +280,8 @@ export default class RoadScene extends Phaser.Scene {
       bike.setScale(scale);
       bike.setDepth(bike.y);
       bike.refreshBody();
-      bike.body.setSize(bike.displayWidth * 0.8, bike.displayHeight * 0.5);
-      bike.body.setOffset(bike.displayWidth * 0.1, bike.displayHeight * 0.5);
+      bike.body.setSize(bike.displayWidth * 0.6, bike.displayHeight * 0.3);
+      bike.body.setOffset(bike.displayWidth * 0.2, bike.displayHeight * 0.6);
     });
 
 
@@ -290,8 +290,8 @@ export default class RoadScene extends Phaser.Scene {
     // No bikes directly in front of building doors (avoid clutter)
 
     const sarang = buildingDefs[0];
-    this.entranceX = sarang.x;
-    this.entranceY = Math.round((sarang.bottomY ?? buildingBottomTarget) - 8);
+    this.entranceX = sarang.x - 32;
+    this.entranceY = Math.round((sarang.bottomY ?? buildingBottomTarget) + 24);
     const kaimaru = buildingDefs.find((def) => def.key === "road_kaimaru");
     this.kaimaruEntranceX = kaimaru?.x ?? null;
     this.kaimaruEntranceY = kaimaru ? Math.round((kaimaru.bottomY ?? buildingBottomTarget) - 8) : null;
@@ -325,6 +325,14 @@ export default class RoadScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player, obstacles);
 
+    // Create Cat Animations
+    if (!this.anims.exists("cat-walk-down")) {
+      this.anims.create({ key: "cat-walk-down", frames: this.anims.generateFrameNumbers("cat", { start: 0, end: 2 }), frameRate: 8, repeat: -1 });
+      this.anims.create({ key: "cat-walk-left", frames: this.anims.generateFrameNumbers("cat", { start: 3, end: 5 }), frameRate: 8, repeat: -1 });
+      this.anims.create({ key: "cat-walk-right", frames: this.anims.generateFrameNumbers("cat", { start: 6, end: 8 }), frameRate: 8, repeat: -1 });
+      this.anims.create({ key: "cat-walk-up", frames: this.anims.generateFrameNumbers("cat", { start: 9, end: 11 }), frameRate: 8, repeat: -1 });
+    }
+
     // Cat
     this.cat = this.physics.add.sprite(
       Phaser.Math.Between(100, MAP_WIDTH - 100),
@@ -338,6 +346,8 @@ export default class RoadScene extends Phaser.Scene {
     this.physics.add.collider(this.cat, obstacles);
     this.cat.setDepth(10000);
     this.catNextDecisionTime = 0;
+    this.catMoveDir = "idle";
+    this.catMoveSpeed = 50;
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, mapHeight);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
@@ -428,7 +438,7 @@ export default class RoadScene extends Phaser.Scene {
       return;
     }
 
-    if (canTrigger && ((distanceToEntrance < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) || distanceToEntrance < 30)) {
+    if (canTrigger && ((distanceToEntrance < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) || distanceToEntrance < 35)) {
       this.lastTriggerTime = this.time.now;
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterHallway" } }));
       this.player.body.setVelocity(0);
@@ -499,25 +509,48 @@ export default class RoadScene extends Phaser.Scene {
 
     // Cat AI Update
     if (this.cat && this.time.now > this.catNextDecisionTime) {
-      const shouldMove = Math.random() > 0.4;
-      if (shouldMove) {
-        const cSpeed = 25;
-        const vx = Phaser.Math.Between(-cSpeed, cSpeed);
-        const vy = Phaser.Math.Between(-cSpeed / 2, cSpeed / 2);
-        this.cat.setVelocity(vx, vy);
-
-        if (Math.abs(vx) > Math.abs(vy)) {
-          this.cat.anims.play(vx > 0 ? 'cat-walk-right' : 'cat-walk-left', true);
+      const action = Math.random();
+      if (action < 0.4) {
+        this.cat.setVelocity(0);
+        this.catMoveDir = "idle";
+      } else {
+        const speed = this.catMoveSpeed ?? 50;
+        const dir = Math.random();
+        if (dir < 0.25) {
+          this.cat.setVelocity(speed, 0);
+          this.catMoveDir = "right";
+        } else if (dir < 0.5) {
+          this.cat.setVelocity(-speed, 0);
+          this.catMoveDir = "left";
+        } else if (dir < 0.75) {
+          this.cat.setVelocity(0, speed);
+          this.catMoveDir = "down";
         } else {
-          this.cat.anims.play(vy > 0 ? 'cat-walk-down' : 'cat-walk-up', true);
+          this.cat.setVelocity(0, -speed);
+          this.catMoveDir = "up";
         }
+      }
+      this.catNextDecisionTime = this.time.now + Phaser.Math.Between(2000, 5000);
+    }
+
+    if (this.cat) {
+      const speed = this.catMoveSpeed ?? 50;
+      if (this.catMoveDir === "left") {
+        this.cat.setVelocity(-speed, 0);
+        this.cat.anims.play("cat-walk-left", true);
+      } else if (this.catMoveDir === "right") {
+        this.cat.setVelocity(speed, 0);
+        this.cat.anims.play("cat-walk-right", true);
+      } else if (this.catMoveDir === "up") {
+        this.cat.setVelocity(0, -speed);
+        this.cat.anims.play("cat-walk-up", true);
+      } else if (this.catMoveDir === "down") {
+        this.cat.setVelocity(0, speed);
+        this.cat.anims.play("cat-walk-down", true);
       } else {
         this.cat.setVelocity(0);
         this.cat.anims.stop();
       }
-      this.catNextDecisionTime = this.time.now + Phaser.Math.Between(2000, 5000);
-    }
-    if (this.cat) {
       this.cat.setDepth(this.cat.y);
     }
   }

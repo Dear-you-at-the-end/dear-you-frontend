@@ -38,91 +38,109 @@ export default class MyRoomScene extends Phaser.Scene {
 
   create() {
     const pixelScale = 2;
+    const roomW = 280;
+    const roomH = 300;
 
-    this.cameras.main.setBackgroundColor("#222222");
-    this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    // Dynamic centering
+    const canvasWidth = this.scale.width;
+    const canvasHeight = this.scale.height;
+    const cx = canvasWidth / 2;
+    const cy = canvasHeight / 2;
+    const startX = cx - roomW / 2;
+    const startY = cy - roomH / 2;
 
-    const floorHeight = 300;
-    const floorTop = MAP_HEIGHT - floorHeight;
-    const floorY = floorTop + floorHeight / 2;
+    this.physics.world.setBounds(startX, startY, roomW, roomH);
 
-    this.add
-      .tileSprite(MAP_WIDTH / 2, floorY, MAP_WIDTH, floorHeight, "my_floor")
+    // Floor
+    this.add.tileSprite(cx, cy, roomW, roomH, "my_floor")
       .setTileScale(pixelScale)
       .setDepth(0);
 
-    const wallTexture = this.textures.get("my_wall").getSourceImage();
-    const wallHeight = wallTexture.height * pixelScale;
-    const wallY = floorTop - wallHeight / 2;
-
-    this.add
-      .tileSprite(MAP_WIDTH / 2, wallY, MAP_WIDTH, wallHeight, "my_wall")
+    // Wall (Standard Room 103 specs: height 100, Y + 60)
+    // This matches the visual style of dorm rooms perfectly
+    this.add.tileSprite(cx, startY + 60, roomW, 100, "my_wall")
       .setTileScale(pixelScale)
       .setDepth(1);
 
-    const wallBody = this.physics.add.staticImage(MAP_WIDTH / 2, wallY, "my_wall");
-    wallBody.setDisplaySize(MAP_WIDTH, wallHeight);
-    wallBody.setVisible(false);
-    wallBody.body.setSize(MAP_WIDTH, wallHeight * 0.2);
-    wallBody.body.setOffset(0, wallHeight * 0.8);
-    wallBody.refreshBody();
+    // Wall Collisions
+    const walls = this.physics.add.staticGroup();
+    // Top (Blocking top area)
+    walls.create(cx, startY + 50, null).setSize(roomW, 100).setVisible(false).refreshBody();
+    // Bottom
+    walls.create(cx, startY + roomH, null).setSize(roomW, 10).setVisible(false).refreshBody();
+    // Left
+    walls.create(startX, cy, null).setSize(10, roomH).setVisible(false).refreshBody();
+    // Right
+    walls.create(startX + roomW, cy, null).setSize(10, roomH).setVisible(false).refreshBody();
 
     const obstacles = this.physics.add.staticGroup();
 
-    const rug = obstacles.create(MAP_WIDTH / 2, floorTop + 140, "my_rug");
-    rug.setScale(pixelScale);
-    rug.refreshBody();
-    rug.body.setSize(rug.displayWidth, rug.displayHeight * 0.2);
-    rug.body.setOffset(0, rug.displayHeight * 0.8);
-    rug.setDepth(rug.y);
+    // Furniture (Scale 2x)
 
-    const bed = obstacles.create(120, floorTop + 110, "my_bed");
+    // Bed (Left side, slightly down)
+    const bed = obstacles.create(startX + 40, startY + 105, "my_bed");
     bed.setScale(pixelScale);
     bed.refreshBody();
-    bed.body.setSize(bed.displayWidth, bed.displayHeight * 0.3);
-    bed.body.setOffset(0, bed.displayHeight * 0.7);
+    bed.body.setSize(bed.displayWidth, bed.displayHeight * 0.4);
+    bed.body.setOffset(0, bed.displayHeight * 0.6);
     bed.setDepth(bed.y);
 
-    const bedside = obstacles.create(200, floorTop + 120, "my_bedside");
+    // Bedside (Upper-right of bed)
+    const bedside = obstacles.create(startX + 110, startY + 75, "my_bedside");
     bedside.setScale(pixelScale);
     bedside.refreshBody();
-    bedside.body.setSize(bedside.displayWidth, bedside.displayHeight * 0.3);
-    bedside.body.setOffset(0, bedside.displayHeight * 0.7);
+    bedside.body.setSize(bedside.displayWidth, bedside.displayHeight * 0.4);
+    bedside.body.setOffset(0, bedside.displayHeight * 0.6);
     bedside.setDepth(bedside.y);
 
-    const desk = obstacles.create(MAP_WIDTH - 140, floorTop + 120, "my_desk");
+    // Desk (Right side, lower)
+    const desk = obstacles.create(startX + roomW - 30, startY + 235, "my_desk");
     desk.setScale(pixelScale);
     desk.refreshBody();
-    desk.body.setSize(desk.displayWidth, desk.displayHeight * 0.3);
-    desk.body.setOffset(0, desk.displayHeight * 0.7);
+    desk.body.setSize(desk.displayWidth, desk.displayHeight * 0.4);
+    desk.body.setOffset(0, desk.displayHeight * 0.6);
     desk.setDepth(desk.y);
 
-    const chair = obstacles.create(MAP_WIDTH - 170, floorTop + 170, "my_chair");
+    // Chair (Left of desk)
+    const chair = obstacles.create(startX + roomW - 60, startY + 245, "my_chair");
     chair.setScale(pixelScale);
     chair.refreshBody();
-    chair.body.setSize(chair.displayWidth, chair.displayHeight * 0.5);
-    chair.body.setOffset(0, chair.displayHeight * 0.5);
+    chair.body.setSize(chair.displayWidth * 0.8, chair.displayHeight * 0.5);
+    chair.body.setOffset(chair.displayWidth * 0.1, chair.displayHeight * 0.5);
     chair.setDepth(chair.y);
 
-    const doorY = MAP_HEIGHT - 20;
-    this.exitDoor = this.add.image(MAP_WIDTH / 2, doorY, "my_door");
+    // Rug (Center-right)
+    const rug = this.add.image(startX + roomW - 120, startY + 150, "my_rug");
+    rug.setScale(pixelScale);
+    rug.setDepth(0);
+
+    // Door (Top Right, attached to wall)
+    this.exitDoor = this.add.image(startX + roomW - 25, startY + 75, "my_door");
     this.exitDoor.setScale(pixelScale);
     this.exitDoor.setDepth(999);
 
+    // Player
     const firstFrame = "16x16 All Animations 0.aseprite";
-    this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
+    // Check spawn pos; if default (from init), reset to new door pos
+    const isDefaultSpawn = this.spawnX === MAP_WIDTH / 2 || !this.spawnX;
+    const pX = isDefaultSpawn ? cx : this.spawnX;
+    const pY = isDefaultSpawn ? (startY + roomH - 60) : this.spawnY;
+
+    this.player = this.physics.add.sprite(pX, pY, "main_character", firstFrame);
     this.player.setScale(pixelScale).setCollideWorldBounds(true);
     this.player.body.setSize(10, 8).setOffset(5, 12);
     this.player.setDepth(this.player.y);
 
     this.handItem = this.add.image(0, 0, "letter_icon").setScale(1).setDepth(200).setVisible(false);
 
-    this.physics.add.collider(this.player, wallBody);
+    this.physics.add.collider(this.player, walls);
     this.physics.add.collider(this.player, obstacles);
 
-    this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
-    this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
+    // Camera (fixed center)
+    this.cameras.main.setBounds(0, 0, canvasWidth, canvasHeight);
     this.cameras.main.setZoom(1.6);
+    this.cameras.main.setScroll(0, 0);
+    this.cameras.main.centerOn(cx, cy);
     this.cameras.main.roundPixels = true;
 
     this.moveKeys = this.input.keyboard.addKeys({

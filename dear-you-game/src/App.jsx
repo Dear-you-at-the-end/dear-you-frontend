@@ -33,11 +33,11 @@ function App() {
   const [letterCount, setLetterCount] = useState(21);
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
-    { id: "npc-103-1", name: "ſ", hasLetter: false, hasWritten: false },
-    { id: "npc-103-2", name: "", hasLetter: false, hasWritten: false },
-    { id: "npc-103-3", name: "", hasLetter: false, hasWritten: false },
-    { id: "npc-104-1", name: "ӳ", hasLetter: false, hasWritten: false },
-    { id: "npc-104-2", name: "̰", hasLetter: false, hasWritten: false },
+    { id: "npc-103-1", name: "SYY", hasLetter: false, hasWritten: false },
+    { id: "npc-103-2", name: "KMS", hasLetter: false, hasWritten: false },
+    { id: "npc-103-3", name: "PCW", hasLetter: false, hasWritten: false },
+    { id: "npc-104-1", name: "IG", hasLetter: false, hasWritten: false },
+    { id: "npc-104-2", name: "INJ", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -372,6 +372,17 @@ function App() {
       this.load.image("letter_icon", `${commonPath}letter.png`);
       this.load.image("letter_written", `${commonPath}letter_wirte.png`);
 
+      // NPC Assets
+      this.load.image("ig", `${commonPath}character/ig.png`);
+      this.load.image("inj", `${commonPath}character/inj.png`);
+
+      const loadAtlas = (key) => {
+        this.load.atlas(key, `${commonPath}character/${key}.png`, `${commonPath}character/${key}.json`);
+      };
+      loadAtlas("kms");
+      loadAtlas("pcw");
+      loadAtlas("swy");
+
       this.load.atlas(
         "main_character",
         `${commonPath}character/main_character.png`,
@@ -480,7 +491,7 @@ function App() {
         .setScale(pixelScale * 1.3)
         .setDepth(windowY + 1);
 
-      const zoom = 1.2;
+      const zoom = 1.6;
       const viewW = canvasWidth / zoom;
       const viewH = canvasHeight / zoom;
       const cameraBoundsW = Math.max(roomW + outlineSideW * 2, viewW);
@@ -498,15 +509,35 @@ function App() {
         .setScale(pixelScale)
         .setDepth(startY + roomH);
 
+      // Create animations for specific NPCs
+      const createNpcAnim = (key, prefix, start, end) => {
+        if (!this.anims.exists(key)) {
+          this.anims.create({
+            key,
+            frames: this.anims.generateFrameNames(prefix, {
+              start, end, suffix: ".aseprite", prefix: `${prefix} `
+            }),
+            frameRate: 4,
+            repeat: -1
+          });
+        }
+      };
+
+      // Create animations for 103 NPCs
+      ["kms", "pcw", "swy"].forEach(char => {
+        createNpcAnim(`${char}-idle-down`, char, 0, 3);
+        createNpcAnim(`${char}-idle-right`, char, 4, 7);
+      });
+
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right", texture: "main_character" },
-          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left", texture: "main_character" },
-          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "idle-left", texture: "main_character" },
+          { id: "npc-103-1", x: leftX + 70, y: row2Y + 10, anim: "swy-idle-right", texture: "swy" },
+          { id: "npc-103-2", x: rightX - 70, y: row3Y + 10, anim: "kms-idle-down", texture: "kms" },
+          { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "pcw-idle-down", texture: "pcw" },
         ],
         Room104: [
-          { id: "npc-104-1", x: leftX + 70, y: row2Y + 10, anim: "idle-right", texture: "main_character" },
-          { id: "npc-104-2", x: rightX - 70, y: row3Y + 10, anim: "idle-left", texture: "main_character" },
+          { id: "npc-104-1", x: rightX - 60, y: row1Y + 15, texture: "ig", isStatic: true },
+          { id: "npc-104-2", x: rightX - 60, y: row2Y + 15, texture: "inj", isStatic: true },
         ],
       };
 
@@ -517,11 +548,17 @@ function App() {
 
       if (configNpcs) {
         configNpcs.forEach(npcData => {
-          const npc = this.npcs.create(npcData.x, npcData.y, npcData.texture, "16x16 All Animations 0.aseprite");
+          let npc;
+          if (npcData.isStatic) {
+            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
+          } else {
+            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture, `${npcData.texture} 0.aseprite`);
+            if (npcData.anim) npc.anims.play(npcData.anim);
+          }
           npc.setScale(pixelScale);
           npc.setDepth(npc.y);
           npc.refreshBody();
-          npc.anims.play(npcData.anim);
+          if (npcData.anim) npc.anims.play(npcData.anim);
           npc.npcId = npcData.id;
 
           // Quest icon
@@ -603,6 +640,24 @@ function App() {
           npc.nameText = nameText;
         });
       }
+
+      // Happy Jump Event Listener
+      const onNpcHappy = (e) => {
+        const targetId = e.detail?.npcId;
+        const targetNpc = this.npcs.getChildren().find((n) => n.npcId === targetId);
+        if (targetNpc) {
+          this.tweens.add({
+            targets: targetNpc,
+            y: targetNpc.y - 15,
+            duration: 200,
+            yoyo: true,
+            repeat: 2,
+            ease: "Power1",
+          });
+        }
+      };
+      window.addEventListener("npc-happy", onNpcHappy);
+      this.events.on("shutdown", () => window.removeEventListener("npc-happy", onNpcHappy));
 
       this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
       this.prevRight = false;
@@ -825,10 +880,16 @@ function App() {
               setConfirmMode("write");
               gameStateRef.current.setShowWriteConfirm(true);
             } else if (!hasLetter && gameStateRef.current.getWrittenCount() > 0 && gameStateRef.current.getSelectedSlot() !== 0) {
-              // Check if letter matches
-              setInteractionTargetId(this.npcId);
-              setConfirmMode("give");
-              gameStateRef.current.setShowWriteConfirm(true);
+              // Check if letter matches the target NPC
+              const selectedSlot = gameStateRef.current.getSelectedSlot();
+              const groups = gameStateRef.current.getLetterGroups();
+              const group = groups[selectedSlot - 1];
+
+              if (group && group.npcId === this.npcId) {
+                setInteractionTargetId(this.npcId);
+                setConfirmMode("give");
+                gameStateRef.current.setShowWriteConfirm(true);
+              }
             }
           }
         }
@@ -925,6 +986,10 @@ function App() {
           font-style: normal;
           font-display: swap;
         }
+        @keyframes questStrike {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
       `}</style>
 
       {/* UI Elements */}
@@ -933,7 +998,8 @@ function App() {
           {/* Quest Modal */}
           {(() => {
             const panelWidth = 220;
-            const panelHeight = 120;
+            const panelHeight = 216; // Fixed for check1.png
+
             // If check1.png (showNextQuest), it is a longer paper.
             // check.png / check2.png are shorter.
 
@@ -952,7 +1018,7 @@ function App() {
             // check2.png (Quest 1 Active)
             // check.png (Quest 1 Done) -> Click -> check1.png (Quest 1 Done + Quest 2 Active)
 
-            const currentHeight = isExtended ? extendedHeight : panelHeight;
+            const currentHeight = panelHeight;
 
             // Peek offset calculation if needed, or simple fixed check.
             // User likes "modal down" on click.
@@ -979,7 +1045,7 @@ function App() {
                 }}
                 style={{
                   position: "absolute",
-                  top: checklistOpen ? "0px" : "-80px",
+                  top: checklistOpen ? "0px" : "-190px",
                   // Keeping -5px for normal peek. If extended is hidden, it might need more offset or same.
                   // If "check1.png" (extended) is hidden, we usually want to show just the bottom edge?
                   // "check1" has quest 1 at top, quest 2 at bottom. 
@@ -1021,8 +1087,8 @@ function App() {
                   style={{
                     width: `${panelWidth}px`,
                     height: `${currentHeight}px`,
-                    backgroundImage: `url('/assets/common/${showNextQuest ? "check1.png" : (isQuestCompleted ? "check.png" : "check2.png")}')`,
-                    backgroundSize: "contain",
+                    backgroundImage: `url('/assets/common/check1.png')`,
+                    backgroundSize: "100% 100%",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center top",
                     imageRendering: "pixelated",
@@ -1030,38 +1096,51 @@ function App() {
                     transition: "height 0.5s ease, background-image 0.5s ease"
                   }}
                 >
-                  {/* Quest 1 Text */}
+                  {/* Quest 1 Text (bottom slot) */}
                   <div
                     style={{
                       position: "absolute",
-                      top: "38px", // Adjust based on asset
+                      top: "60px", // Bottom slot - Adjusted UP per request
                       left: "56px",
                       right: "16px",
                       fontFamily: "Galmuri11-Bold",
                       fontSize: "12px",
-                      color: "#8d684e",
+                      color: "#5b3a24",
                       lineHeight: "1.2",
                       cursor: "default",
                       whiteSpace: "nowrap",
-                      textDecoration: isQuestCompleted ? "line-through" : "none",
-                      opacity: isQuestCompleted ? 0.6 : 1,
-                      transition: "all 0.5s ease",
+                      opacity: isQuestCompleted ? 0.85 : 1,
+                      transition: "opacity 0.5s ease",
                     }}
                   >
                     103호에게 편지를 전달하자
                   </div>
+                  {isQuestCompleted && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "66px",
+                        left: "56px",
+                        right: "16px",
+                        height: "2px",
+                        backgroundColor: "#5b3a24",
+                        transformOrigin: "left center",
+                        animation: "questStrike 0.35s ease forwards",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
 
-                  {/* Quest 2 Text (Next Quest) */}
+                  {/* Quest 2 Text (top slot) */}
                   <div
                     style={{
                       position: "absolute",
-                      // This needs to be positioned below Quest 1
-                      top: "78px", // Adjusted for check1.png layout
+                      top: "15px", // Top slot - Adjusted UP per request
                       left: "56px",
                       right: "16px",
                       fontFamily: "Galmuri11-Bold",
                       fontSize: "12px",
-                      color: "#8d684e",
+                      color: "#5b3a24",
                       lineHeight: "1.2",
                       cursor: "default",
                       whiteSpace: "nowrap",
@@ -1110,7 +1189,7 @@ function App() {
                 }}
               >
                 <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "14px", textAlign: "center" }}>
-                  {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? ""}  ${confirmMode === "give" ? "ֽðڽϱ?" : "ðڽϱ?"}`}
+                  {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? ""}에게 ${confirmMode === "give" ? "편지를 건네시겠습니까?" : "편지를 쓰시겠습니까?"}`}
                 </div>
                 <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <div
@@ -1222,7 +1301,7 @@ function App() {
                   gap: "12px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}> ۼϼ</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지 작성하기</div>
                 <div
                   style={{
                     position: "relative",
@@ -1329,7 +1408,7 @@ function App() {
                     marginTop: "12px",
                   }}
                 >
-                  ۼ Ϸ
+                  작성 완료
                 </button>
               </div>
             </div>
@@ -1358,7 +1437,7 @@ function App() {
                   gap: "10px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>ۼ </div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지 읽기</div>
                 {readingLetters.length > 0 && (
                   <div
                     style={{
@@ -1437,7 +1516,7 @@ function App() {
                       cursor: "pointer",
                     }}
                   >
-
+                    수정
                   </button>
                   <button
                     onClick={() => setShowLetterRead(false)}
@@ -1452,25 +1531,9 @@ function App() {
                       cursor: "pointer",
                     }}
                   >
-                    ݱ
+                    닫기
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleWarp("MyRoom")}
-                    style={{
-                      width: "64px",
-                      height: "28px",
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "11px",
-                      color: "#4E342E",
-                      backgroundColor: "#f1d1a8",
-                      border: "2px solid #caa47d",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    MyRoom
-                  </button>
+
                 </div>
               </div>
             </div>
@@ -1636,7 +1699,7 @@ function App() {
                         zIndex: 20,
                       }}
                     >
-                      {`${npcs.find((n) => n.id === group.npcId)?.name ?? ""}  `}
+                      {`${npcs.find((n) => n.id === group.npcId)?.name ?? ""}`}
                     </div>
                   )}
                 </React.Fragment>
@@ -1922,6 +1985,23 @@ function App() {
                       >
                         104
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("MyRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        마이룸
+                      </button>
                     </div>
                   </>
                 )}
@@ -1930,7 +2010,10 @@ function App() {
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button
                       type="button"
-                      onClick={() => setShowMiniGame(true)}
+                      onClick={() => {
+                        setShowMiniGame(true);
+                        setDebugWarpOpen(false);
+                      }}
                       style={{
                         width: "80px",
                         height: "32px",
@@ -1947,7 +2030,10 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowHeartQuest(true)}
+                      onClick={() => {
+                        setShowHeartQuest(true);
+                        setDebugWarpOpen(false);
+                      }}
                       style={{
                         width: "80px",
                         height: "32px",

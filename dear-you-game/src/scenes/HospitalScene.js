@@ -146,9 +146,6 @@ export default class HospitalScene extends Phaser.Scene {
         this.createPlayerAnimations();
         const firstFrame = "16x16 All Animations 0.aseprite";
         // Default spawn at "door" area if no data
-        const spawnX = this.spawnX === 600 / 2 ? centerX : this.spawnX; // rough check if it was default
-        const spawnY = this.spawnY === 440 - 60 ? startY + roomH - 80 : this.spawnY;
-
         // Force spawn to new door location if it looks like default
         this.player = this.physics.add.sprite(centerX, startY + roomH - 80, "main_character", firstFrame);
         this.player.setScale(pixelScale).setCollideWorldBounds(true);
@@ -224,7 +221,6 @@ export default class HospitalScene extends Phaser.Scene {
         // Mouse/Key handling (Standard movement)
         const pointer = this.input.activePointer;
         const pointerRightDown = pointer.rightButtonDown();
-        const rightJustDown = pointerRightDown && !this.prevRight;
         this.prevRight = pointerRightDown;
 
         const isRunning = this.shiftKey.isDown;

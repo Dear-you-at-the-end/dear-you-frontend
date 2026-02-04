@@ -88,6 +88,12 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
 
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 const audioContext = new AudioContext();
+
+                // Resume logic for browsers that suspend default audio
+                if (audioContext.state === "suspended") {
+                    await audioContext.resume();
+                }
+
                 const analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(stream);
 
@@ -116,7 +122,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
             if (audioContextRef.current) audioContextRef.current.close();
             if (sourceRef.current) sourceRef.current.disconnect();
         };
-    }, [gameState, onClose, onWin]);
+    }, [gameState, onWin, onClose, WIN_THRESHOLD]);
 
     if (!isOpen) return null;
 
