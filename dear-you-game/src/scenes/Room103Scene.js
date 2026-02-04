@@ -220,6 +220,15 @@ export default class Room103Scene extends Phaser.Scene {
         this.npc.refreshBody();
         this.npc.anims.play("idle-right");
 
+        // NPC Name Tag
+        this.npcName = this.add.text(this.npc.x, this.npc.y - 50, "syy", {
+            fontFamily: "Galmuri11-Bold",
+            fontSize: "12px",
+            color: "#ffffff",
+            stroke: "#000000",
+            strokeThickness: 3
+        }).setOrigin(0.5).setDepth(99999).setVisible(false);
+
         // Quest icon
         this.questIcon = this.add.image(this.npc.x, this.npc.y - 40, "quest_icon");
         this.questIcon.setScale(pixelScale * 0.6);
@@ -373,12 +382,15 @@ export default class Room103Scene extends Phaser.Scene {
 
         if (isNearNPC) {
             this.questIcon.setVisible(true);
+            this.npcName.setVisible(true);
 
             if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
                 console.log("NPC interaction - minigame would open here");
                 // gameStateRef.current.setShowMiniGame(true) would be called here
             }
         } else {
+            this.questIcon.setVisible(false);
+            this.npcName.setVisible(false);
             // Jump only when not near NPC or door
             if (!isNearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
                 this.startJump();

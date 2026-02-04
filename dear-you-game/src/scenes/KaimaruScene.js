@@ -10,7 +10,7 @@ export default class KaimaruScene extends Phaser.Scene {
 
   init(data) {
     this.spawnX = data?.x ?? MAP_WIDTH / 2;
-    this.spawnY = data?.y ?? MAP_HEIGHT - 80;
+    this.spawnY = data?.y ?? MAP_HEIGHT - 200;
   }
 
   preload() {
@@ -30,6 +30,8 @@ export default class KaimaruScene extends Phaser.Scene {
     this.load.image("npc_jjw", `${commonPath}character/jjw.png`);
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
+    this.load.image("plz_icon", `${commonPath}plz.png`);
+    this.load.image("dialog_bubble", `${commonPath}dialogbig.png`);
 
     const characterPath = `${commonPath}character/`;
     this.load.atlas(
@@ -50,6 +52,23 @@ export default class KaimaruScene extends Phaser.Scene {
     const startX = centerX - roomW / 2;
     const startY = centerY - roomH / 2;
 
+    this.kaimaruQuestDone = false;
+    const handleKaimaruQuestDone = () => {
+      this.kaimaruQuestDone = true;
+      if (this.kaimaruBubbleTimers) {
+        this.kaimaruBubbleTimers.forEach((t) => t?.remove(false));
+      }
+      if (this.kaimaruBubbles) {
+        Object.values(this.kaimaruBubbles).forEach((bubble) => bubble?.destroy());
+      }
+    };
+    window.addEventListener("kaimaru-quest-complete", handleKaimaruQuestDone);
+    this.events.once("shutdown", () => {
+      window.removeEventListener("kaimaru-quest-complete", handleKaimaruQuestDone);
+    });
+    this.kaimaruBubbles = {};
+    this.kaimaruBubbleTimers = [];
+
     this.cameras.main.setBackgroundColor("#222222");
     this.cameras.main.setZoom(1);
     this.physics.world.setBounds(startX, startY, roomW, roomH);
@@ -64,6 +83,7 @@ export default class KaimaruScene extends Phaser.Scene {
     const wallTexture = this.textures.get("kaimaru_wall").getSourceImage();
     const wallHeight = wallTexture.height * pixelScale;
     const wallY = startY + wallHeight / 2;
+    const wallBottomY = wallY + wallHeight / 2;
 
     this.add
       .tileSprite(centerX, wallY, roomW, wallHeight, "kaimaru_wall")
@@ -81,25 +101,31 @@ export default class KaimaruScene extends Phaser.Scene {
     // Right
     const rightWall = walls.create(startX + roomW, centerY, null);
     rightWall.setSize(10, roomH).setVisible(false).refreshBody();
-    // Bottom
-    const bottomWall = walls.create(centerX, startY + roomH, null);
-    bottomWall.setSize(roomW, 20).setVisible(false).refreshBody();
+    // Bottom - split to allow door access
+    const doorGap = 120; // Gap width for door access
+    const bottomLeftWall = walls.create(centerX - doorGap / 2 - (roomW - doorGap) / 4, startY + roomH, null);
+    bottomLeftWall.setSize((roomW - doorGap) / 2, 20).setVisible(false).refreshBody();
+    const bottomRightWall = walls.create(centerX + doorGap / 2 + (roomW - doorGap) / 4, startY + roomH, null);
+    bottomRightWall.setSize((roomW - doorGap) / 2, 20).setVisible(false).refreshBody();
 
     const obstacles = this.physics.add.staticGroup();
 
-    // Door (Bottom Center)
+    // Door (Top-Left on wall)
     const doorTex = this.textures.get("kaimaru_door").getSourceImage();
     const doorH = doorTex.height * pixelScale;
-    const doorY = startY + roomH - doorH / 2 - 10;
-    const door = this.add.image(centerX, doorY, "kaimaru_door");
-    door.setScale(pixelScale);
+    const doorX = startX + 340;
+    const doorY = wallBottomY + doorH / 2 - 40;
+    const door = this.add.image(doorX, doorY, "kaimaru_door");
+    door.setScale(pixelScale * 2.0);
     door.setDepth(Math.round(doorY) + 2);
     this.exitDoor = door;
 
-    // Tables - 3 columns x 3 rows (more spacing, centered)
-    const rowSpacing = 120;
-    const rowStart = centerY - rowSpacing;
-    const colOffsets = [-200, 0, 200];
+    // Tables - keep distance from walls
+    const paddingX = 140;
+    const rowSpacing = 160;
+    const rowStart = wallBottomY + 80;
+    const gridWidth = roomW - paddingX * 2;
+    const colOffsets = [-gridWidth / 2, 0, gridWidth / 2];
     const rowOffsets = [0, rowSpacing, rowSpacing * 2];
     const tablePositions = [];
     rowOffsets.forEach((rowOffset) => {
@@ -134,6 +160,8 @@ export default class KaimaruScene extends Phaser.Scene {
         table.body.setSize(table.displayWidth * 0.9, table.displayHeight * 0.6);
         table.body.setOffset(table.displayWidth * 0.05, table.displayHeight * 0.3);
       }
+      table.body.setSize(table.displayWidth * 0.85, table.displayHeight * 0.4);
+      table.body.setOffset(table.displayWidth * 0.075, table.displayHeight * 0.6);
       table.setDepth(Math.round(table.y));
 
       if (isMainTable) {
@@ -141,14 +169,44 @@ export default class KaimaruScene extends Phaser.Scene {
         const sideX = 56;
         const topY = -18;
         const bottomY = 18;
-        this.add.image(pos.x - sideX, pos.y + topY, "npc_bsy").setScale(pixelScale).setDepth(pos.y + topY);
-        this.add.image(pos.x - sideX, pos.y + bottomY, "npc_kys").setScale(pixelScale).setDepth(pos.y + bottomY);
-        this.add.image(pos.x + sideX, pos.y + topY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + topY);
-        this.add.image(pos.x + sideX, pos.y + bottomY, "npc_thj").setScale(pixelScale).setDepth(pos.y + bottomY);
+        const npcBsy = this.add.image(pos.x - sideX, pos.y + topY, "npc_bsy").setScale(pixelScale).setDepth(pos.y + topY);
+        const npcKys = this.add.image(pos.x - sideX, pos.y + bottomY, "npc_kys").setScale(pixelScale).setDepth(pos.y + bottomY);
+        const npcJjw = this.add.image(pos.x + sideX, pos.y + topY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + topY);
+        const npcThj = this.add.image(pos.x + sideX, pos.y + bottomY, "npc_thj").setScale(pixelScale).setDepth(pos.y + bottomY);
+        this.kaimaruNpcs = { bsy: npcBsy, kys: npcKys, jjw: npcJjw, thj: npcThj };
+
+        // Add gentle bobbing animation to NPCs to show they're alive
+        [npcBsy, npcKys, npcJjw, npcThj].forEach((npc, index) => {
+          this.tweens.add({
+            targets: npc,
+            y: npc.y - 2,
+            duration: 600 + index * 150,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+            delay: index * 200,
+          });
+        });
+
+        const plz = this.add.image(pos.x, pos.y - table.displayHeight * 0.72, "plz_icon");
+        plz.setScale(pixelScale * 0.45);
+        plz.setDepth(Math.round(pos.y) + 10);
+        this.tweens.add({
+          targets: plz,
+          y: plz.y - 6,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
       }
     });
 
     const firstFrame = "16x16 All Animations 0.aseprite";
+    const defaultSpawnX = centerX + gridWidth * 0.25;
+    const defaultSpawnY = rowStart + rowSpacing * 1.6;
+    this.spawnX = this.spawnX ?? defaultSpawnX;
+    this.spawnY = this.spawnY ?? defaultSpawnY;
     this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
     this.player.setScale(pixelScale).setCollideWorldBounds(true);
     this.player.body.setSize(10, 8).setOffset(5, 12);
@@ -181,6 +239,107 @@ export default class KaimaruScene extends Phaser.Scene {
     this.lastDirection = "down";
     this.player.anims.play("idle-down");
     this.prevRight = false;
+
+    this.startNpcChatter(pixelScale);
+  }
+
+  startNpcChatter(pixelScale) {
+    if (!this.kaimaruNpcs) return;
+    const style = {
+      fontFamily: "Galmuri11-Bold",
+      fontSize: "11px",
+      color: "#6a4b37",
+      align: "center",
+      padding: { x: 2, y: 2 },
+    };
+
+    const showBubble = (key, text, duration) => {
+      if (this.kaimaruQuestDone) return;
+      const npc = this.kaimaruNpcs[key];
+      if (!npc) return;
+      if (this.kaimaruBubbles[key]) {
+        this.kaimaruBubbles[key].destroy();
+        this.kaimaruBubbles[key] = null;
+      }
+      const bubble = this.add.image(0, 0, "dialog_bubble");
+      bubble.setScale(pixelScale * 0.45);
+      bubble.setOrigin(0.5);
+      const label = this.add.text(4, -2, text, style);
+      label.setOrigin(0.5);
+      const container = this.add.container(npc.x, npc.y - 26, [bubble, label]);
+      container.setDepth(10000);
+      container.setAlpha(0);
+      container.setScale(0.8);
+      this.kaimaruBubbles[key] = container;
+
+      // Pop-in animation for speech bubble
+      this.tweens.add({
+        targets: container,
+        alpha: 1,
+        scale: 1,
+        duration: 200,
+        ease: "Back.easeOut",
+      });
+
+      // Add a little bounce to the NPC when they speak
+      this.tweens.add({
+        targets: npc,
+        scaleX: pixelScale * 1.05,
+        scaleY: pixelScale * 1.05,
+        duration: 150,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+
+      // Occasionally add sparkle effect
+      if (Math.random() < 0.3) {
+        const sparkle = this.add.circle(npc.x + (Math.random() - 0.5) * 20, npc.y - 10, 2, 0xFFFFFF, 0.8);
+        sparkle.setDepth(10001);
+        this.tweens.add({
+          targets: sparkle,
+          y: sparkle.y - 15,
+          alpha: 0,
+          duration: 600,
+          ease: "Quad.easeOut",
+          onComplete: () => sparkle.destroy(),
+        });
+      }
+
+      this.time.delayedCall(duration, () => {
+        if (this.kaimaruBubbles[key] === container) {
+          // Fade out animation
+          this.tweens.add({
+            targets: container,
+            alpha: 0,
+            scale: 0.8,
+            duration: 200,
+            ease: "Back.easeIn",
+            onComplete: () => {
+              container.destroy();
+              this.kaimaruBubbles[key] = null;
+            },
+          });
+        } else {
+          container.destroy();
+        }
+      });
+    };
+
+    const schedules = [
+      { key: "bsy", text: "한진아 %$#^@#", delay: 400, interval: 5200, duration: 1200 },
+      { key: "kys", text: "아 짱웃겨~", delay: 1400, interval: 6000, duration: 1200 },
+      { key: "jjw", text: "-$#$ 서연언니..", delay: 2300, interval: 5200, duration: 1800 },
+      { key: "thj", text: "예서누나##@$#@", delay: 3200, interval: 6200, duration: 1800 },
+    ];
+
+    schedules.forEach((s) => {
+      const timer = this.time.addEvent({
+        delay: s.delay,
+        loop: true,
+        callback: () => showBubble(s.key, s.text, s.duration),
+      });
+      this.kaimaruBubbleTimers.push(timer);
+    });
   }
 
   createPlayerAnimations() {

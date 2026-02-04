@@ -5,7 +5,7 @@ const MAP_HEIGHT = 600;
 
 export default class RoadScene extends Phaser.Scene {
   constructor() {
-    super({ key: "Road" });
+    super({ key: "GameScene" });
   }
 
   init(data) {
@@ -120,8 +120,8 @@ export default class RoadScene extends Phaser.Scene {
       const building = obstacles.create(def.x, y, def.key);
       building.setScale(scale);
       building.refreshBody();
-      building.body.setSize(building.displayWidth * 0.9, building.displayHeight * 0.35);
-      building.body.setOffset(building.displayWidth * 0.05, building.displayHeight * 0.65);
+      building.body.setSize(building.displayWidth * 0.85, building.displayHeight * 0.4);
+      building.body.setOffset(building.displayWidth * 0.075, building.displayHeight * 0.6);
       building.setDepth(Math.round(bottomY));
       def.bottomY = bottomY;
     });
@@ -138,8 +138,10 @@ export default class RoadScene extends Phaser.Scene {
     bus.setScale(0.25);
     bus.setDepth(busY);
     bus.refreshBody();
-    bus.body.setSize(bus.displayWidth * 0.8, bus.displayHeight * 0.5);
-    bus.body.setOffset(bus.displayWidth * 0.1, bus.displayHeight * 0.2);
+    bus.body.setSize(bus.displayWidth * 0.85, bus.displayHeight * 0.4);
+    bus.body.setOffset(bus.displayWidth * 0.075, bus.displayHeight * 0.6);
+    this.busEntranceX = busX + 40;
+    this.busEntranceY = busY + 10;
     // Add bus boundary to building blocks so random items don't overlap heavily
     // Using a larger 'half' value to ensure clear space around it
     buildingBlocks.push({ x: busX, half: (bus.displayWidth) / 2 + 80 });
@@ -280,8 +282,8 @@ export default class RoadScene extends Phaser.Scene {
       bike.setScale(scale);
       bike.setDepth(bike.y);
       bike.refreshBody();
-      bike.body.setSize(bike.displayWidth * 0.6, bike.displayHeight * 0.3);
-      bike.body.setOffset(bike.displayWidth * 0.2, bike.displayHeight * 0.6);
+      bike.body.setSize(bike.displayWidth * 0.85, bike.displayHeight * 0.4);
+      bike.body.setOffset(bike.displayWidth * 0.075, bike.displayHeight * 0.6);
     });
 
 
@@ -308,6 +310,8 @@ export default class RoadScene extends Phaser.Scene {
       const right = this.add.image(centerX + stairW / 2, stairsY, "stair_down");
       right.setScale(stairScale);
       right.setDepth(Math.round(right.y));
+      this.stairCenterX = centerX;
+      this.stairCenterY = stairsY;
     };
     placeStairPair(sarang.x);
 
@@ -427,9 +431,24 @@ export default class RoadScene extends Phaser.Scene {
         this.kaimaruEntranceY
       )
       : Infinity;
+    const distanceToBus = this.busEntranceX
+      ? Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.busEntranceX,
+        this.busEntranceY
+      )
+      : Infinity;
 
     const canTrigger = !this.lastTriggerTime || (this.time.now - this.lastTriggerTime > 1000);
     const isMovingUp = this.moveKeys.up.isDown;
+
+    if (canTrigger && distanceToBus < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) {
+      this.lastTriggerTime = this.time.now;
+      window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterDevelopmentRoom" } }));
+      this.player.body.setVelocity(0);
+      return;
+    }
 
     if (canTrigger && ((distanceToKaimaru < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) || distanceToKaimaru < 30)) {
       this.lastTriggerTime = this.time.now;
@@ -443,6 +462,22 @@ export default class RoadScene extends Phaser.Scene {
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterHallway" } }));
       this.player.body.setVelocity(0);
       return;
+    }
+
+    if (this.stairCenterX && this.stairCenterY) {
+      const distanceToStairs = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.stairCenterX,
+        this.stairCenterY
+      );
+      const isMovingDown = this.moveKeys.down.isDown || this.moveKeys.s.isDown;
+      if (canTrigger && distanceToStairs < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingDown)) {
+        this.lastTriggerTime = this.time.now;
+        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: this.stairCenterX, y: this.stairCenterY } }));
+        this.player.body.setVelocity(0);
+        return;
+      }
     }
 
     const isRunning = this.shiftKey.isDown;

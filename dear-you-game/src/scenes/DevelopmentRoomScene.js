@@ -1,3 +1,4 @@
+
 import Phaser from "phaser";
 
 const MAP_WIDTH = 960;
@@ -22,6 +23,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.load.image("dev_wall", `${assetPath}wall3.png`);
         this.load.image("dev_outline", `${assetPath}outline4.png`);
         this.load.image("dev_board", `${assetPath}board.png`);
+        this.load.image("dev_board_letter", `${assetPath}board_letter.png`);
         this.load.image("dev_chair", `${assetPath}chair.png`);
         this.load.image("dev_desk", `${assetPath}desk.png`);
         this.load.image("dev_desk_l", `${assetPath}desk_l.png`);
@@ -30,6 +32,8 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.load.image("dev_desk_r_alt", `${assetPath}desk1_r.png`);
         this.load.image("dev_door_left", `${assetPath}door_left.png`);
         this.load.image("dev_door_right", `${assetPath}door_right.png`);
+        this.load.image("plz_icon", `${commonPath}plz.png`);
+        this.load.image("dev_mic", `${assetPath}mic.png`);
 
         const characterPath = `${commonPath}character/`;
         this.load.atlas(
@@ -37,6 +41,12 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             `${characterPath}main_character.png`,
             `${characterPath}main_character.json`
         );
+        // Load LYJ NPC
+        this.load.spritesheet("lyj", `${characterPath}lyj.png`, { frameWidth: 20, frameHeight: 20 });
+        this.load.image("cyw_chair", `${characterPath}cyw_chair.png`);
+        this.load.image("zhe_chair", `${characterPath}zhe_chair.png`);
+        this.load.image("jjaewoo_chair", `${characterPath}jjaewoo_chair.png`);
+        this.load.image("ajy_chair", `${characterPath}ajy_chair.png`);
     }
 
     create() {
@@ -44,6 +54,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
         this.cameras.main.setBackgroundColor("#222222");
         this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        this.developmentNpcs = [];
 
         // 1. Floor & Wall
         const floorTop = MAP_HEIGHT - FLOOR_HEIGHT;
@@ -83,6 +94,14 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         // 2. Objects (Doors, Board)
         const obstactles = this.physics.add.staticGroup();
         const decor = this.physics.add.staticGroup();
+
+        // Board on the wall (interactive)
+        const board = decor.create(MAP_WIDTH / 2, wallY + 30, "dev_board");
+        board.setScale(pixelScale * 1.1);
+        board.setDepth(2.2);
+        board.setOrigin(0.5, 0.5);
+        this.devBoard = board;
+        this.devBoardLetter = null;
         const deskRows = 3;
         const leftPerRow = 4;
         const rightPerRow = 4;
@@ -123,21 +142,17 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             door.setScale(pixelScale * 1.5);
             door.setDepth(2.1);
         });
+        this.doorExitX = doorLeft.x;
+        this.doorExitY = doorLeft.y - doorLeft.displayHeight * 0.5;
 
-        // Board (Top Center)
-        const board = decor.create(MAP_WIDTH / 2, wallY - 10, "dev_board");
-        board.setScale(pixelScale * 1.5);
-        board.setDepth(1.6);
-
-
+        // Mic (Top Left area, free standing)
+        const mic = decor.create(MAP_WIDTH / 2 + 40, floorTop + 40, "dev_mic");
+        mic.setScale(pixelScale * 1.5);
+        mic.setDepth(floorTop + 40);
+        mic.setOrigin(0.5, 1);
         // 3. Desks Layout
-        const createDeskRow = (y) => {
-            // Groups positions (Center X)
-            // Left Group: 2 desks
-            // Center Group: 6 desks
-            // Right Group: 2 desks
-
-            // Adjust spacing based on width 1400
+        const createDeskRow = (y, rowIndex) => {
+            // Groups positions (Center X) and margins
             const centerGroupX = MAP_WIDTH / 2;
             const sideMargin = 20;
             const leftTypes = ['l', 'r'];
@@ -156,7 +171,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             const leftGroupX = sideMargin + leftGroupWidth / 2;
             const rightGroupX = MAP_WIDTH - sideMargin - rightGroupWidth / 2;
 
-            const placeSequence = (cx, types) => {
+            const placeSequence = (cx, types, groupName) => {
                 const totalWidth = types.reduce((acc, type) => {
                     const tex = this.textures.get(assetName(type)).getSourceImage();
                     return acc + tex.width * pixelScale;
@@ -164,7 +179,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
                 let currentX = cx - totalWidth / 2;
 
-                types.forEach(type => {
+                types.forEach((type, index) => {
                     const key = pickDeskKey(type);
                     const tex = this.textures.get(key).getSourceImage();
                     const w = tex.width * pixelScale;
@@ -176,41 +191,67 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     const desk = obstactles.create(posX, posY, key);
                     desk.setScale(pixelScale);
                     desk.refreshBody();
-                    desk.body.setSize(w, h * 0.5); // Collision on bottom half
-                    desk.body.setOffset(0, h * 0.5);
+                    desk.body.setSize(w * 0.85, h * 0.4);
+                    desk.body.setOffset(w * 0.075, h * 0.6);
                     desk.setDepth(posY);
 
-                    // Add chair
-                    const chair = decor.create(posX, posY + 16, "dev_chair");
-                    chair.setScale(pixelScale);
-                    chair.setDepth(posY + 16);
+                    // NPC Replacement
+                    const npcMap = {
+                        "2-left-0": "cyw_chair",
+                        "1-center-0": "zhe_chair",
+                        "0-center-4": "jjaewoo_chair",
+                        "1-right-1": "ajy_chair"
+                    };
+                    const npcKey = npcMap[`${rowIndex}-${groupName}-${index}`];
+
+                    if (npcKey) {
+                        const npc = decor.create(posX, posY + 16, npcKey);
+                        npc.setScale(pixelScale);
+                        npc.setDepth(posY + 16);
+
+                        const name = npcKey.replace("_chair", "");
+                        const nameText = this.add.text(posX, posY - 25, name, {
+                            fontFamily: "Galmuri11-Bold",
+                            fontSize: "12px",
+                            color: "#ffffff",
+                            stroke: "#000000",
+                            strokeThickness: 3
+                        }).setOrigin(0.5).setDepth(99999).setVisible(false);
+
+                        this.developmentNpcs.push({ sprite: npc, nameText });
+                    } else {
+                        // Add chair
+                        const chair = decor.create(posX, posY + 16, "dev_chair");
+                        chair.setScale(pixelScale);
+                        chair.setDepth(posY + 16);
+                    }
 
                     currentX += w;
                 });
             };
 
-            // Left: L, R (flush to wall)
-            placeSequence(leftGroupX, leftTypes);
-
-            // Center: L, R, C, C, L, R
-            placeSequence(centerGroupX, centerTypes);
-
-            // Right: L, R (flush to wall)
-            placeSequence(rightGroupX, rightTypes);
+            // Left: L, R
+            placeSequence(leftGroupX, leftTypes, "left");
+            // Center
+            placeSequence(centerGroupX, centerTypes, "center");
+            // Right
+            placeSequence(rightGroupX, rightTypes, "right");
         };
 
         // Row positions
         const startDeskY = floorTop + 110;
         const rowGap = 140;
 
-        createDeskRow(startDeskY);
-        createDeskRow(startDeskY + rowGap);
-        createDeskRow(startDeskY + rowGap * 2);
+        createDeskRow(startDeskY, 0);
+        createDeskRow(startDeskY + rowGap, 1);
+        createDeskRow(startDeskY + rowGap * 2, 2);
+
 
         // 4. Player
         const firstFrame = "16x16 All Animations 0.aseprite";
         this.player = this.physics.add.sprite(this.spawnX, this.spawnY, "main_character", firstFrame);
         this.player.setScale(pixelScale).setCollideWorldBounds(true);
+
         this.player.body.setSize(10, 8).setOffset(5, 12);
         this.player.setDepth(100);
 
@@ -220,7 +261,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         // Camera
         this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
         this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
-        this.cameras.main.setZoom(1.8);
+        this.cameras.main.setZoom(1.5);
 
         // Keys
         this.moveKeys = this.input.keyboard.addKeys({
@@ -231,14 +272,92 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             w: Phaser.Input.Keyboard.KeyCodes.W,
             a: Phaser.Input.Keyboard.KeyCodes.A,
             s: Phaser.Input.Keyboard.KeyCodes.S,
+
             d: Phaser.Input.Keyboard.KeyCodes.D,
         });
         this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.prevRight = false;
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
         // Animations
         this.createPlayerAnimations();
         this.lastDirection = "down";
         this.player.anims.play("idle-down");
+
+        // Create LYJ NPC
+        this.createLyj(pixelScale);
+    }
+
+
+
+
+    createLyj(scale) {
+        // Position: Front of the room (Center X, near top wall)
+        const startX = MAP_WIDTH / 2;
+        const startY = (MAP_HEIGHT - FLOOR_HEIGHT) + 60; // Slightly below the wall
+
+        this.lyj = this.physics.add.sprite(startX, startY, "lyj");
+        this.lyj.setScale(scale);
+        this.lyj.setDepth(startY);
+
+        this.lyjPlz = this.add.image(startX + 14, startY - 24, "plz_icon");
+        this.lyjPlz.setScale(scale * 0.45);
+        this.lyjPlz.setDepth(startY + 1);
+
+        // Name Tag
+        this.lyjName = this.add.text(startX, startY - 40, "lyj", {
+            fontFamily: "Galmuri11-Bold",
+            fontSize: "12px",
+            color: "#ffffff",
+            stroke: "#000000",
+            strokeThickness: 3
+        }).setOrigin(0.5).setDepth(99999).setVisible(false);
+
+        const anims = this.anims;
+        if (!anims.exists("lyj-walk")) {
+            const frameCount = this.textures.get("lyj").getSourceImage().width / 20;
+            anims.create({
+                key: "lyj-walk",
+                frames: anims.generateFrameNumbers("lyj", { start: 0, end: Math.max(0, frameCount - 1) }),
+                frameRate: 8,
+                repeat: -1
+            });
+        }
+
+        // Pacing Logic
+        const range = 60;
+        const duration = 1200;
+
+        this.lyj.x = startX - range;
+
+        const paceRight = () => {
+            if (!this.lyj || !this.lyj.scene) return;
+            this.lyj.setFlipX(false);
+            this.lyj.play("lyj-walk");
+            this.tweens.add({
+                targets: this.lyj,
+                x: startX + range,
+                duration: duration,
+                ease: "Linear",
+                onComplete: paceLeft
+            });
+        };
+
+        const paceLeft = () => {
+            if (!this.lyj || !this.lyj.scene) return;
+            this.lyj.setFlipX(true);
+            this.lyj.play("lyj-walk");
+            this.tweens.add({
+                targets: this.lyj,
+                x: startX - range,
+                duration: duration,
+                ease: "Linear",
+                onComplete: paceRight
+            });
+        };
+
+        paceRight();
     }
 
     createPlayerAnimations() {
@@ -268,6 +387,57 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
     update() {
         if (!this.player) return;
+        if (this.lyj && this.lyjPlz) {
+            const bob = Math.sin(this.time.now / 200) * 3;
+            this.lyjPlz.x = this.lyj.x + 14;
+            this.lyjPlz.y = this.lyj.y - 24 + bob;
+            this.lyjPlz.setDepth(this.lyj.depth + 1);
+        }
+        const pointer = this.input.activePointer;
+        const pointerRightDown = pointer.rightButtonDown();
+        const rightJustDown = pointerRightDown && !this.prevRight;
+        this.prevRight = pointerRightDown;
+
+        if (rightJustDown && this.devBoard) {
+            const distToBoard = Phaser.Math.Distance.Between(
+                this.player.x,
+                this.player.y,
+                this.devBoard.x,
+                this.devBoard.y
+            );
+            if (distToBoard < 120) {
+                if (this.devBoardLetter) {
+                    this.devBoardLetter.destroy();
+                    this.devBoardLetter = null;
+                } else {
+                    const centerX = this.cameras.main.worldView.centerX;
+                    const centerY = this.cameras.main.worldView.centerY;
+                    const dim = this.add.rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x000000, 0.35);
+                    dim.setScrollFactor(0).setDepth(10000);
+                    const letter = this.add.image(centerX, centerY, "dev_board_letter");
+                    letter.setScrollFactor(0).setDepth(10001);
+                    this.devBoardLetter = this.add.container(0, 0, [dim, letter]);
+                    this.devBoardLetter.setDepth(10002);
+                }
+                return;
+            }
+        }
+
+        if (this.doorExitX && this.doorExitY) {
+            const distanceToDoor = Phaser.Math.Distance.Between(
+                this.player.x,
+                this.player.y,
+                this.doorExitX,
+                this.doorExitY
+            );
+            const canTrigger = !this.lastTriggerTime || this.time.now - this.lastTriggerTime > 1000;
+            if (distanceToDoor < 70 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+                this.lastTriggerTime = this.time.now;
+                window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterHospital" } }));
+                this.player.body.setVelocity(0);
+                return;
+            }
+        }
         const isRunning = this.shiftKey.isDown;
         const speed = isRunning ? 200 : 110;
         const animPrefix = isRunning ? "run" : "walk";
@@ -306,5 +476,23 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             this.player.anims.play(animKey("idle", this.lastDirection), true);
         }
         this.player.setDepth(this.player.y);
+
+        // Update LYJ Name Tag
+        if (this.lyj && this.lyjName) {
+            this.lyjName.setPosition(this.lyj.x, this.lyj.y - 40);
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lyj.x, this.lyj.y);
+            this.lyjName.setVisible(dist < 60);
+
+            if (dist < 60 && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
+            }
+        }
+
+        if (this.developmentNpcs) {
+            this.developmentNpcs.forEach(npcData => {
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npcData.sprite.x, npcData.sprite.y);
+                npcData.nameText.setVisible(dist < 60);
+            });
+        }
     }
 }

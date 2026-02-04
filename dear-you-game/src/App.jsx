@@ -1,32 +1,52 @@
 ﻿import React, { useCallback, useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import "./App.css";
+import MathMiniGameModal from "./components/MathMiniGameModal";
 import MiniGameModal from "./components/MiniGameModal";
+import RunningGameModal from "./components/RunningGameModal";
+import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
+import OpeningScene from "./scenes/OpeningScene";
 import DevelopmentRoomScene from "./scenes/DevelopmentRoomScene";
 import KaimaruScene from "./scenes/KaimaruScene";
 import MyRoomScene from "./scenes/MyRoomScene";
 import HospitalScene from "./scenes/HospitalScene";
+import GroundScene from "./scenes/GroundScene";
 
 const canvasWidth = 1200;
 const canvasHeight = 720;
 
 function App() {
   const [showMiniGame, setShowMiniGame] = useState(false);
+  const [showMathGame, setShowMathGame] = useState(false);
+  const [mathGameSolved, setMathGameSolved] = useState(false);
+  const [showRunningGame, setShowRunningGame] = useState(false);
+  const [showCatchBall, setShowCatchBall] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [isOpeningScene, setIsOpeningScene] = useState(false);
   const [bgm, setBgm] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
-
   const [debugTab, setDebugTab] = useState("장소"); // Place | MiniGame
-  const [isQuestCompleted, setIsQuestCompleted] = useState(false);
+
+  // Quest System
+  const [quests, setQuests] = useState([
+    { id: 1, text: "103호에게 편지를 전달하자", room: "103", completed: false },
+    { id: 2, text: "104호에게 편지를 전달하자", room: "104", completed: false },
+    { id: 3, text: "카이마루에게 편지를 전달하자", room: "kaimaru", completed: false },
+  ]);
+  const [currentQuestIndex, setCurrentQuestIndex] = useState(0);
+
+  const [room103MiniGameCompleted, setRoom103MiniGameCompleted] = useState(false);
+  const [showScooterAnim, setShowScooterAnim] = useState(false);
+  const [showScooterReverse, setShowScooterReverse] = useState(false);
   const [showNextQuest, setShowNextQuest] = useState(false);
   const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
@@ -38,6 +58,8 @@ function App() {
     { id: "npc-103-3", name: "PCW", hasLetter: false, hasWritten: false },
     { id: "npc-104-1", name: "IG", hasLetter: false, hasWritten: false },
     { id: "npc-104-2", name: "INJ", hasLetter: false, hasWritten: false },
+    { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
+    { id: "npc-itb", name: "itb", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -64,14 +86,30 @@ function App() {
   const accumulatedTimeRef = useRef(0);
   const isSceneTransitioningRef = useRef(false);
   const gameRef = useRef(null);
+  const wheelSfxRef = useRef(null);
+  const kaimaruQuestNotifiedRef = useRef(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
   const [showBanToast, setShowBanToast] = useState(false);
   const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
   const [exitRoomKey, setExitRoomKey] = useState(null);
+  const [exitRoomData, setExitRoomData] = useState(null);
   const [interactionTargetId, setInteractionTargetId] = useState(null);
   const [confirmMode, setConfirmMode] = useState("write"); // 'write' | 'give'
+
+  const playWheelSfx = () => {
+    const url = "/assets/common/scooter_wheel.mp3";
+    try {
+      if (!wheelSfxRef.current) {
+        wheelSfxRef.current = new Audio(url);
+      }
+      wheelSfxRef.current.currentTime = 0;
+      wheelSfxRef.current.play().catch(() => { });
+    } catch {
+      // ignore audio errors
+    }
+  };
 
   const inventoryConfig = {
     slots: 7,
@@ -127,11 +165,30 @@ function App() {
     const handleExitConfirm = (e) => {
       const key = e.detail?.roomKey ?? e.detail?.key;
       setExitRoomKey(key);
+      setExitRoomData(e.detail ?? null);
       setShowExitConfirm(true);
     };
     window.addEventListener("open-exit-confirm", handleExitConfirm);
     return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, []);
+
+  useEffect(() => {
+    const onOpeningStart = () => setIsOpeningScene(true);
+    const onOpeningEnd = () => {
+      setIsOpeningScene(false);
+      setChecklistOpen(true);
+    };
+    window.addEventListener("opening-start", onOpeningStart);
+    window.addEventListener("opening-end", onOpeningEnd);
+    return () => {
+      window.removeEventListener("opening-start", onOpeningStart);
+      window.removeEventListener("opening-end", onOpeningEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showIntro) setIsOpeningScene(false);
+  }, [showIntro]);
 
   useEffect(() => {
     const handleMove = (event) => {
@@ -162,6 +219,18 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleRoom103MiniGameStart = () => {
+      if (!room103MiniGameCompleted) {
+        setShowMiniGame(true);
+      }
+    };
+    window.addEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+    return () => {
+      window.removeEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+    };
+  }, [room103MiniGameCompleted]);
+
   const handleChecklistClick = useCallback(() => {
     if (checklistTimerRef.current) {
       clearTimeout(checklistTimerRef.current);
@@ -169,6 +238,7 @@ function App() {
     setChecklistOpen((prev) => {
       const nextOpen = !prev;
       if (nextOpen) {
+        setShowNextQuest(true);
         checklistTimerRef.current = setTimeout(() => {
           setChecklistOpen(false);
         }, 2400);
@@ -257,6 +327,55 @@ function App() {
   }, [showLetterWrite]);
 
   useEffect(() => {
+    const handleInteract = (e) => {
+      const { npcId } = e.detail;
+      if (npcId === "npc-itb") {
+        setShowRunningGame(true);
+        return;
+      }
+      if (npcId === "npc-mdh-psj") {
+        setShowCatchBall(true);
+        return;
+      }
+      const npcState = gameStateRef.current.getNpcState(npcId);
+      if (!npcState) return;
+
+      const { hasLetter, hasWritten } = npcState;
+      const letterCount = gameStateRef.current.getLetterCount();
+      const selectedSlot = gameStateRef.current.getSelectedSlot();
+      const writtenCount = gameStateRef.current.getWrittenCount();
+
+      // Write logic: Empty hands (slot 0) and no letter yet
+      if (!hasLetter && !hasWritten && letterCount > 0 && selectedSlot === 0) {
+        setInteractionTargetId(npcId);
+        setConfirmMode("write");
+        setShowWriteConfirm(true);
+      }
+      // Give logic: Selecting a letter group
+      else if (!hasLetter && writtenCount > 0 && selectedSlot !== 0) {
+        const groups = gameStateRef.current.getLetterGroups();
+        const group = groups[selectedSlot - 1]; // slot 0 is paper, so index is slot-1
+
+        if (group && group.npcId === npcId) {
+          setInteractionTargetId(npcId);
+          setConfirmMode("give");
+          setShowWriteConfirm(true);
+        } else {
+          // Wrong letter or empty slot selected
+          // Optional: alert("이 편지는 이 사람에게 줄 수 없습니다.");
+        }
+      }
+      // Already wrote but not given, and holding paper?
+      else if (hasWritten && !hasLetter && selectedSlot === 0) {
+        // alert("이미 편지를 썼습니다. 인벤토리에서 편지를 선택해 전달하세요.");
+      }
+    };
+
+    window.addEventListener("interact-npc", handleInteract);
+    return () => window.removeEventListener("interact-npc", handleInteract);
+  }, []);
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem("writtenLetters");
       if (saved) {
@@ -281,6 +400,14 @@ function App() {
     writtenLettersRef.current = writtenLetters;
   }, [writtenLetters]);
 
+  useEffect(() => {
+    const kaimaruDone = quests.find((q) => q.room === "kaimaru")?.completed;
+    if (kaimaruDone && !kaimaruQuestNotifiedRef.current) {
+      kaimaruQuestNotifiedRef.current = true;
+      window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
+    }
+  }, [quests]);
+
 
   const gameStateRef = useRef({
     isMiniGameOpen: false,
@@ -294,8 +421,35 @@ function App() {
     getNpcState: (id) => npcs.find((n) => n.id === id),
     setNpcHasLetter: (id) =>
       setNpcs((prev) => prev.map((n) => (n.id === id ? { ...n, hasLetter: true } : n))),
-    setNpcWritten: (id) =>
-      setNpcs((prev) => prev.map((n) => (n.id === id ? { ...n, hasWritten: true } : n))),
+    setNpcWritten: (id) => {
+      setNpcs((prev) => {
+        const updated = prev.map((n) => (n.id === id ? { ...n, hasWritten: true } : n));
+
+        // Check if quest should be completed
+        const npc = prev.find(n => n.id === id);
+        if (npc) {
+          const roomNumber = npc.id.includes("103") ? "103" : npc.id.includes("104") ? "104" : null;
+          if (roomNumber) {
+            const roomNpcs = updated.filter(n => n.id.includes(roomNumber));
+            const allCompleted = roomNpcs.every(n => n.hasWritten);
+
+            if (allCompleted) {
+              // Mark quest as completed
+              setQuests(prevQuests => prevQuests.map(q =>
+                q.room === roomNumber ? { ...q, completed: true } : q
+              ));
+
+              // Move to next quest after delay
+              setTimeout(() => {
+                setCurrentQuestIndex(prev => Math.min(prev + 1, 2)); // Max index 2 for 3 quests
+              }, 1000);
+            }
+          }
+        }
+
+        return updated;
+      });
+    },
   });
 
   useEffect(() => {
@@ -306,21 +460,21 @@ function App() {
     gameStateRef.current.getWrittenCount = () => writtenCount;
     gameStateRef.current.getNpcState = (id) => npcs.find((n) => n.id === id);
     gameStateRef.current.getLetterGroups = () => letterGroups;
+    gameStateRef.current.getMathGameSolved = () => mathGameSolved;
+    gameStateRef.current.setShowMathGame = setShowMathGame;
     if (gameRef.current) {
       gameRef.current.registry.set("selectedSlot", selectedSlot);
       gameRef.current.registry.set("letterCount", letterCount);
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
+      gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
     }
-  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups]);
+  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted]);
 
   useEffect(() => {
     if (showIntro) return;
 
     let cancelled = false;
-
-    // index.css handles layout
-    // const style = document.createElement("style"); ... removed
 
     const config = {
       type: Phaser.AUTO,
@@ -345,7 +499,7 @@ function App() {
           debug: true,
         },
       },
-      scene: [RoadScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, MyRoomScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
+      scene: [OpeningScene, RoadScene, GroundScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, MyRoomScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
     };
 
     function preload() {
@@ -371,17 +525,18 @@ function App() {
       this.load.image("happy_icon", `${commonPath}happy.png`);
       this.load.image("letter_icon", `${commonPath}letter.png`);
       this.load.image("letter_written", `${commonPath}letter_wirte.png`);
+      this.load.image("plz_icon", `${commonPath}plz.png`);
 
-      // NPC Assets
       this.load.image("ig", `${commonPath}character/ig.png`);
       this.load.image("inj", `${commonPath}character/inj.png`);
 
-      const loadAtlas = (key) => {
-        this.load.atlas(key, `${commonPath}character/${key}.png`, `${commonPath}character/${key}.json`);
-      };
-      loadAtlas("kms");
-      loadAtlas("pcw");
-      loadAtlas("swy");
+      // Load 103 NPCs as Spritesheets (assuming 32x32 or adjust if needed)
+      // Trying 16x16 based on main_character style, or 32x32. Let's try 32x32 first? No, 16x16 seems typical for this game.
+      // Let's use 32x32 since user mentioned problems.
+      // Actually, without json, we guess. Let's try 32x32.
+      this.load.spritesheet("kms", `${commonPath}character/kms.png`, { frameWidth: 32, frameHeight: 32 });
+      this.load.spritesheet("pcw", `${commonPath}character/pcw.png`, { frameWidth: 32, frameHeight: 32 });
+      this.load.spritesheet("swy", `${commonPath}character/swy.png`, { frameWidth: 32, frameHeight: 32 });
 
       this.load.atlas(
         "main_character",
@@ -432,6 +587,8 @@ function App() {
         const furniture = obstacles.create(x, y, texture);
         furniture.setScale(pixelScale * scaleX, pixelScale * scaleY);
         furniture.refreshBody();
+        furniture.body.setSize(furniture.displayWidth * 0.85, furniture.displayHeight * 0.4);
+        furniture.body.setOffset(furniture.displayWidth * 0.075, furniture.displayHeight * 0.6);
         furniture.setDepth(Math.round(furniture.y));
         return furniture;
       };
@@ -446,14 +603,29 @@ function App() {
       const row4Y = startY + 265;
 
       createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
-      createFurniture({ x: leftX + 25, y: row2Y, texture: "bed_2", scaleX: 0.85 });
-      createFurniture({ x: leftX - 1, y: row3Y, texture: "closet", scaleX: 1 });
-      createFurniture({ x: leftX - 1, y: row4Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: leftX + 10, y: row2Y, texture: "bed_2", scaleX: 0.85 });
+      createFurniture({ x: leftX - 5, y: row3Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: leftX - 5, y: row4Y, texture: "closet", scaleX: 1 });
 
       createFurniture({ x: rightX, y: row1Y, texture: "deskr", scaleX: 1 });
       createFurniture({ x: rightX, y: row2Y, texture: "deskr", scaleX: 1 });
-      createFurniture({ x: rightX - 25, y: row3Y, texture: "bed", scaleX: 0.85 });
-      createFurniture({ x: rightX + 1, y: row4Y, texture: "closet", scaleX: 1 });
+      createFurniture({ x: rightX - 10, y: row3Y, texture: "bed", scaleX: 0.85 });
+      createFurniture({ x: rightX + 5, y: row4Y, texture: "closet", scaleX: 1 });
+
+      const placeChair = (x, y, key) => {
+        this.add
+          .image(x, y, key)
+          .setScale(pixelScale)
+          .setDepth(Math.round(y));
+      };
+      // Left wall desk chair
+      placeChair(leftX - 22, row1Y + 8, "chair_left");
+
+      // Right wall desks: skip in Room104 (right desks excluded)
+      if (this.scene.key !== "Room104") {
+        placeChair(rightX + 22, row1Y + 8, "chair_right");
+        placeChair(rightX + 22, row2Y + 8, "chair_right");
+      }
 
       const outlineTopH =
         this.textures.get("outline_top").getSourceImage().height * pixelScale;
@@ -523,10 +695,24 @@ function App() {
         }
       };
 
+      const createNpcAnimSheet = (key, texture, start, end) => {
+        if (!this.anims.exists(key)) {
+          this.anims.create({
+            key,
+            frames: this.anims.generateFrameNumbers(texture, { start, end }),
+            frameRate: 4,
+            repeat: -1
+          });
+        }
+      };
+
       // Create animations for 103 NPCs
       ["kms", "pcw", "swy"].forEach(char => {
-        createNpcAnim(`${char}-idle-down`, char, 0, 3);
-        createNpcAnim(`${char}-idle-right`, char, 4, 7);
+        // Assuming frames: 0-3 down, 4-7 right (standard 4-dir 4-frame/3-frame layout?)
+        // If 3x4 sheet: 0-2, 3-5, 6-8, 9-11
+        // Using provided indices 0-3, 4-7
+        createNpcAnimSheet(`${char}-idle-down`, char, 0, 3);
+        createNpcAnimSheet(`${char}-idle-right`, char, 4, 7);
       });
 
       const roomNpcConfig = {
@@ -536,8 +722,8 @@ function App() {
           { id: "npc-103-3", x: rightX - 70, y: row2Y + 10, anim: "pcw-idle-down", texture: "pcw" },
         ],
         Room104: [
-          { id: "npc-104-1", x: rightX - 60, y: row1Y + 15, texture: "ig", isStatic: true },
-          { id: "npc-104-2", x: rightX - 60, y: row2Y + 15, texture: "inj", isStatic: true },
+          { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },
+          { id: "npc-104-2", x: rightX - 35, y: row2Y + 15, texture: "inj", isStatic: true },
         ],
       };
 
@@ -545,6 +731,8 @@ function App() {
 
       this.npcs = this.physics.add.staticGroup();
       this.npcIcons = [];
+      let igPos = null;
+      let injPos = null;
 
       if (configNpcs) {
         configNpcs.forEach(npcData => {
@@ -552,7 +740,8 @@ function App() {
           if (npcData.isStatic) {
             npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
           } else {
-            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture, `${npcData.texture} 0.aseprite`);
+            // For spritesheets, just pass texture key
+            npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
             if (npcData.anim) npc.anims.play(npcData.anim);
           }
           npc.setScale(pixelScale);
@@ -560,6 +749,8 @@ function App() {
           npc.refreshBody();
           if (npcData.anim) npc.anims.play(npcData.anim);
           npc.npcId = npcData.id;
+          if (npcData.texture === "ig") igPos = { x: npc.x, y: npc.y };
+          if (npcData.texture === "inj") injPos = { x: npc.x, y: npc.y };
 
           // Quest icon
           const iconOffsetY = 36;
@@ -638,6 +829,24 @@ function App() {
           nameText.setDepth(99999);
           nameText.setVisible(false);
           npc.nameText = nameText;
+        });
+      }
+
+      if (this.scene.key === "Room104" && igPos && injPos) {
+        const plz = this.add.image(
+          (igPos.x + injPos.x) / 2 + 14,
+          (igPos.y + injPos.y) / 2 - 20,
+          "plz_icon"
+        );
+        plz.setScale(pixelScale * 0.45);
+        plz.setDepth(99999);
+        this.tweens.add({
+          targets: plz,
+          y: plz.y - 6,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
         });
       }
 
@@ -871,6 +1080,13 @@ function App() {
       // NPC Interaction
       if (isNearNPC && !this.interactionCooldown) {
         if (rightJustDown) {
+          if ((this.npcId === "npc-104-1" || this.npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
+            gameStateRef.current.setShowMathGame(true);
+            this.interactionCooldown = true;
+            setTimeout(() => { this.interactionCooldown = false; }, 1000);
+            return;
+          }
+
           // ... Logic for write/give ...
           const npcState = gameStateRef.current.getNpcState(this.npcId);
           if (npcState) {
@@ -990,24 +1206,28 @@ function App() {
           from { transform: scaleX(0); }
           to { transform: scaleX(1); }
         }
+        @keyframes questFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
       `}</style>
 
       {/* UI Elements */}
-      {!showIntro && (
+      {!showIntro && !isOpeningScene && (
         <>
           {/* Quest Modal */}
           {(() => {
-            const baseImage = "questnotice.png";
-            const baseSize = { w: 75, h: 46 };
-            const panelScale = 2.35;
+            const baseImage = "quest2.png";
+            const baseSize = { w: 75, h: 32 };
+            const panelScale = 2.7;
             const panelWidth = Math.round(baseSize.w * panelScale);
             const panelHeight = Math.round(baseSize.h * panelScale);
             const currentHeight = panelHeight;
-            const peek = 12;
-            const textLeft = Math.round(panelWidth * 0.25);
-            const textRight = Math.round(panelWidth * 0.07);
-            const quest1Top = Math.round(currentHeight * 0.28);
-            const quest2Top = Math.round(currentHeight * 0.07);
+            const peek = 38;
+            const textLeft = Math.round(panelWidth * 0.15);
+            const textRight = Math.round(panelWidth * 0.15);
+            const quest1Top = Math.round(currentHeight * 0.25);
+            const quest2Top = Math.round(currentHeight * 0.3);
 
             return (
               <div
@@ -1031,42 +1251,14 @@ function App() {
                 }}
                 style={{
                   position: "absolute",
-                  top: checklistOpen ? "0px" : `-${currentHeight - peek}px`,
-                  // Keeping -5px for normal peek. If extended is hidden, it might need more offset or same.
-                  // If "check1.png" (extended) is hidden, we usually want to show just the bottom edge?
-                  // "check1" has quest 1 at top, quest 2 at bottom. 
-                  // If we only want to peek the bottom, we need a large negative top.
-                  // But usually the user wants to see the "Current" quest?
-                  // Actually, if showNextQuest is true, keeping it open until auto-close is good.
-                  // If closed with showNextQuest, maybe revert to "check2" or "check" visual or just peek?
-                  // Let's assume standard behavior:
-                  // top: open ? 0 : -85px (hide most)
-                  // But original code had "-5px" which implies it's ALREADY mostly hidden or that's the visible 'tab'?
-                  // Wait, original `top: checklistOpen ? "0px" : "-5px"` means it is mostly ON SCREEN by default? 
-                  // NO. "0px" is top of screen.
-                  // If "-5px", it's slightly shifted up?
-                  // Actually, let's look at the background image alignment.
-                  // Usually these modals stick to the top.
-                  // If "checklistOpen" means "Expanded/Dropped Down":
-                  //   Then "0px" might be "Fully Visible".
-                  //   And "Closed" might be "-90px".
-                  // The previous code had `checklistOpen ? "0px" : "-5px"`. 
-                  // If it was "-5px", it basically barely moves.
-                  // The user said "Click -> Modal comes down". This implies it WAS up (hidden).
-                  // So `checklistOpen` = false should be `top: -Height + TabSize`.
-                  // Let's assume the "Tab" is at the bottom of the image.
-                  // If images are drawn from Top-Left.
-
-                  // User previous complaint: "modal down".
-                  // Let's try: `top: checklistOpen ? "0px" : \`-\${currentHeight - 40}px\``
-                  // This keeps 40px visible.
-
-                  right: "14px",
+                  top: checklistOpen ? "60px" : `-${currentHeight - peek - 56}px`,
+                  right: "20px",
                   width: `${panelWidth}px`,
                   height: `${currentHeight}px`,
                   zIndex: 150,
                   cursor: "pointer",
-                  transition: "top 0.5s ease",
+                  transition: "top 0.5s cubic-bezier(0.25, 1, 0.5, 1)",
+                  animation: "questFadeIn 2.0s ease-out", // Long smooth fade-in on mount
                 }}
               >
                 <div
@@ -1082,61 +1274,72 @@ function App() {
                     transition: "background-image 0.5s ease"
                   }}
                 >
-                  {/* Quest 1 Text (bottom slot) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: `${quest1Top}px`,
-                      left: `${textLeft}px`,
-                      right: `${textRight}px`,
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "12px",
-                      color: "#5b3a24",
-                      lineHeight: "1.2",
-                      cursor: "default",
-                      whiteSpace: "nowrap",
-                      opacity: isQuestCompleted ? 0.85 : 1,
-                      transition: "opacity 0.5s ease",
-                    }}
-                  >
-                    103호에게 편지를 전달하자
-                  </div>
-                  {isQuestCompleted && (
+                  {/* Current Quest (bottom slot) */}
+                  {quests[currentQuestIndex] && (
+                    <>
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          bottom: 0,
+                          left: `${textLeft}px`,
+                          right: `${textRight}px`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "12px",
+                          color: "#5b3a24",
+                          lineHeight: "1.4",
+                          textAlign: "center",
+                          cursor: "default",
+                          whiteSpace: "nowrap",
+                          opacity: quests[currentQuestIndex].completed ? 0.85 : 1,
+                          transition: "opacity 0.5s ease",
+                        }}
+                      >
+                        {quests[currentQuestIndex].text}
+                      </div>
+                      {quests[currentQuestIndex].completed && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: `${quest1Top + Math.round(panelScale * 2)}px`,
+                            left: `${textLeft}px`,
+                            right: `${textRight}px`,
+                            height: "2px",
+                            backgroundColor: "#5b3a24",
+                            transformOrigin: "left center",
+                            animation: "questStrike 0.35s ease forwards",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {/* Next Quest (top slot) */}
+                  {quests[currentQuestIndex + 1] && (
                     <div
                       style={{
                         position: "absolute",
-                        top: `${quest1Top + Math.round(panelScale * 2)}px`,
+                        top: `${quest2Top}px`,
                         left: `${textLeft}px`,
                         right: `${textRight}px`,
-                        height: "2px",
-                        backgroundColor: "#5b3a24",
-                        transformOrigin: "left center",
-                        animation: "questStrike 0.35s ease forwards",
-                        pointerEvents: "none",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "12px",
+                        color: "#5b3a24",
+                        lineHeight: "1.2",
+                        cursor: "default",
+                        whiteSpace: "nowrap",
+                        opacity: showNextQuest || quests[currentQuestIndex].completed ? 1 : 0,
+                        pointerEvents: showNextQuest || quests[currentQuestIndex].completed ? "auto" : "none",
+                        transition: "opacity 0.5s ease",
                       }}
-                    />
+                    >
+                      {quests[currentQuestIndex + 1].text}
+                    </div>
                   )}
-
-                  {/* Quest 2 Text (top slot) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: `${quest2Top}px`,
-                      left: `${textLeft}px`,
-                      right: `${textRight}px`,
-                      fontFamily: "Galmuri11-Bold",
-                      fontSize: "12px",
-                      color: "#5b3a24",
-                      lineHeight: "1.2",
-                      cursor: "default",
-                      whiteSpace: "nowrap",
-                      opacity: showNextQuest ? 1 : 0,
-                      pointerEvents: showNextQuest ? "auto" : "none",
-                      transition: "opacity 0.5s ease",
-                    }}
-                  >
-                    104호에게 편지를 전달하자
-                  </div>
                 </div>
               </div>
             );
@@ -1737,6 +1940,150 @@ function App() {
             </span>
           </div>
 
+          {/* Quest Modal - Top Right */}
+          {checklistOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "16px",
+                right: "16px",
+                width: "420px",
+                height: "280px",
+                backgroundImage: "url('/assets/common/modal1.png')",
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                imageRendering: "pixelated",
+                zIndex: 135,
+                display: "flex",
+                flexDirection: "column",
+                padding: "30px 35px",
+                boxSizing: "border-box",
+                animation: "questSlideIn 0.3s ease-out",
+              }}
+            >
+              <style>{`
+                @keyframes questSlideIn {
+                  from {
+                    opacity: 0;
+                    transform: translateX(20px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateX(0);
+                  }
+                }
+              `}</style>
+
+              <h3
+                style={{
+                  fontFamily: "Galmuri11-Bold",
+                  fontSize: "18px",
+                  color: "#5B3A24",
+                  marginBottom: "20px",
+                  textAlign: "left",
+                }}
+              >
+                📋 퀘스트 목록
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                {quests.map((quest, index) => (
+                  <div
+                    key={quest.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      opacity: index <= currentQuestIndex ? 1 : 0.4,
+                      transition: "opacity 0.3s",
+                    }}
+                  >
+                    {/* Quest Icon/Status */}
+                    <div
+                      style={{
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        backgroundColor: quest.completed
+                          ? "#4CAF50"
+                          : index === currentQuestIndex
+                            ? "#FFC107"
+                            : "#9E9E9E",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "14px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {quest.completed ? "✓" : index + 1}
+                    </div>
+
+                    {/* Quest Text */}
+                    <div
+                      style={{
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "15px",
+                        color: quest.completed ? "#6d8c54" : "#5B3A24",
+                        textDecoration: quest.completed ? "line-through" : "none",
+                        flex: 1,
+                      }}
+                    >
+                      {quest.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress bar */}
+              <div
+                style={{
+                  marginTop: "auto",
+                  paddingTop: "20px",
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "12px",
+                    color: "#8d684e",
+                    marginBottom: "8px",
+                  }}
+                >
+                  진행도: {quests.filter((q) => q.completed).length} / {quests.length}
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    height: "12px",
+                    backgroundColor: "rgba(0, 0, 0, 0.1)",
+                    borderRadius: "6px",
+                    overflow: "hidden",
+                    border: "1px solid #8d684e",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${(quests.filter((q) => q.completed).length / quests.length) * 100}%`,
+                      height: "100%",
+                      backgroundColor: "#6d8c54",
+                      transition: "width 0.5s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {showBanToast && (
             <div style={{
               position: "absolute",
@@ -1763,301 +2110,9 @@ function App() {
                   ..
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={() => setDebugWarpOpen(true)}
-            style={{
-              position: "absolute",
-              right: "22px",
-              bottom: "26px",
-              width: "38px",
-              height: "38px",
-              backgroundImage: "url('/assets/common/setting.png')",
-              backgroundSize: "contain",
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "center",
-              border: "none",
-              backgroundColor: "transparent",
-              imageRendering: "pixelated",
-              cursor: "pointer",
-              zIndex: 130,
-            }}
-            aria-label="Debug Warp"
-          />
-
-          {debugWarpOpen && (
-            <div
-              onClick={() => setDebugWarpOpen(false)}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                backgroundColor: "rgba(0,0,0,0.55)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 1500,
-              }}
-            >
-              <div
-                onClick={(event) => event.stopPropagation()}
-                style={{
-                  width: "360px",
-                  height: "240px",
-                  backgroundImage: "url('/assets/common/modal1.png')",
-                  backgroundSize: "contain",
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center",
-                  imageRendering: "pixelated",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "10px",
-                  padding: "16px 18px 20px",
-                  boxSizing: "border-box",
-                  color: "#4E342E",
-                  fontFamily: "Galmuri11-Bold",
-                }}
-              >
-                <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
-                  {["장소", "미니게임"].map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setDebugTab(tab)}
-                      style={{
-                        width: "80px",
-                        height: "24px",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "11px",
-                        color: debugTab === tab ? "#4E342E" : "#8d684e",
-                        backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
-                        border: debugTab === tab ? "2px solid #caa47d" : "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: debugTab === tab ? "bold" : "normal",
-                      }}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-
-                {debugTab === "장소" && (
-                  <>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Road")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        길
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Hospital")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        병원
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        복도
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Kaimaru")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        카마
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("DevelopmentRoom")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        개발실
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Room103")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        103
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Room104")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        104
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("MyRoom")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "11px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        마이룸
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {debugTab === "미니게임" && (
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMiniGame(true);
-                        setDebugWarpOpen(false);
-                      }}
-                      style={{
-                        width: "80px",
-                        height: "32px",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "11px",
-                        color: "#4E342E",
-                        backgroundColor: "#f1d1a8",
-                        border: "2px solid #caa47d",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      미니게임
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowHeartQuest(true);
-                        setDebugWarpOpen(false);
-                      }}
-                      style={{
-                        width: "80px",
-                        height: "32px",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "11px",
-                        color: "#4E342E",
-                        backgroundColor: "#f1d1a8",
-                        border: "2px solid #caa47d",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      산수
-                    </button>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setDebugWarpOpen(false)}
-                  style={{
-                    width: "70px",
-                    height: "22px",
-                    fontFamily: "Galmuri11-Bold",
-                    fontSize: "10px",
-                    color: "#4E342E",
-                    backgroundColor: "#f1d1a8",
-                    border: "2px solid #caa47d",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          )}
         </>
-      )}
+      )
+      }
 
       <MiniGameModal
         isOpen={showMiniGame}
@@ -2065,7 +2120,10 @@ function App() {
           setShowMiniGame(false);
           setIsQuestCompleted(true);
         }}
-        onWin={() => alert("̴ϰ Ŭ!")}
+        onWin={() => {
+          setRoom103MiniGameCompleted(true);
+          window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom103" } }));
+        }}
       />
       <ExitConfirmModal
         isOpen={showExitConfirm}
@@ -2078,6 +2136,40 @@ function App() {
           let targetScene = null;
           let targetData = undefined;
 
+          // Special handling for Hospital Entry with Scooter Animation
+          if (sceneKey === "EnterDevelopmentRoom") {
+            playWheelSfx();
+            setShowScooterAnim(true);
+
+            setTimeout(() => {
+              setShowScooterAnim(false);
+              transitionToScene("DevelopmentRoom");
+            }, 2500);
+            return;
+          }
+
+          if (sceneKey === "EnterHospital") {
+            setShowScooterAnim(true);
+
+            // Wait for animation to finish (e.g. 2.5s) then warp
+            setTimeout(() => {
+              setShowScooterAnim(false);
+              transitionToScene("Hospital");
+            }, 2500);
+            return;
+          }
+
+          if (sceneKey === "LeaveHospital") {
+            setShowScooterReverse(true);
+            setShowExitConfirm(false); // Close modal immediately
+
+            setTimeout(() => {
+              setShowScooterReverse(false);
+              transitionToScene("DevelopmentRoom");
+            }, 2500);
+            return;
+          }
+
           if (sceneKey === "EnterHallway") {
             targetScene = "Hallway";
             targetData = { x: 150, y: 340 };
@@ -2086,13 +2178,22 @@ function App() {
           } else if (sceneKey === "EnterRoom104") {
             targetScene = "Room104";
           } else if (sceneKey === "LeaveHallway") {
-            targetScene = "Road";
+            targetScene = "GameScene";
             targetData = { x: 260, y: 340 };
+          } else if (sceneKey === "EnterGround") {
+            targetScene = "Ground";
+            targetData = {
+              x: exitRoomData?.x ?? 260,
+              y: 180,
+            };
           } else if (sceneKey === "EnterKaimaru") {
             targetScene = "Kaimaru";
           } else if (sceneKey === "LeaveKaimaru") {
-            targetScene = "Road";
+            targetScene = "GameScene";
             targetData = { x: 900, y: 360 };
+          } else if (sceneKey === "LeaveGround") {
+            targetScene = "GameScene";
+            targetData = { x: 260, y: 340 };
           } else if (sceneKey === "LeaveMyRoom") {
             targetScene = "Hallway";
             targetData = { x: 750, y: 330 };
@@ -2109,22 +2210,141 @@ function App() {
         }}
         message={(() => {
           if (!exitRoomKey) return "";
-          if (exitRoomKey === "EnterHallway") return "사랑관으로 들어가시겠습니까?";
-          if (exitRoomKey === "LeaveHallway") return "밖으로 나가시겠습니까?";
-          if (exitRoomKey === "EnterKaimaru") return "카이마루로 들어가시겠습니까?";
-          if (exitRoomKey.startsWith("EnterRoom")) return `${exitRoomKey.replace("EnterRoom", "")}호로 들어가시겠습니까?`;
-          if (exitRoomKey.startsWith("Room")) return "복도로 나가시겠습니까?";
+          if (exitRoomKey === "EnterHallway") return "사랑관으로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterHospital") return "병원으로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterDevelopmentRoom") return "자동차 개발실로 이동할까요?";
+          if (exitRoomKey === "LeaveHallway" || exitRoomKey === "LeaveKaimaru" || exitRoomKey === "LeaveGround") return "도로로 이동하시겠습니까?";
+          if (exitRoomKey === "LeaveHospital" || exitRoomKey === "DevelopmentRoom") return "개발실로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterKaimaru") return "카이마루로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterGround") return "운동장으로 이동하시겠습니까?";
+          if (exitRoomKey.startsWith("EnterRoom")) return `${exitRoomKey.replace("EnterRoom", "")}호로 이동하시겠습니까?`;
+          if (exitRoomKey.startsWith("Room") || exitRoomKey === "LeaveMyRoom") return "복도로 이동하시겠습니까?";
           return "이동하시겠습니까?";
         })()}
       />
+
+      {/* Scooter Animation Overlay */}
+      {
+        showScooterAnim && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              zIndex: 99999,
+              backgroundImage: "url('/assets/hospital/road1.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "flex-start",
+              overflow: "hidden",
+            }}
+          >
+            <style>{`
+            @keyframes scooterMove {
+              0% { transform: translateX(-300px); }
+              100% { transform: translateX(120vw); }
+            }
+          `}</style>
+            <img
+              src="/assets/hospital/scooter_ride.png"
+              alt="Scooter"
+              style={{
+                width: "300px",
+                marginBottom: "8%",
+                marginLeft: "0px",
+                animation: "scooterMove 2.5s linear forwards",
+                imageRendering: "pixelated",
+              }}
+            />
+          </div>
+        )
+      }
+
+      {
+        showScooterReverse && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              zIndex: 99999,
+              backgroundImage: "url('/assets/hospital/road1.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "flex-start",
+              overflow: "hidden",
+            }}
+          >
+            <style>{`
+            @keyframes scooterMoveReverse {
+              0% { transform: translateX(100vw) scaleX(-1); }
+              100% { transform: translateX(-300px) scaleX(-1); }
+            }
+          `}</style>
+            <img
+              src="/assets/hospital/scooter_ride.png"
+              alt="Scooter"
+              style={{
+                width: "300px",
+                marginBottom: "8%",
+                marginLeft: "0px",
+                animation: "scooterMoveReverse 2.5s linear forwards",
+                imageRendering: "pixelated",
+              }}
+            />
+          </div>
+        )
+      }
+
       <HeartQuestModal
         isOpen={showHeartQuest}
         onClose={() => setShowHeartQuest(false)}
         onWin={() => {
           setIsQuestCompleted(true);
-          alert("Ʈ Ʈ Ϸ!");
         }}
         onFail={() => alert("...")}
+      />
+
+      <MathMiniGameModal
+        isOpen={showMathGame}
+        onClose={() => setShowMathGame(false)}
+        onWin={() => {
+          setMathGameSolved(true);
+          setShowMathGame(false);
+          alert("정답입니다! 이제 편지를 전달할 수 있습니다.");
+        }}
+      />
+
+      <RunningGameModal
+        isOpen={showRunningGame}
+        onClose={() => setShowRunningGame(false)}
+        onWin={() => {
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
+          // Give a reward or just close? User didn't specify.
+          // But usually we mark quest completion or something.
+          // For now, just trigger happy event and close.
+          setShowRunningGame(false);
+        }}
+      />
+
+      <CatchBallModal
+        isOpen={showCatchBall}
+        onClose={() => setShowCatchBall(false)}
+        onWin={() => {
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
+          setShowCatchBall(false);
+        }}
       />
 
       {showIntro && <IntroScreen onStart={handleIntroStart} />}
@@ -2147,7 +2367,7 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
-    </div>
+    </div >
   );
 }
 

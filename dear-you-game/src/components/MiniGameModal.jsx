@@ -154,7 +154,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                     style={{
                         width: "420px",
                         minHeight: "320px",
-                        backgroundImage: "url('/assets/common/minigame_modal.png')",
+                        backgroundImage: "url('/assets/common/modal1.png')",
                         backgroundSize: "contain",
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center",
@@ -168,19 +168,6 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         animation: "slideIn 0.4s ease-out",
                     }}
                 >
-                    {/* Logo */}
-                    <img
-                        src="/assets/dormitory/logo.png"
-                        alt="Mini Game Logo"
-                        style={{
-                            width: "340px",
-                            height: "auto",
-                            marginBottom: "30px",
-                            imageRendering: "pixelated",
-                            animation: "bounce 1s ease-in-out infinite",
-                        }}
-                    />
-
                     {/* Description */}
                     <p
                         style={{
@@ -197,38 +184,28 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                         그렇다면 방법은....
                     </p>
 
-                    {/* Start Button */}
-                    <button
+                    {/* Start Button (Image) */}
+                    <img
+                        src="/assets/common/o.png"
+                        alt="시작"
                         onClick={handleStartGame}
                         style={{
-                            fontFamily: "Galmuri",
-                            fontSize: "14px",
-                            padding: "10px 28px",
-                            backgroundColor: "#ff6b35",
-                            color: "#4E342E",
-                            border: "4px solid #fff",
-                            borderRadius: "0",
+                            width: "60px",
+                            height: "60px",
                             cursor: "pointer",
-                            fontWeight: "bold",
-                            boxShadow: "0 4px 0 #c44520",
-                            transition: "all 0.1s",
                             imageRendering: "pixelated",
+                            transition: "transform 0.1s",
                         }}
                         onMouseDown={(e) => {
-                            e.target.style.transform = "translateY(4px)";
-                            e.target.style.boxShadow = "0 0 0 #c44520";
+                            e.target.style.transform = "scale(0.95)";
                         }}
                         onMouseUp={(e) => {
-                            e.target.style.transform = "translateY(0)";
-                            e.target.style.boxShadow = "0 4px 0 #c44520";
+                            e.target.style.transform = "scale(1)";
                         }}
                         onMouseLeave={(e) => {
-                            e.target.style.transform = "translateY(0)";
-                            e.target.style.boxShadow = "0 4px 0 #c44520";
+                            e.target.style.transform = "scale(1)";
                         }}
-                    >
-                        시작하기!
-                    </button>
+                    />
 
                     {/* CSS Animations */}
                     <style>{`
@@ -277,7 +254,7 @@ const MiniGameModal = ({ isOpen, onClose, onWin }) => {
                 style={{
                     width: "340px",
                     height: "250px",
-                    backgroundImage: "url('/assets/common/minigame_modal.png')",
+                    backgroundImage: "url('/assets/common/modal1.png')",
                     backgroundSize: "contain",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center",

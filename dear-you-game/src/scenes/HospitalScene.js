@@ -109,8 +109,8 @@ export default class HospitalScene extends Phaser.Scene {
         const bed = obstacles.create(centerX, centerY, "hosp_bed");
         bed.setScale(pixelScale * 1.2);
         bed.refreshBody();
-        bed.body.setSize(bed.width * 0.9, bed.height * 0.8);
-        bed.body.setOffset(bed.width * 0.05, bed.height * 0.1);
+        bed.body.setSize(bed.displayWidth * 0.85, bed.displayHeight * 0.4);
+        bed.body.setOffset(bed.displayWidth * 0.075, bed.displayHeight * 0.6);
         bed.setDepth(bed.y);
 
         // Cart (Left of Bed)
@@ -119,6 +119,8 @@ export default class HospitalScene extends Phaser.Scene {
         const cart = obstacles.create(cartX, cartY, "hosp_cart");
         cart.setScale(pixelScale);
         cart.refreshBody();
+        cart.body.setSize(cart.displayWidth * 0.85, cart.displayHeight * 0.4);
+        cart.body.setOffset(cart.displayWidth * 0.075, cart.displayHeight * 0.6);
         cart.setDepth(cart.y);
 
         // Flower (On Cart)
@@ -132,6 +134,8 @@ export default class HospitalScene extends Phaser.Scene {
         const iv = obstacles.create(ivX, ivY, "hosp_iv");
         iv.setScale(pixelScale);
         iv.refreshBody();
+        iv.body.setSize(iv.displayWidth * 0.85, iv.displayHeight * 0.4);
+        iv.body.setOffset(iv.displayWidth * 0.075, iv.displayHeight * 0.6);
         iv.setDepth(iv.y);
 
         // Armchair (Far Right)
@@ -140,6 +144,8 @@ export default class HospitalScene extends Phaser.Scene {
         const chair = obstacles.create(chairX, chairY, "hosp_armchair");
         chair.setScale(pixelScale);
         chair.refreshBody();
+        chair.body.setSize(chair.displayWidth * 0.85, chair.displayHeight * 0.4);
+        chair.body.setOffset(chair.displayWidth * 0.075, chair.displayHeight * 0.6);
         chair.setDepth(chair.y);
 
         // Player

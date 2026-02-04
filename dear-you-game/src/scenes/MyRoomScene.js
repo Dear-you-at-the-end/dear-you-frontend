@@ -77,45 +77,45 @@ export default class MyRoomScene extends Phaser.Scene {
 
     // Furniture (Scale 2x)
 
-    // Bed (Left side, slightly down)
-    const bed = obstacles.create(startX + 40, startY + 105, "my_bed");
+    // Bed (Top-Left corner, against wall)
+    const bed = obstacles.create(startX + 50, startY + 110, "my_bed");
     bed.setScale(pixelScale);
     bed.refreshBody();
-    bed.body.setSize(bed.displayWidth, bed.displayHeight * 0.4);
-    bed.body.setOffset(0, bed.displayHeight * 0.6);
+    bed.body.setSize(bed.displayWidth * 0.85, bed.displayHeight * 0.4);
+    bed.body.setOffset(bed.displayWidth * 0.075, bed.displayHeight * 0.6);
     bed.setDepth(bed.y);
 
-    // Bedside (Upper-right of bed)
-    const bedside = obstacles.create(startX + 110, startY + 75, "my_bedside");
+    // Bedside (Right of bed, against top wall)
+    const bedside = obstacles.create(startX + 125, startY + 100, "my_bedside");
     bedside.setScale(pixelScale);
     bedside.refreshBody();
-    bedside.body.setSize(bedside.displayWidth, bedside.displayHeight * 0.4);
-    bedside.body.setOffset(0, bedside.displayHeight * 0.6);
+    bedside.body.setSize(bedside.displayWidth * 0.85, bedside.displayHeight * 0.4);
+    bedside.body.setOffset(bedside.displayWidth * 0.075, bedside.displayHeight * 0.6);
     bedside.setDepth(bedside.y);
 
-    // Desk (Right side, lower)
-    const desk = obstacles.create(startX + roomW - 30, startY + 235, "my_desk");
+    // Desk (Bottom-Right, against right wall)
+    const desk = obstacles.create(startX + roomW - 15, startY + 230, "my_desk");
     desk.setScale(pixelScale);
     desk.refreshBody();
-    desk.body.setSize(desk.displayWidth, desk.displayHeight * 0.4);
-    desk.body.setOffset(0, desk.displayHeight * 0.6);
+    desk.body.setSize(desk.displayWidth * 0.85, desk.displayHeight * 0.4);
+    desk.body.setOffset(desk.displayWidth * 0.075, desk.displayHeight * 0.6);
     desk.setDepth(desk.y);
 
-    // Chair (Left of desk)
-    const chair = obstacles.create(startX + roomW - 60, startY + 245, "my_chair");
+    // Chair (In front of desk)
+    const chair = obstacles.create(startX + roomW - 55, startY + 240, "my_chair");
     chair.setScale(pixelScale);
     chair.refreshBody();
-    chair.body.setSize(chair.displayWidth * 0.8, chair.displayHeight * 0.5);
-    chair.body.setOffset(chair.displayWidth * 0.1, chair.displayHeight * 0.5);
+    chair.body.setSize(chair.displayWidth * 0.85, chair.displayHeight * 0.4);
+    chair.body.setOffset(chair.displayWidth * 0.075, chair.displayHeight * 0.6);
     chair.setDepth(chair.y);
 
-    // Rug (Center-right)
-    const rug = this.add.image(startX + roomW - 120, startY + 150, "my_rug");
+    // Rug (Center-left area)
+    const rug = this.add.image(startX + 105, startY + 170, "my_rug");
     rug.setScale(pixelScale);
     rug.setDepth(0);
 
-    // Door (Top Right, attached to wall)
-    this.exitDoor = this.add.image(startX + roomW - 25, startY + 75, "my_door");
+    // Door (Top Right, on wall)
+    this.exitDoor = this.add.image(startX + roomW - 20, startY + 70, "my_door");
     this.exitDoor.setScale(pixelScale);
     this.exitDoor.setDepth(999);
 

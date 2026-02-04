@@ -1,4 +1,4 @@
-﻿import Phaser from "phaser";
+import Phaser from "phaser";
 
 const MAP_WIDTH = 1500;
 const MAP_HEIGHT = 400;
@@ -24,6 +24,7 @@ export default class HallwayScene extends Phaser.Scene {
     this.load.image("hall_door", `${dormitoryPath}door.png`);
     this.load.image("ban_icon", `${commonPath}ban.png`);
     this.load.image("notice_icon", `${commonPath}notice.png`);
+    this.load.image("plz_icon", `${commonPath}plz.png`);
     this.load.image("dialog_bubble", `${commonPath}dialogbig.png`);
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
@@ -118,6 +119,20 @@ export default class HallwayScene extends Phaser.Scene {
       door.setDepth(2);
       door.roomNumber = room;
       door.refreshBody();
+
+      if (room === "103") {
+        const plz = this.add.image(x + 14, doorY - doorHeight / 2 - 22, "plz_icon");
+        plz.setScale(pixelScale * 0.45);
+        plz.setDepth(5);
+        this.tweens.add({
+          targets: plz,
+          y: plz.y - 8,
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
 
       if (room === "103" || room === "104") {
         const notice = this.add.image(x, doorY - doorHeight / 2 - 10, "notice_icon");
@@ -435,10 +450,44 @@ export default class HallwayScene extends Phaser.Scene {
         this.showSpeechBubble(this.player.x, this.player.y, "들어갈 수 없는 것 같아..");
         return;
       }
-      if (["103", "104"].includes(this.nearDoor.roomNumber)) {
-        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: `EnterRoom${this.nearDoor.roomNumber}` } }));
+
+      // Special handling for Room 103
+      if (this.nearDoor.roomNumber === "103") {
+        const miniGameCompleted = this.registry.get("room103MiniGameCompleted") ?? false;
+
+        if (!miniGameCompleted) {
+          // Play event sequence: show speech bubble twice, then trigger minigame
+          if (!this.room103EventPlayed) {
+            this.room103EventPlayed = true;
+            this.showSpeechBubble(this.player.x, this.player.y, "편지왔습니다!");
+
+            // Show second bubble after delay
+            this.time.delayedCall(3000, () => {
+              if (this.scene.isActive()) {
+                this.showSpeechBubble(this.player.x, this.player.y, "편지왔습니다!");
+
+                // Trigger minigame after second bubble
+                this.time.delayedCall(3000, () => {
+                  if (this.scene.isActive()) {
+                    window.dispatchEvent(new CustomEvent("room-103-minigame-start"));
+                  }
+                });
+              }
+            });
+          }
+          return;
+        }
+
+        // If minigame completed, allow entry
+        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom103" } }));
         return;
       }
+
+      if (this.nearDoor.roomNumber === "104") {
+        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom104" } }));
+        return;
+      }
+
       console.log(`Enter Room ${this.nearDoor.roomNumber}`);
     }
 

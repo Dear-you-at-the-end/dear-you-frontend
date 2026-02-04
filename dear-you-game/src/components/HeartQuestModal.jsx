@@ -8,6 +8,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
     const [options, setOptions] = useState([]);
     const [timeLeft, setTimeLeft] = useState(10);
     const [isGameOver, setIsGameOver] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const generateProblem = useCallback((currentLevel) => {
         let num1, num2, answer, operator;
@@ -71,14 +72,16 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
         setBreakingIndex(null);
         setLevel(1);
         setIsGameOver(false);
+        setIsSuccess(false);
         generateProblem(1);
     }, [generateProblem]);
 
     useEffect(() => {
-        if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (!isOpen) return;
+        const timer = setTimeout(() => {
             resetGame();
-        }
+        }, 0);
+        return () => clearTimeout(timer);
     }, [isOpen, resetGame]);
 
     const handleAnswer = (selectedAmount) => {
@@ -91,7 +94,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                 });
             } else {
                 if (onWin) onWin();
-                onClose();
+                setIsSuccess(true);
             }
         } else {
             handleWrongAnswer();
@@ -118,7 +121,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
     }, [generateProblem, level, lives, onFail]);
 
     useEffect(() => {
-        if (!isOpen || lives <= 0 || isGameOver) return;
+        if (!isOpen || lives <= 0 || isGameOver || isSuccess) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -131,7 +134,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [isOpen, lives, problem, isGameOver, handleWrongAnswer]);
+    }, [isOpen, lives, problem, isGameOver, isSuccess, handleWrongAnswer]);
 
     if (!isOpen) return null;
 
@@ -154,7 +157,7 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                 style={{
                     width: "360px",
                     minHeight: "280px",
-                    backgroundImage: "url('/assets/common/heartdialog.png')",
+                    backgroundImage: "url('/assets/common/modal1.png')",
                     backgroundSize: "contain",
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center",
@@ -199,7 +202,26 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
 
                 <div style={{ marginTop: "40px", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "Galmuri11-Bold", color: "#4E342E" }}>
 
-                    {!isGameOver ? (
+                    {isSuccess ? (
+                        <div style={{ textAlign: "center", marginTop: "20px" }}>
+                            <h2 style={{ fontSize: "28px", marginBottom: "20px", color: "#4caf50" }}>성공!</h2>
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    padding: "8px 16px",
+                                    fontFamily: "Galmuri11-Bold",
+                                    fontSize: "14px",
+                                    backgroundColor: "#4E342E",
+                                    color: "#E6D2B5",
+                                    border: "2px solid #2d1d19",
+                                    borderRadius: "4px",
+                                    cursor: "pointer"
+                                }}
+                            >
+                                확인
+                            </button>
+                        </div>
+                    ) : !isGameOver ? (
                         <>
                             <div style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 10px", marginBottom: "10px" }}>
                                 <span style={{ fontSize: "14px" }}>Level {level}</span>
@@ -262,21 +284,23 @@ const HeartQuestModal = ({ isOpen, onClose, onWin, onFail }) => {
                         </div>
                     )}
 
-                    <button
-                        onClick={onClose}
-                        style={{
-                            marginTop: "24px",
-                            fontFamily: "Galmuri11-Bold",
-                            backgroundColor: "transparent",
-                            border: "none",
-                            color: "#4E342E",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                            textDecoration: "underline"
-                        }}
-                    >
-                        닫기
-                    </button>
+                    {!isSuccess && (
+                        <button
+                            onClick={onClose}
+                            style={{
+                                marginTop: "24px",
+                                fontFamily: "Galmuri11-Bold",
+                                backgroundColor: "transparent",
+                                border: "none",
+                                color: "#4E342E",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                textDecoration: "underline"
+                            }}
+                        >
+                            닫기
+                        </button>
+                    )}
                 </div>
 
                 <style>{`
