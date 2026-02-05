@@ -9,7 +9,6 @@ import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
 import HospitalGameModal from "./components/HospitalGameModal";
-import ReceivedNeopjukModal from "./components/ReceivedNeopjukModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
@@ -60,9 +59,7 @@ function App() {
   const [showLyjQuestConfirm, setShowLyjQuestConfirm] = useState(false);
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
-  const [, setNjCount] = useState(0);
-  const [showNeopjukModal, setShowNeopjukModal] = useState(false);
-  const [neopjukNpcName, setNeopjukNpcName] = useState("");
+
   const [headsetCount, setHeadsetCount] = useState(0);
   const [devLyjMinigameDone, setDevLyjMinigameDone] = useState(false);
   const [devLettersUnlocked, setDevLettersUnlocked] = useState(false);
@@ -475,17 +472,6 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "kaimaruToGround" });
-    setShowRoomDialog(true);
-  }, []);
-
-  const openReceivedNeopjukDialog = useCallback((npcName) => {
-    setNeopjukNpcName(npcName);
-    setRoomDialogLines([
-      { speaker: npcName, portrait: "/assets/common/character/nj.png", text: "편지 고마워! 선물로 넙죽이를 줄게!" },
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "넙죽이를 받았다! ??" },
-    ]);
-    setRoomDialogIndex(0);
-    setRoomDialogAction({ type: "receiveNeopjuk" });
     setShowRoomDialog(true);
   }, []);
 
@@ -2686,10 +2672,6 @@ function App() {
                         noScooter: true,
                       });
                       setShowExitConfirm(true);
-                    } else if (action?.type === "receiveNeopjuk") {
-                      setNjCount((prev) => prev + 1);
-                      setShowNeopjukModal(true);
-                      window.dispatchEvent(new CustomEvent("player-happy"));
                     } else if (action?.type === "devEnableLyjDelivery") {
                       setDevLettersUnlocked(true);
                       if (gameRef.current) {
@@ -2912,8 +2894,6 @@ function App() {
                             n.id === targetId ? { ...n, hasLetter: true } : n
                           )
                         );
-                        const targetNpc = npcs.find((n) => n.id === targetId);
-                        openReceivedNeopjukDialog(targetNpc?.name ?? "NPC");
                         window.dispatchEvent(
                           new CustomEvent("npc-happy", {
                             detail: { npcId: targetId },
@@ -4405,11 +4385,6 @@ function App() {
         }}
       />
 
-      <ReceivedNeopjukModal
-        isOpen={showNeopjukModal}
-        onClose={() => setShowNeopjukModal(false)}
-        npcName={neopjukNpcName}
-      />
       {showIntro && <IntroScreen onStart={handleIntroStart} bgm={bgm} />}
 
       <div
