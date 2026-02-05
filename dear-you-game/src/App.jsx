@@ -37,6 +37,8 @@ function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [isOpeningScene, setIsOpeningScene] = useState(false);
   const [bgm, setBgm] = useState(null);
+  const [hospitalGameSolved, setHospitalGameSolved] = useState(false);
+  const [hospitalOutroPlayed, setHospitalOutroPlayed] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
@@ -94,6 +96,8 @@ function App() {
     { id: "npc-ajy", name: "안준영", hasLetter: false, hasWritten: false },
     { id: "npc-cyw", name: "최연우", hasLetter: false, hasWritten: false },
     { id: "npc-jjaewoo", name: "이재우", hasLetter: false, hasWritten: false },
+    { id: "npc-psy", name: "박세윤", hasLetter: false, hasWritten: false },
+    { id: "npc-kjy", name: "김지연", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -292,6 +296,37 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "devGiveKey" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalIntroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "진짜 마지막이겠지?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!" },
+      { speaker: "박세윤", portrait: "/assets/common/dialog/psy.png", text: "어.. 편지 배달요? 지금 지연누나 상태가 별로 안좋아서…" },
+      { speaker: "김지연", portrait: "/assets/common/dialog/kjy.png", text: "..." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "openHospitalGuide" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalAfterWinDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "김지연", portrait: "/assets/common/dialog/kjy.png", text: "감사합니다. 덕분에 회복했어요." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalAllDeliveredDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어? 근데 왜 한장이 남지?? 박...성...준...?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "일단 스쿠터 돌려줘야 하니까 다시 개발실로 가보자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "hospitalReturnToDev" });
     setShowRoomDialog(true);
   }, []);
 
@@ -677,13 +712,15 @@ function App() {
     };
     window.addEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
     window.addEventListener("start-hospital-game", handleHospitalGameStart);
+    window.addEventListener("open-hospital-intro", openHospitalIntroDialog);
     window.addEventListener("start-eating-game", () => setShowEatingGame(true));
     return () => {
       window.removeEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
       window.removeEventListener("start-hospital-game", handleHospitalGameStart);
+      window.removeEventListener("open-hospital-intro", openHospitalIntroDialog);
       window.removeEventListener("start-eating-game", () => setShowEatingGame(true));
     };
-  }, [room103MiniGameCompleted]);
+  }, [room103MiniGameCompleted, openHospitalIntroDialog]);
 
   const handleChecklistClick = useCallback(() => {
     if (checklistTimerRef.current) {
@@ -1049,6 +1086,7 @@ function App() {
       gameRef.current.registry.set("headsetCount", headsetCount);
       gameRef.current.registry.set("lyjQuestAccepted", lyjQuestAccepted);
       gameRef.current.registry.set("lyjQuestCompleted", lyjQuestCompleted);
+      gameRef.current.registry.set("hospitalGameSolved", hospitalGameSolved);
       gameRef.current.registry.set(
         "currentQuestRoom",
         quests[currentQuestIndex]?.room ?? null,
@@ -1107,6 +1145,14 @@ function App() {
         "ljyHasLetter",
         npcs.find((n) => n.id === "npc-ljy")?.hasLetter ?? false,
       );
+      gameRef.current.registry.set(
+        "psyHasLetter",
+        npcs.find((n) => n.id === "npc-psy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "kjyHasLetter",
+        npcs.find((n) => n.id === "npc-kjy")?.hasLetter ?? false,
+      );
     }
   }, [
     showMiniGame,
@@ -1131,6 +1177,7 @@ function App() {
     headsetCount,
     lyjQuestAccepted,
     lyjQuestCompleted,
+    hospitalGameSolved,
     showHospitalGame,
     quests,
     currentQuestIndex,
@@ -1142,6 +1189,16 @@ function App() {
     devBoardDone,
     devKeyCount,
   ]);
+
+  useEffect(() => {
+    if (!hospitalGameSolved || hospitalOutroPlayed) return;
+    const psyDone = npcs.find((n) => n.id === "npc-psy")?.hasLetter ?? false;
+    const kjyDone = npcs.find((n) => n.id === "npc-kjy")?.hasLetter ?? false;
+    if (psyDone && kjyDone) {
+      setHospitalOutroPlayed(true);
+      openHospitalAllDeliveredDialog();
+    }
+  }, [hospitalGameSolved, hospitalOutroPlayed, npcs, openHospitalAllDeliveredDialog]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -2021,6 +2078,11 @@ function App() {
                       setGameGuideText("헤드셋 찾기 (구현 중)  확인을 누르면 성공 처리됩니다.");
                       setGameGuideAction({ type: "devHeadsetWin" });
                       setShowGameGuide(true);
+                    } else if (action?.type === "openHospitalGuide") {
+                      setGameGuideTitle("병원 미니게임");
+                      setGameGuideText("미니게임을 시작합니다.");
+                      setGameGuideAction({ type: "startHospitalGame" });
+                      setShowGameGuide(true);
                     } else if (action?.type === "kaimaruToGround") {
                       window.dispatchEvent(
                         new CustomEvent("kaimaru-quest-complete"),
@@ -2075,6 +2137,13 @@ function App() {
                         gameRef.current.registry.set("devKeyCount", 1);
                         gameRef.current.registry.set("selectedSlot", KEY_SLOT);
                       }
+                    } else if (action?.type === "hospitalReturnToDev") {
+                      playWheelSfx();
+                      setShowScooterReverse(true);
+                      setTimeout(() => {
+                        setShowScooterReverse(false);
+                        transitionToScene("DevelopmentRoom");
+                      }, 2500);
                     }
                   }}
                   style={{
@@ -2147,6 +2216,7 @@ function App() {
                       setGameGuideTitle("");
                       setGameGuideText("");
                       if (action?.type === "startRunning") setShowRunningGame(true);
+                      if (action?.type === "startHospitalGame") setShowHospitalGame(true);
                       if (action?.type === "devHeadsetWin") {
                         setDevLyjMinigameDone(true);
                         if (gameRef.current) {
@@ -3452,6 +3522,8 @@ function App() {
         onClose={() => setShowHospitalGame(false)}
         onWin={() => {
           setShowHospitalGame(false);
+          setHospitalGameSolved(true);
+          openHospitalAfterWinDialog();
         }}
       />
       <ExitConfirmModal

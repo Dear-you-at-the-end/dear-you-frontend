@@ -30,6 +30,7 @@ export default class HospitalScene extends Phaser.Scene {
         this.load.image("letter_icon", `${commonPath}letter.png`);
         this.load.image("letter_written", `${commonPath}letter_wirte.png`);
         this.load.image("plz_icon", `${commonPath}plz.png`);
+        this.load.image("quest_icon", `${commonPath}quest_icon.png`);
 
         const characterPath = `${commonPath}character/`;
         this.load.atlas(
@@ -177,11 +178,38 @@ export default class HospitalScene extends Phaser.Scene {
         const plzIcon = this.add.image(plzX, plzY, "plz_icon");
         plzIcon.setScale(pixelScale * 0.5);
         plzIcon.setDepth(1000);
+        this.plzIcon = plzIcon;
 
         // Add bobbing animation to plz icon
         this.tweens.add({
             targets: plzIcon,
             y: plzY - 5,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+        });
+
+        this.psyQuestIcon = this.add.image(this.psy.x, this.psy.y - 38, "quest_icon");
+        this.psyQuestIcon.setScale(pixelScale * 0.55);
+        this.psyQuestIcon.setDepth(9999);
+        this.psyQuestIcon.setVisible(false);
+        this.tweens.add({
+            targets: this.psyQuestIcon,
+            y: this.psyQuestIcon.y - 4,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+        });
+
+        this.kjyQuestIcon = this.add.image(this.bed.x, this.bed.y - 60, "quest_icon");
+        this.kjyQuestIcon.setScale(pixelScale * 0.55);
+        this.kjyQuestIcon.setDepth(9999);
+        this.kjyQuestIcon.setVisible(false);
+        this.tweens.add({
+            targets: this.kjyQuestIcon,
+            y: this.kjyQuestIcon.y - 4,
             duration: 800,
             yoyo: true,
             repeat: -1,
@@ -269,6 +297,8 @@ export default class HospitalScene extends Phaser.Scene {
         const pointerRightDown = pointer.rightButtonDown();
         const rightJustDown = pointerRightDown && !this.prevRight;
         this.prevRight = pointerRightDown;
+        const spaceJustDown = Phaser.Input.Keyboard.JustDown(this.spaceKey);
+        const interactJustDown = rightJustDown || spaceJustDown;
 
         const isRunning = this.shiftKey.isDown;
         const speed = isRunning ? 200 : 110;
@@ -334,20 +364,52 @@ export default class HospitalScene extends Phaser.Scene {
             }
         }
 
+        const hospitalGameSolved = this.registry.get("hospitalGameSolved") ?? false;
+        const psyHasLetter = this.registry.get("psyHasLetter") ?? false;
+        const kjyHasLetter = this.registry.get("kjyHasLetter") ?? false;
+
+        if (this.plzIcon) {
+            this.plzIcon.setVisible(!hospitalGameSolved);
+        }
+        if (this.psyQuestIcon && this.psy) {
+            this.psyQuestIcon.setPosition(this.psy.x, this.psy.y - 38);
+            this.psyQuestIcon.setVisible(hospitalGameSolved && !psyHasLetter);
+        }
+        if (this.kjyQuestIcon && this.bed) {
+            this.kjyQuestIcon.setPosition(this.bed.x, this.bed.y - 60);
+            this.kjyQuestIcon.setVisible(hospitalGameSolved && !kjyHasLetter);
+        }
+
         // Check Interaction with PSY or Bed
-        if (this.psy) {
+        if (interactJustDown && this.psy) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.psy.x, this.psy.y);
-            if (dist < 60 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
-                window.dispatchEvent(new CustomEvent("start-hospital-game"));
+            if (dist < 60) {
+                if (hospitalGameSolved) {
+                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-psy" } }));
+                } else {
+                    const now = this.time.now;
+                    if (!this.lastHospitalIntroAt || now - this.lastHospitalIntroAt > 800) {
+                        this.lastHospitalIntroAt = now;
+                        window.dispatchEvent(new CustomEvent("open-hospital-intro"));
+                    }
+                }
                 this.player.body.setVelocity(0);
                 return;
             }
         }
 
-        if (this.bed) {
+        if (interactJustDown && this.bed) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.bed.x, this.bed.y);
-            if (dist < 100 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
-                window.dispatchEvent(new CustomEvent("start-hospital-game"));
+            if (dist < 100) {
+                if (hospitalGameSolved) {
+                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-kjy" } }));
+                } else {
+                    const now = this.time.now;
+                    if (!this.lastHospitalIntroAt || now - this.lastHospitalIntroAt > 800) {
+                        this.lastHospitalIntroAt = now;
+                        window.dispatchEvent(new CustomEvent("open-hospital-intro"));
+                    }
+                }
                 this.player.body.setVelocity(0);
                 return;
             }
