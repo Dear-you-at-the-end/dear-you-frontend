@@ -277,6 +277,24 @@ function App() {
     game.scene.start(sceneKey, data);
   }, []);
 
+  useEffect(() => {
+    const handleBusEnter = () => {
+      // Play engine sound effect
+      const engineSound = new Audio("/assets/common/scooter_wheel.mp3");
+      engineSound.volume = 0.5;
+      engineSound.play().catch(() => { });
+
+      // Transition to Development Room after a short delay
+      setTimeout(() => {
+        transitionToScene("DevelopmentRoom");
+      }, 500);
+    };
+    window.addEventListener("bus-enter", handleBusEnter);
+    return () => {
+      window.removeEventListener("bus-enter", handleBusEnter);
+    };
+  }, [transitionToScene]);
+
   const handleWarp = useCallback((sceneKey, data) => {
     transitionToScene(sceneKey, data);
     setDebugWarpOpen(false);
@@ -735,9 +753,9 @@ function App() {
 
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "swy-idle-right", texture: "swy" },
-          { id: "npc-103-2", x: rightX - 40, y: row3Y + 20, anim: "kms-idle-down", texture: "kms" },
-          { id: "npc-103-3", x: rightX - 40, y: row2Y + 20, anim: "pcw-idle-down", texture: "pcw" },
+          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "kms-idle-down", texture: "kms" },
+          { id: "npc-103-2", x: leftX + 40, y: row3Y + 20, anim: "swy-idle-right", texture: "swy" },
+          { id: "npc-103-3", x: rightX - 40, y: row3Y + 20, anim: "pcw-idle-down", texture: "pcw" },
         ],
         Room104: [
           { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },

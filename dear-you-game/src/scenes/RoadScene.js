@@ -138,8 +138,8 @@ export default class RoadScene extends Phaser.Scene {
     bus.setScale(0.25);
     bus.setDepth(busY);
     bus.refreshBody();
-    bus.body.setSize(bus.displayWidth * 0.85, bus.displayHeight * 0.4);
-    bus.body.setOffset(bus.displayWidth * 0.075, bus.displayHeight * 0.6);
+    bus.body.setSize(bus.displayWidth * 0.6, bus.displayHeight * 0.4);
+    bus.body.setOffset(bus.displayWidth * 0.05, bus.displayHeight * 0.35);
     this.busEntranceX = busX + 40;
     this.busEntranceY = busY + 10;
     // Add bus boundary to building blocks so random items don't overlap heavily
@@ -393,10 +393,10 @@ export default class RoadScene extends Phaser.Scene {
       });
     };
 
-    makeAnim("idle-down", 0, 3, 4, -1);
-    makeAnim("idle-left", 4, 7, 4, -1);
-    makeAnim("idle-right", 8, 11, 4, -1);
-    makeAnim("idle-up", 0, 3, 4, -1);
+    makeAnim("idle-down", 1, 3, 6, -1);
+    makeAnim("idle-left", 4, 7, 6, -1);
+    makeAnim("idle-right", 8, 11, 6, -1);
+    makeAnim("idle-up", 24, 27, 6, -1);
 
     makeAnim("walk-down", 12, 15, 10, -1);
     makeAnim("walk-right", 16, 19, 10, -1);
@@ -445,7 +445,7 @@ export default class RoadScene extends Phaser.Scene {
 
     if (canTrigger && distanceToBus < 50 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey) || isMovingUp)) {
       this.lastTriggerTime = this.time.now;
-      window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterDevelopmentRoom" } }));
+      window.dispatchEvent(new CustomEvent("bus-enter"));
       this.player.body.setVelocity(0);
       return;
     }

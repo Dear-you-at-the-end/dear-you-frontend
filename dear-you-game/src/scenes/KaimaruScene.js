@@ -112,11 +112,12 @@ export default class KaimaruScene extends Phaser.Scene {
 
     // Door (Top-Left on wall)
     const doorTex = this.textures.get("kaimaru_door").getSourceImage();
-    const doorH = doorTex.height * pixelScale;
-    const doorX = startX + 340;
-    const doorY = wallBottomY + doorH / 2 - 40;
+    const doorScale = pixelScale * 1.4;
+    const doorH = doorTex.height * doorScale;
+    const doorX = centerX;
+    const doorY = wallBottomY + doorH / 2 - 30;
     const door = this.add.image(doorX, doorY, "kaimaru_door");
-    door.setScale(pixelScale * 2.0);
+    door.setScale(doorScale);
     door.setDepth(Math.round(doorY) + 2);
     this.exitDoor = door;
 
@@ -325,20 +326,23 @@ export default class KaimaruScene extends Phaser.Scene {
       });
     };
 
-    const schedules = [
-      { key: "bsy", text: "한진아 %$#^@#", delay: 400, interval: 5200, duration: 1200 },
-      { key: "kys", text: "아 짱웃겨~", delay: 1400, interval: 6000, duration: 1200 },
-      { key: "jjw", text: "-$#$ 서연언니..", delay: 2300, interval: 5200, duration: 1800 },
-      { key: "thj", text: "예서누나##@$#@", delay: 3200, interval: 6200, duration: 1800 },
-    ];
+    // Define NPC messages
+    const npcMessages = {
+      bsy: "한진아 %$#^@#",
+      kys: "아 짱웃겨~",
+      jjw: "-$#$ 서연언니..",
+      thj: "예서누나##@$#@",
+    };
 
-    schedules.forEach((s) => {
-      const timer = this.time.addEvent({
-        delay: s.delay,
-        loop: true,
-        callback: () => showBubble(s.key, s.text, s.duration),
-      });
-      this.kaimaruBubbleTimers.push(timer);
+    // Make NPCs clickable
+    Object.keys(this.kaimaruNpcs).forEach((key) => {
+      const npc = this.kaimaruNpcs[key];
+      if (npc && npcMessages[key]) {
+        npc.setInteractive({ useHandCursor: true });
+        npc.on("pointerdown", () => {
+          showBubble(key, npcMessages[key], 2000);
+        });
+      }
     });
   }
 

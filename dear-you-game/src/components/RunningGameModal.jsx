@@ -56,7 +56,6 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
         cancelAnimationFrame(gameLoopRef.current);
         if (res === "win") {
             setTimeout(() => {
-                alert("?밸━!");
                 if (onWin) onWin();
             }, 100);
         }

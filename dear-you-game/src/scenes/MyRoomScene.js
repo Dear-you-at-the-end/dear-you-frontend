@@ -179,10 +179,10 @@ export default class MyRoomScene extends Phaser.Scene {
       });
     };
 
-    makeAnim("idle-down", 0, 3, 4, -1);
-    makeAnim("idle-left", 4, 7, 4, -1);
-    makeAnim("idle-right", 8, 11, 4, -1);
-    makeAnim("idle-up", 0, 3, 4, -1);
+    makeAnim("idle-down", 1, 3, 6, -1);
+    makeAnim("idle-left", 4, 7, 6, -1);
+    makeAnim("idle-right", 8, 11, 6, -1);
+    makeAnim("idle-up", 24, 27, 6, -1);
 
     makeAnim("walk-down", 12, 15, 10, -1);
     makeAnim("walk-right", 16, 19, 10, -1);
