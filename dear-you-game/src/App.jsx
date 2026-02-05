@@ -45,7 +45,7 @@ function App() {
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
   const [headsetCount, setHeadsetCount] = useState(0);
-  const [njCount, setNjCount] = useState(0);
+  const [njCount] = useState(0);
   const [, setBanToastText] = useState("");
   const [, setRoom104QuestionActive] = useState(false);
 
@@ -259,6 +259,108 @@ function App() {
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "kaimaruToGround" });
     setShowRoomDialog(true);
+  }, []);
+
+  const debugCompleteLettersForPlace = useCallback((place) => {
+    const placeNpcMap = {
+      Room103: ["npc-103-1", "npc-103-2", "npc-103-3"],
+      Room104: ["npc-104-1", "npc-104-2"],
+      Ground: ["npc-mdh", "npc-psj", "npc-itb"],
+      Kaimaru: ["npc-bsy", "npc-kys", "npc-thj", "npc-jjw"],
+      DevelopmentRoom: [
+        "npc-lyj",
+        "npc-ljy",
+        "npc-zhe",
+        "npc-ajy",
+        "npc-cyw",
+        "npc-jjaewoo",
+      ],
+    };
+
+    const targetIds = placeNpcMap[place];
+    if (!targetIds) return;
+
+    setNpcs((prev) =>
+      prev.map((n) =>
+        targetIds.includes(n.id)
+          ? { ...n, hasLetter: true, hasWritten: true }
+          : n
+      )
+    );
+
+    setWrittenLetters((prev) => {
+      const next = prev.filter((l) => !targetIds.includes(l.npcId));
+      if (next.length !== prev.length) {
+        try {
+          localStorage.setItem("writtenLetters", JSON.stringify(next));
+        } catch {
+          // Ignore localStorage errors
+        }
+      }
+      setWrittenCount(next.length);
+      return next;
+    });
+
+    if (place === "Room103") {
+      setRoom103MiniGameCompleted(true);
+      setRoom103LettersDelivered(true);
+      setRoom104QuestionActive(true);
+      setQuests((prev) =>
+        prev.map((q) => (q.room === "103" ? { ...q, completed: true } : q))
+      );
+      setCurrentQuestIndex((prev) => Math.max(prev, 1));
+      if (gameRef.current) {
+        gameRef.current.registry.set("room103MiniGameCompleted", true);
+        gameRef.current.registry.set("room103LettersDelivered", true);
+        gameRef.current.registry.set("room104QuestionActive", true);
+      }
+      return;
+    }
+
+    if (place === "Room104") {
+      setMathGameSolved(true);
+      setQuests((prev) =>
+        prev.map((q) => (q.room === "104" ? { ...q, completed: true } : q))
+      );
+      setCurrentQuestIndex((prev) => Math.max(prev, 2));
+      return;
+    }
+
+    if (place === "Ground") {
+      setGroundCatchBallCompleted(true);
+      setGroundItbRunningCompleted(true);
+      if (gameRef.current) {
+        gameRef.current.registry.set("groundCatchBallCompleted", true);
+        gameRef.current.registry.set("groundItbRunningCompleted", true);
+        gameRef.current.registry.set("mdhHasLetter", true);
+        gameRef.current.registry.set("psjHasLetter", true);
+        gameRef.current.registry.set("itbHasLetter", true);
+      }
+      return;
+    }
+
+    if (place === "Kaimaru") {
+      setEatingGameSolved(true);
+      window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
+      return;
+    }
+
+    if (place === "DevelopmentRoom") {
+      setLyjQuestAccepted(true);
+      setLyjQuestCompleted(true);
+      setHeadsetCount(0);
+      setQuests((prev) =>
+        prev.map((q) =>
+          q.room === "development_room" ? { ...q, completed: true } : q
+        )
+      );
+      setCurrentQuestIndex((prev) => Math.max(prev, 2));
+      if (gameRef.current) {
+        gameRef.current.registry.set("lyjQuestAccepted", true);
+        gameRef.current.registry.set("lyjQuestCompleted", true);
+        gameRef.current.registry.set("headsetCount", 0);
+      }
+    }
   }, []);
 
   const playWheelSfx = () => {
@@ -555,10 +657,13 @@ function App() {
     };
   }, [transitionToScene]);
 
-  const handleWarp = useCallback((sceneKey, data) => {
-    transitionToScene(sceneKey, data);
-    setDebugWarpOpen(false);
-  }, [transitionToScene]);
+  const handleWarp = useCallback(
+    (sceneKey, data) => {
+      transitionToScene(sceneKey, data);
+      setDebugWarpOpen(false);
+    },
+    [transitionToScene],
+  );
 
   const handleIntroStart = useCallback(() => {
     setShowIntro(false);
@@ -1722,6 +1827,13 @@ function App() {
                       setExitRoomKey("EnterKaimaru");
                       setExitRoomData(null);
                       setShowExitConfirm(true);
+                    } else if (action?.type === "itbToKraftonConfirm") {
+                      setExitRoomKey("EnterDevelopmentRoom");
+                      setExitRoomData({
+                        message: "크래프톤 빌딩으로 이동하시겠습니까?",
+                        noScooter: true,
+                      });
+                      setShowExitConfirm(true);
                     }
                   }}
                   style={{
@@ -1890,9 +2002,11 @@ function App() {
                             n.id === targetId ? { ...n, hasLetter: true } : n
                           )
                         );
-                        window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: targetId } }));
-                        setNjCount((prev) => prev + 1);
-                        window.dispatchEvent(new CustomEvent("player-say", { detail: "넙죽이를 받았다.." }));
+                        window.dispatchEvent(
+                          new CustomEvent("npc-happy", {
+                            detail: { npcId: targetId },
+                          }),
+                        );
                       }
                     }}
                     style={{
@@ -2669,12 +2783,13 @@ function App() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
+                  justifyContent: "flex-start",
                   gap: "12px",
                   padding: "20px 22px 24px",
                   boxSizing: "border-box",
                   color: "#4E342E",
                   fontFamily: "Galmuri11-Bold",
+                  overflowY: "auto",
                 }}
               >
                 <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
@@ -2862,6 +2977,106 @@ function App() {
                         운동장
                       </button>
                     </div>
+
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        width: "100%",
+                        borderTop: "1px solid rgba(141, 104, 78, 0.35)",
+                      }}
+                    />
+                    <div style={{ fontSize: "11px", color: "#6b4e38" }}>
+                      디버그: 장소 NPC 편지 전달 완료
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Room103")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        103 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Room104")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        104 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Ground")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        운동장 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Kaimaru")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        카이마루 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          debugCompleteLettersForPlace("DevelopmentRoom")
+                        }
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        개발실 완료
+                      </button>
+                    </div>
                   </>
                 )}
 
@@ -2952,6 +3167,7 @@ function App() {
         onWin={() => {
           setMathGameSolved(true);
           setShowMathGame(false);
+          openRoom104AfterMathDialog();
         }}
       />
 
@@ -2960,6 +3176,10 @@ function App() {
         onClose={() => setShowRunningGame(false)}
         onWin={() => {
           setGroundItbRunningCompleted(true);
+          if (gameRef.current) {
+            gameRef.current.registry.set("groundItbRunningCompleted", true);
+          }
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
           window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-itb" } }));
           setShowRunningGame(false);
         }}
@@ -2970,6 +3190,9 @@ function App() {
         onClose={() => setShowCatchBall(false)}
         onWin={() => {
           setGroundCatchBallCompleted(true);
+          if (gameRef.current) {
+            gameRef.current.registry.set("groundCatchBallCompleted", true);
+          }
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
           setShowCatchBall(false);
@@ -3004,6 +3227,18 @@ function App() {
 
           // Special handling for Hospital Entry with Scooter Animation
           if (sceneKey === "EnterDevelopmentRoom") {
+            const activeSceneKey =
+              gameRef.current?.scene
+                ?.getScenes(true)
+                ?.find((s) => s?.sys?.settings?.active)?.sys?.settings?.key ??
+              gameRef.current?.scene?.getScenes(true)?.[0]?.sys?.settings?.key;
+            const skipScooter =
+              exitRoomData?.noScooter === true || activeSceneKey === "Ground";
+
+            if (skipScooter) {
+              transitionToScene("DevelopmentRoom");
+              return;
+            }
             playWheelSfx();
             setShowScooterAnim(true);
 
@@ -3082,6 +3317,7 @@ function App() {
           }
         }}
         message={(() => {
+          if (exitRoomData?.message) return exitRoomData.message;
           if (!exitRoomKey) return "";
           if (exitRoomKey === "EnterHallway") return "사랑관으로 이동하시겠습니까?";
           if (exitRoomKey === "EnterHospital") return "병원으로 이동하시겠습니까?";
@@ -3187,16 +3423,6 @@ function App() {
         }}
         onFail={() => alert("...")}
       />
-
-      <MathMiniGameModal
-        isOpen={showMathGame}
-        onClose={() => setShowMathGame(false)}
-        onWin={() => {
-          setMathGameSolved(true);
-          setShowMathGame(false);
-          openRoom104AfterMathDialog();
-        }}
-      />
       <ExitConfirmModal
         isOpen={showLyjQuestConfirm}
         message="헤드셋을 찾아줄래?"
@@ -3204,32 +3430,6 @@ function App() {
         onConfirm={() => {
           setShowLyjQuestConfirm(false);
           setLyjQuestAccepted(true);
-        }}
-      />
-
-      <RunningGameModal
-        isOpen={showRunningGame}
-        onClose={() => setShowRunningGame(false)}
-        onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
-          // Give a reward or just close? User didn't specify.
-          // But usually we mark quest completion or something.
-          // For now, just trigger happy event and close.
-          setShowRunningGame(false);
-        }}
-      />
-
-      <CatchBallModal
-        isOpen={showCatchBall}
-        onClose={() => setShowCatchBall(false)}
-        onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
-          setShowCatchBall(false);
-          setGroundCatchBallCompleted(true);
-          if (gameRef.current) {
-            gameRef.current.registry.set("groundCatchBallCompleted", true);
-          }
         }}
       />
 
