@@ -109,6 +109,7 @@ export default class KaimaruScene extends Phaser.Scene {
     bottomRightWall.setSize((roomW - doorGap) / 2, 20).setVisible(false).refreshBody();
 
     const obstacles = this.physics.add.staticGroup();
+    const npcBlocks = this.physics.add.staticGroup();
 
     // Door (Top-Left on wall)
     const doorTex = this.textures.get("kaimaru_door").getSourceImage();
@@ -140,6 +141,9 @@ export default class KaimaruScene extends Phaser.Scene {
       // Old logic: index 1 was main (top-center).
       // Let's make index 1 (top-right) main.
       const isMainTable = index === 4;
+      if (isMainTable) {
+        this.mainTablePos = { x: pos.x, y: pos.y };
+      }
 
       let textureKey;
       if (isMainTable) {
@@ -155,14 +159,14 @@ export default class KaimaruScene extends Phaser.Scene {
       table.refreshBody();
 
       if (isMainTable) {
-        table.body.setSize(table.displayWidth, table.displayHeight * 0.45);
-        table.body.setOffset(0, table.displayHeight * 0.55);
+        // Larger collision for main table to prevent clipping.
+        table.body.setSize(table.displayWidth * 0.98, table.displayHeight * 0.90);
+        table.body.setOffset(table.displayWidth * 0.01, table.displayHeight * 0.10);
       } else {
-        table.body.setSize(table.displayWidth * 0.9, table.displayHeight * 0.6);
-        table.body.setOffset(table.displayWidth * 0.05, table.displayHeight * 0.3);
+        // Larger collision for regular tables as well.
+        table.body.setSize(table.displayWidth * 0.95, table.displayHeight * 0.90);
+        table.body.setOffset(table.displayWidth * 0.025, table.displayHeight * 0.10);
       }
-      table.body.setSize(table.displayWidth * 0.85, table.displayHeight * 0.4);
-      table.body.setOffset(table.displayWidth * 0.075, table.displayHeight * 0.6);
       table.setDepth(Math.round(table.y));
 
       if (isMainTable) {
@@ -175,6 +179,18 @@ export default class KaimaruScene extends Phaser.Scene {
         const npcJjw = this.add.image(pos.x + sideX, pos.y + topY, "npc_jjw").setScale(pixelScale).setDepth(pos.y + topY);
         const npcThj = this.add.image(pos.x + sideX, pos.y + bottomY, "npc_thj").setScale(pixelScale).setDepth(pos.y + bottomY);
         this.kaimaruNpcs = { bsy: npcBsy, kys: npcKys, jjw: npcJjw, thj: npcThj };
+
+        // Collision blocks to prevent player from walking through seated NPCs.
+        // Slightly larger than player footprint; positioned at lower body area.
+        const addNpcBlock = (npc) => {
+          const block = npcBlocks.create(npc.x, npc.y + 6, null);
+          block.setSize(14, 10).setVisible(false).refreshBody();
+          return block;
+        };
+        addNpcBlock(npcBsy);
+        addNpcBlock(npcKys);
+        addNpcBlock(npcJjw);
+        addNpcBlock(npcThj);
 
         // Add gentle bobbing animation to NPCs to show they're alive
         [npcBsy, npcKys, npcJjw, npcThj].forEach((npc, index) => {
@@ -217,6 +233,7 @@ export default class KaimaruScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player, walls);
     this.physics.add.collider(this.player, obstacles);
+    this.physics.add.collider(this.player, npcBlocks);
 
     this.cameras.main.setBounds(startX, startY, roomW, roomH);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
@@ -378,6 +395,11 @@ export default class KaimaruScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
+    if (this.registry.get("uiBlocked")) {
+      this.player.body.setVelocity(0);
+      return;
+    }
+
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
     const rightJustDown = pointerRightDown && !this.prevRight;
@@ -398,6 +420,18 @@ export default class KaimaruScene extends Phaser.Scene {
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "LeaveKaimaru" } }));
       this.player.body.setVelocity(0);
       return;
+    }
+
+    // Main table interaction: trigger Kaimaru story dialog once.
+    if (!this.kaimaruStoryDone && this.mainTablePos) {
+      const distToMain = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mainTablePos.x, this.mainTablePos.y);
+      if (distToMain < 90 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+        this.lastTriggerTime = this.time.now;
+        this.kaimaruStoryDone = true;
+        window.dispatchEvent(new CustomEvent("open-kaimaru-story"));
+        this.player.body.setVelocity(0);
+        return;
+      }
     }
 
     const isRunning = this.shiftKey.isDown;
