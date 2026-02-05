@@ -57,8 +57,8 @@ function App() {
     { id: "npc-103-1", name: "신원영", hasLetter: false, hasWritten: false },
     { id: "npc-103-2", name: "김명성", hasLetter: false, hasWritten: false },
     { id: "npc-103-3", name: "박찬우", hasLetter: false, hasWritten: false },
-    { id: "npc-104-1", name: "IG", hasLetter: false, hasWritten: false },
-    { id: "npc-104-2", name: "INJ", hasLetter: false, hasWritten: false },
+    { id: "npc-104-1", name: "이건", hasLetter: false, hasWritten: false },
+    { id: "npc-104-2", name: "임남중", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "itb", hasLetter: false, hasWritten: false },
   ]);
@@ -348,6 +348,10 @@ function App() {
   useEffect(() => {
     const handleInteract = (e) => {
       const { npcId } = e.detail;
+      if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
+        setShowMathGame(true);
+        return;
+      }
       if (npcId === "npc-itb") {
         setShowRunningGame(true);
         return;
@@ -488,7 +492,7 @@ function App() {
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
     }
-  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted]);
+  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -750,9 +754,9 @@ function App() {
           npc.setScale(pixelScale);
           npc.setDepth(npc.y);
           npc.refreshBody();
-          if (this.scene.key === "Room103" && npcData.anim) {
-            // Match player-like footprint to avoid oversized interaction/collision area.
-            npc.body.setSize(10, 8).setOffset(5, 12);
+          if (this.scene.key === "Room103" || this.scene.key === "Room104") {
+            // Slightly larger than player footprint (player: 10x8, offset 5,12).
+            npc.body.setSize(12, 10).setOffset(4, 10);
           }
           if (npcData.anim) npc.anims.play(npcData.anim);
           npc.npcId = npcData.id;
@@ -847,6 +851,7 @@ function App() {
         );
         plz.setScale(pixelScale * 0.45);
         plz.setDepth(99999);
+        this.room104MathHintIcon = plz;
         this.tweens.add({
           targets: plz,
           y: plz.y - 6,
@@ -1049,6 +1054,11 @@ function App() {
           const shouldShowQuestIcon = npcState.hasLetter === false && !iconSet.happyIcon.visible;
           iconSet.questIcon.setVisible(shouldShowQuestIcon);
         });
+      }
+
+      if (this.room104MathHintIcon) {
+        const solved = gameStateRef.current.getMathGameSolved?.() ?? false;
+        this.room104MathHintIcon.setVisible(!solved);
       }
 
       // Update NPC Name Visibility
@@ -1266,6 +1276,13 @@ function App() {
                     onClick={() => {
                       setShowWriteConfirm(false);
                       const targetId = interactionTargetId;
+                      if (
+                        (targetId === "npc-104-1" || targetId === "npc-104-2") &&
+                        !mathGameSolved
+                      ) {
+                        setShowMathGame(true);
+                        return;
+                      }
                       if (confirmMode === "write") {
                         const activeNpc = npcs.find((n) => n.id === targetId);
                         const alreadyWritten = writtenLetters.some((l) => l.npcId === targetId);
