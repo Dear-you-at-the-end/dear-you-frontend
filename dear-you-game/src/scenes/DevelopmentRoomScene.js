@@ -209,8 +209,14 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     const desk = obstactles.create(posX, posY, key);
                     desk.setScale(pixelScale);
                     desk.refreshBody();
-                    desk.body.setSize(w * 0.85, h * 0.4);
-                    desk.body.setOffset(w * 0.075, h * 0.6);
+                    const bodyW = desk.displayWidth * 0.75;
+                    const bodyH = desk.displayHeight * 0.22;
+                    desk.body.setSize(bodyW, bodyH);
+                    desk.body.setOffset(
+                        (desk.displayWidth - bodyW) / 2,
+                        desk.displayHeight - bodyH,
+                    );
+                    desk.refreshBody();
                     desk.setDepth(posY);
 
                     // NPC Replacement
@@ -248,16 +254,24 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                         questIcon.setScale(pixelScale * 0.55);
                         questIcon.setDepth(99999);
                         questIcon.setVisible(false);
-                        this.tweens.add({
-                            targets: questIcon,
-                            y: questIcon.y - 4,
-                            duration: 800,
-                            yoyo: true,
-                            repeat: -1,
-                            ease: "Sine.easeInOut",
-                        });
+                         this.tweens.add({
+                             targets: questIcon,
+                             y: questIcon.y - 4,
+                             duration: 800,
+                             yoyo: true,
+                             repeat: -1,
+                             ease: "Sine.easeInOut",
+                         });
 
-                        this.developmentNpcs.push({ sprite: npc, nameText, npcId: meta.npcId, questIcon });
+                        // Interact point is in front of the desk so player can reach it even with collisions.
+                        this.developmentNpcs.push({
+                            sprite: npc,
+                            nameText,
+                            npcId: meta.npcId,
+                            questIcon,
+                            interactX: posX,
+                            interactY: posY + 68,
+                        });
                     } else {
                         // Add chair
                         const chair = decor.create(posX, posY + 16, "dev_chair");
@@ -317,7 +331,6 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.prevRight = false;
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
         // Animations
         this.createPlayerAnimations();
@@ -601,9 +614,67 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         const pointerRightDown = pointer.rightButtonDown();
         const rightJustDown = pointerRightDown && !this.prevRight;
         this.prevRight = pointerRightDown;
+        const spaceJustDown = Phaser.Input.Keyboard.JustDown(this.spaceKey);
+        const interactJustDown = rightJustDown || spaceJustDown;
+
+        // Prioritize NPC interactions over board interactions.
+        if (interactJustDown && this.lyj) {
+            const distToLyj = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lyj.x, this.lyj.y);
+            if (distToLyj < 70) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
+                return;
+            }
+        }
+
+        const devNpcInteractRadius = 140;
+
+        // Standard interaction for other NPCs in Development Room
+        if (interactJustDown && this.developmentNpcs) {
+            let closest = null;
+            let closestDist = Infinity;
+            for (const npcData of this.developmentNpcs) {
+                const tx = npcData.interactX ?? npcData.sprite.x;
+                const ty = npcData.interactY ?? npcData.sprite.y;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closest = npcData;
+                }
+            }
+
+            if (closest && closestDist < devNpcInteractRadius && closest.npcId) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: closest.npcId } }));
+                return;
+            }
+        }
+
+        // Handle LJY (Lee Yeon-ji) separate interaction
+        if (interactJustDown && this.ljy) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.ljy.x, this.ljy.y);
+            if (dist < 70) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-ljy" } }));
+                return;
+            }
+        }
+
+        if (interactJustDown && this.devMic) {
+            const distToMic = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.devMic.x, this.devMic.y);
+            const headsetCount = this.registry.get("headsetCount") ?? 0;
+            const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+
+            // Only allow finding if quest accepted, not completed, and headset not yet found
+            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount === 0) {
+                window.dispatchEvent(new CustomEvent("find-lyj-headset"));
+                return;
+            }
+        }
+
+        // Block board interactions until LYJ minigame/quest is cleared.
+        const canUseBoard = devLyjMinigameDone;
 
         // Legacy board letter popup (disabled after board unlock flow starts).
-        if (rightJustDown && this.devBoard && !devBoardUnlocked) {
+        if (interactJustDown && canUseBoard && this.devBoard && !devBoardUnlocked) {
             const distToBoard = Phaser.Math.Distance.Between(
                 this.player.x,
                 this.player.y,
@@ -618,35 +689,41 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     const centerX = this.scale.width / 2;
                     const centerY = this.scale.height / 2;
 
+                    const closeBoardLetter = () => {
+                        if (this.devBoardLetter) {
+                            this.devBoardLetter.destroy();
+                            this.devBoardLetter = null;
+                        }
+                    };
+
                     // Main Container centered on screen, fixed to camera
                     this.devBoardLetter = this.add.container(centerX, centerY);
                     this.devBoardLetter.setScrollFactor(0);
                     this.devBoardLetter.setDepth(10002);
 
-                    // Dim Background (blocks clicks underneath)
+                    // Dim Background (blocks clicks underneath) + click-to-close
                     const dim = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.35);
-                    dim.setInteractive();
+                    dim.setOrigin(0.5, 0.5);
+                    dim.setInteractive({ useHandCursor: true });
+                    dim.on("pointerdown", closeBoardLetter);
 
                     // Letter Image
                     const letter = this.add.image(0, 0, "dev_board_letter");
 
-                    // Close Button
+                    // Close Button (top-right)
                     const closeBtn = this.add.image(
                         (letter.width / 2) - 20,
                         -(letter.height / 2) + 20,
                         "x"
                     );
                     closeBtn.setScale(0.6);
-                    // Explicit hit area to ensure it's clickable
-                    closeBtn.setInteractive({ useHandCursor: true });
-
+                    closeBtn.setInteractive(
+                        new Phaser.Geom.Rectangle(-24, -24, 48, 48),
+                        Phaser.Geom.Rectangle.Contains,
+                    );
                     closeBtn.on("pointerdown", (pointer, localX, localY, event) => {
-                        // Stop propagation just in case
                         if (event) event.stopPropagation();
-                        if (this.devBoardLetter) {
-                            this.devBoardLetter.destroy();
-                            this.devBoardLetter = null;
-                        }
+                        closeBoardLetter();
                     });
 
                     // Add all to the single container
@@ -657,55 +734,15 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         }
 
         // Dev-board interaction (after unlock): show dialog and eventually give key.
-        if ((rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) && this.devBoard && devBoardUnlocked && !devBoardDone) {
+        if (interactJustDown && canUseBoard && this.devBoard && devBoardUnlocked && !devBoardDone) {
             const distToBoard = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.devBoard.x, this.devBoard.y);
             if (distToBoard < 120) {
+                if (this.devBoardLetter) {
+                    this.devBoardLetter.destroy();
+                    this.devBoardLetter = null;
+                }
                 window.dispatchEvent(new CustomEvent("dev-board-interact"));
                 this.player.body.setVelocity(0);
-                return;
-            }
-        }
-
-        if (rightJustDown && this.lyj) {
-            const distToLyj = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lyj.x, this.lyj.y);
-            if (distToLyj < 70) {
-                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
-                return;
-            }
-        }
-
-        // Standard interaction for other NPCs in Development Room
-        if (rightJustDown && this.developmentNpcs) {
-            for (const npcData of this.developmentNpcs) {
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npcData.sprite.x, npcData.sprite.y);
-                if (dist >= 70) continue;
-
-                const npcId = npcData.npcId;
-                if (npcId) {
-                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId } }));
-                    return;
-                }
-            }
-        }
-
-        // Handle LJY (Lee Yeon-ji) separate interaction
-        if (rightJustDown && this.ljy) {
-            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.ljy.x, this.ljy.y);
-            if (dist < 70) {
-                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-ljy" } }));
-                return;
-            }
-        }
-
-        if (rightJustDown && this.devMic) {
-            const distToMic = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.devMic.x, this.devMic.y);
-            const headsetCount = this.registry.get("headsetCount") ?? 0;
-            const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
-            const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
-
-            // Only allow finding if quest accepted, not completed, and headset not yet found
-            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount === 0) {
-                window.dispatchEvent(new CustomEvent("find-lyj-headset"));
                 return;
             }
         }
@@ -793,8 +830,10 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
         if (this.developmentNpcs) {
             this.developmentNpcs.forEach(npcData => {
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npcData.sprite.x, npcData.sprite.y);
-                npcData.nameText.setVisible(dist < 60);
+                const tx = npcData.interactX ?? npcData.sprite.x;
+                const ty = npcData.interactY ?? npcData.sprite.y;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
+                npcData.nameText.setVisible(dist < 80);
                 if (npcData.questIcon) {
                     const hasLetterMap = {
                         "npc-cyw": cywHasLetter,
@@ -804,9 +843,6 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     };
                     npcData.questIcon.setPosition(npcData.sprite.x, npcData.sprite.y - 38);
                     npcData.questIcon.setVisible(devLettersUnlocked && !(hasLetterMap[npcData.npcId] ?? false));
-                }
-                if (dist < 60 && Phaser.Input.Keyboard.JustDown(this.spaceKey) && npcData.npcId) {
-                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: npcData.npcId } }));
                 }
             });
         }

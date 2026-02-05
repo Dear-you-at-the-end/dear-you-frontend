@@ -406,22 +406,23 @@ function App() {
     }
 
     if (place === "DevelopmentRoom") {
-      setLyjQuestAccepted(true);
-      setLyjQuestCompleted(true);
-      setHeadsetCount(0);
-      setQuests((prev) =>
-        prev.map((q) =>
-          q.room === "development_room" ? { ...q, completed: true } : q
-        )
-      );
-      setCurrentQuestIndex((prev) => Math.max(prev, 2));
+      // Demo shortcut: immediately start LJY (준엽) board conversation and allow key reward flow.
+      setDevLyjMinigameDone(true);
+      setDevLettersUnlocked(true);
+      setDevBoardUnlocked(true);
+      setDevBoardDone(false);
+      setDevKeyCount(0);
       if (gameRef.current) {
-        gameRef.current.registry.set("lyjQuestAccepted", true);
-        gameRef.current.registry.set("lyjQuestCompleted", true);
-        gameRef.current.registry.set("headsetCount", 0);
+        gameRef.current.registry.set("devLyjMinigameDone", true);
+        gameRef.current.registry.set("devLettersUnlocked", true);
+        gameRef.current.registry.set("devBoardUnlocked", true);
+        gameRef.current.registry.set("devBoardDone", false);
+        gameRef.current.registry.set("devKeyCount", 0);
       }
+      setTimeout(() => openDevBoardInteractDialog(), 0);
+      return;
     }
-  }, []);
+  }, [openDevBoardInteractDialog]);
 
   const playWheelSfx = () => {
     const url = "/assets/common/scooter_wheel.mp3";
