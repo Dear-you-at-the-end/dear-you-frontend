@@ -98,6 +98,31 @@ function App() {
   const [exitRoomData, setExitRoomData] = useState(null);
   const [interactionTargetId, setInteractionTargetId] = useState(null);
   const [confirmMode, setConfirmMode] = useState("write"); // 'write' | 'give'
+  const [showRoomDialog, setShowRoomDialog] = useState(false);
+  const [roomDialogLines, setRoomDialogLines] = useState([]);
+  const [roomDialogIndex, setRoomDialogIndex] = useState(0);
+  const [roomDialogAction, setRoomDialogAction] = useState(null); // 'startMath' | null
+
+  const openRoom104BeforeMathDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "깜짝아! 이것도 인연인데 너 우리 calculator 테스트 해볼래?" },
+      { speaker: "남중", portrait: "/assets/common/dialog/inj.png", text: "하 형 그게 무슨 말이야" },
+      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "왜~ 재밌잖아 해볼래?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction("startMath");
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom104AfterMathDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "남중", portrait: "/assets/common/dialog/inj.png", text: "너 꽤 똑똑하구나" },
+      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "아 맞다 너 여기 온 목적이 뭐였지?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
 
   const playWheelSfx = () => {
     const url = "/assets/common/scooter_wheel.mp3";
@@ -305,7 +330,7 @@ function App() {
 
     const tick = () => {
       // Pause conditions
-      if (showMiniGame || showWriteConfirm || showLetterWrite || showLetterRead) {
+      if (showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead) {
         return;
       }
       accumulatedTimeRef.current += gameMinutesPerRealSecond;
@@ -316,7 +341,7 @@ function App() {
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro, showMiniGame, showWriteConfirm, showLetterWrite, showLetterRead]);
+  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -349,7 +374,7 @@ function App() {
     const handleInteract = (e) => {
       const { npcId } = e.detail;
       if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
-        setShowMathGame(true);
+        openRoom104BeforeMathDialog();
         return;
       }
       if (npcId === "npc-itb") {
@@ -396,7 +421,7 @@ function App() {
 
     window.addEventListener("interact-npc", handleInteract);
     return () => window.removeEventListener("interact-npc", handleInteract);
-  }, []);
+  }, [openRoom104BeforeMathDialog]);
 
   useEffect(() => {
     try {
@@ -477,7 +502,8 @@ function App() {
 
   useEffect(() => {
     if (showIntro) return; // Do not initialize game until intro is done
-    gameStateRef.current.isMiniGameOpen = showMiniGame;
+    gameStateRef.current.isMiniGameOpen =
+      showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead;
     gameStateRef.current.getSelectedSlot = () => selectedSlot;
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
@@ -492,7 +518,7 @@ function App() {
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
     }
-  }, [showMiniGame, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
+  }, [showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -901,6 +927,7 @@ function App() {
       this.physics.add.collider(this.player, walls);
 
       this.player.anims.play("idle-down");
+      this.lastDirection = "down";
 
       this.moveKeys = this.input.keyboard.addKeys({
         up: Phaser.Input.Keyboard.KeyCodes.UP,
@@ -985,32 +1012,6 @@ function App() {
         }
       };
       createCharAnims();
-
-      // Also create specific NPC anims if needed (using same sprite sheet structure)
-      ["ig", "inj"].forEach(name => {
-        if (this.anims.exists(`${name}-idle-left`)) return;
-        // Example: reuse main_character frames but with different texture key
-        this.anims.create({
-          key: `${name}-idle-left`,
-          frames: this.anims.generateFrameNames(name, {
-            start: 12, end: 15, // idle-left
-            prefix: "16x16 All Animations ",
-            suffix: ".aseprite"
-          }),
-          frameRate: 4,
-          repeat: -1
-        });
-        this.anims.create({
-          key: `${name}-idle-right`,
-          frames: this.anims.generateFrameNames(name, {
-            start: 4, end: 7, // idle-right
-            prefix: "16x16 All Animations ",
-            suffix: ".aseprite"
-          }),
-          frameRate: 4,
-          repeat: -1
-        });
-      });
     }
 
     function update() {
@@ -1101,7 +1102,7 @@ function App() {
       if (isNearNPC && !this.interactionCooldown) {
         if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           if ((this.npcId === "npc-104-1" || this.npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
-            gameStateRef.current.setShowMathGame(true);
+            openRoom104BeforeMathDialog();
             this.interactionCooldown = true;
             setTimeout(() => { this.interactionCooldown = false; }, 1000);
             return;
@@ -1236,6 +1237,104 @@ function App() {
       {!showIntro && !isOpeningScene && (
         <>
 
+          {showRoomDialog && roomDialogLines.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 1450,
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: "22px",
+                  transform: "translateX(-50%)",
+                  width: `${240 * 4}px`,
+                  height: `${64 * 4}px`,
+                  pointerEvents: "auto",
+                }}
+              >
+                <img
+                  src={roomDialogLines[roomDialogIndex]?.portrait}
+                  alt={roomDialogLines[roomDialogIndex]?.speaker ?? "npc"}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    imageRendering: "pixelated",
+                    userSelect: "none",
+                    pointerEvents: "none",
+                  }}
+                />
+
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${66 * 4}px`,
+                    top: `${25 * 4}px`,
+                    width: `${160 * 4}px`,
+                    height: `${34 * 4}px`,
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "18px",
+                    lineHeight: 1.35,
+                    color: "#4E342E",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    overflow: "hidden",
+                    textShadow: "0 1px 0 rgba(255,255,255,0.25)",
+                  }}
+                >
+                  <div style={{ fontSize: "16px", lineHeight: 1.2, marginBottom: "4px" }}>
+                    {roomDialogLines[roomDialogIndex]?.speaker ?? ""}
+                  </div>
+                  <div style={{ fontSize: "18px", lineHeight: 1.35 }}>
+                    {roomDialogLines[roomDialogIndex]?.text ?? ""}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (roomDialogIndex < roomDialogLines.length - 1) {
+                      setRoomDialogIndex((prev) => prev + 1);
+                      return;
+                    }
+                    const action = roomDialogAction;
+                    setShowRoomDialog(false);
+                    setRoomDialogLines([]);
+                    setRoomDialogIndex(0);
+                    setRoomDialogAction(null);
+                    if (action === "startMath") {
+                      setShowMathGame(true);
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: `${19 * 4}px`,
+                    bottom: `${17 * 4}px`,
+                    width: "92px",
+                    height: "36px",
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "14px",
+                    color: "#4E342E",
+                    backgroundColor: "#f1d1a8",
+                    border: "2px solid #caa47d",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 0 rgba(0,0,0,0.25)",
+                  }}
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+          )}
+
           {showWriteConfirm && (
             <div
               style={{
@@ -1280,7 +1379,7 @@ function App() {
                         (targetId === "npc-104-1" || targetId === "npc-104-2") &&
                         !mathGameSolved
                       ) {
-                        setShowMathGame(true);
+                        openRoom104BeforeMathDialog();
                         return;
                       }
                       if (confirmMode === "write") {
@@ -2522,7 +2621,7 @@ function App() {
         onWin={() => {
           setMathGameSolved(true);
           setShowMathGame(false);
-          alert("정답입니다! 이제 편지를 전달할 수 있습니다.");
+          openRoom104AfterMathDialog();
         }}
       />
 
