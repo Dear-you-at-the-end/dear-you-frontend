@@ -59,6 +59,9 @@ function App() {
     { id: "npc-103-3", name: "박찬우", hasLetter: false, hasWritten: false },
     { id: "npc-104-1", name: "이건", hasLetter: false, hasWritten: false },
     { id: "npc-104-2", name: "임남중", hasLetter: false, hasWritten: false },
+    { id: "npc-bsy", name: "배서연", hasLetter: false, hasWritten: false },
+    { id: "npc-kys", name: "강예서", hasLetter: false, hasWritten: false },
+    { id: "npc-thj", name: "탁한진", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "itb", hasLetter: false, hasWritten: false },
   ]);
@@ -101,7 +104,7 @@ function App() {
   const [showRoomDialog, setShowRoomDialog] = useState(false);
   const [roomDialogLines, setRoomDialogLines] = useState([]);
   const [roomDialogIndex, setRoomDialogIndex] = useState(0);
-  const [roomDialogAction, setRoomDialogAction] = useState(null); // 'startMath' | null
+  const [roomDialogAction, setRoomDialogAction] = useState(null); // { type: string } | null
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
@@ -110,7 +113,7 @@ function App() {
       { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "왜~ 재밌잖아 해볼래?" },
     ]);
     setRoomDialogIndex(0);
-    setRoomDialogAction("startMath");
+    setRoomDialogAction({ type: "startMath" });
     setShowRoomDialog(true);
   }, []);
 
@@ -121,6 +124,32 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openKaimaruStoryDialog = useCallback(() => {
+    const mainPortrait = "/assets/common/dialog/main.png";
+    const portraitFor = (speaker) => {
+      if (speaker === "배서연") return "/assets/common/dialog/bsy.png";
+      if (speaker === "강예서") return "/assets/common/dialog/kys.png";
+      if (speaker === "한진") return "/assets/common/dialog/thj.png";
+      return mainPortrait;
+    };
+    setRoomDialogLines([
+      { speaker: "배서연", portrait: portraitFor("배서연"), text: "한진아 썰 좀 더 풀어봐" },
+      { speaker: "나", portrait: portraitFor("나"), text: "한진...? 내가 편지 전달할 사람 중에도 한진이라는 이름이 있었던 것 같은데" },
+      { speaker: "한진", portrait: portraitFor("한진"), text: "아니 서연누나. mt 가서 다 풀어준다니까?" },
+      { speaker: "나", portrait: portraitFor("나"), text: "서연..? 서연도 있었던 것 같은데.." },
+      { speaker: "나", portrait: portraitFor("나"), text: "혹시 저 사람들이 편지를 전달해주어야 할 사람들인건가?" },
+      { speaker: "나", portrait: portraitFor("나"), text: "어..!! 잠시만요! 편지 배달 왔어요!!" },
+      { speaker: "배서연", portrait: portraitFor("배서연"), text: "감사합니다 ㅎㅎ" },
+      { speaker: "배서연", portrait: portraitFor("배서연"), text: "예서야 동휘랑 성재 운동장에서 캐치볼하고 있다는데 구경 가는 거 어때?" },
+      { speaker: "강예서", portrait: portraitFor("강예서"), text: "오 좋다!! 태빈이도 러닝하고 있는 것 같더라" },
+      { speaker: "나", portrait: portraitFor("나"), text: "(성재, 동휘, 태빈...? 모두 편지 전달해야 할 사람들이잖아!)" },
+      { speaker: "나", portrait: portraitFor("나"), text: "(운동장으로 가보자!!)" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "kaimaruToGround" });
     setShowRoomDialog(true);
   }, []);
 
@@ -442,6 +471,14 @@ function App() {
   }, [openRoom104BeforeMathDialog]);
 
   useEffect(() => {
+    const handleKaimaruStory = () => {
+      openKaimaruStoryDialog();
+    };
+    window.addEventListener("open-kaimaru-story", handleKaimaruStory);
+    return () => window.removeEventListener("open-kaimaru-story", handleKaimaruStory);
+  }, [openKaimaruStoryDialog]);
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem("writtenLetters");
       if (saved) {
@@ -535,6 +572,7 @@ function App() {
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
+      gameRef.current.registry.set("uiBlocked", gameStateRef.current.isMiniGameOpen);
     }
   }, [showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
 
@@ -1307,7 +1345,7 @@ function App() {
                     textShadow: "0 1px 0 rgba(255,255,255,0.25)",
                   }}
                 >
-                  <div style={{ fontSize: "16px", lineHeight: 1.2, marginBottom: "4px" }}>
+                  <div style={{ fontSize: "18px", lineHeight: 1.15, marginBottom: "4px" }}>
                     {roomDialogLines[roomDialogIndex]?.speaker ?? ""}
                   </div>
                   <div style={{ fontSize: "18px", lineHeight: 1.35 }}>
@@ -1317,20 +1355,23 @@ function App() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (roomDialogIndex < roomDialogLines.length - 1) {
-                      setRoomDialogIndex((prev) => prev + 1);
-                      return;
-                    }
-                    const action = roomDialogAction;
-                    setShowRoomDialog(false);
-                    setRoomDialogLines([]);
-                    setRoomDialogIndex(0);
-                    setRoomDialogAction(null);
-                    if (action === "startMath") {
-                      setShowMathGame(true);
-                    }
-                  }}
+                    onClick={() => {
+                      if (roomDialogIndex < roomDialogLines.length - 1) {
+                        setRoomDialogIndex((prev) => prev + 1);
+                        return;
+                      }
+                      const action = roomDialogAction;
+                      setShowRoomDialog(false);
+                      setRoomDialogLines([]);
+                      setRoomDialogIndex(0);
+                      setRoomDialogAction(null);
+                      if (action?.type === "startMath") {
+                        setShowMathGame(true);
+                      } else if (action?.type === "kaimaruToGround") {
+                        window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
+                        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
+                      }
+                    }}
                   style={{
                     position: "absolute",
                     right: `${19 * 4}px`,

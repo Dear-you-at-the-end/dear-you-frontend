@@ -140,6 +140,9 @@ export default class KaimaruScene extends Phaser.Scene {
       // Old logic: index 1 was main (top-center).
       // Let's make index 1 (top-right) main.
       const isMainTable = index === 4;
+      if (isMainTable) {
+        this.mainTablePos = { x: pos.x, y: pos.y };
+      }
 
       let textureKey;
       if (isMainTable) {
@@ -378,6 +381,11 @@ export default class KaimaruScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
+    if (this.registry.get("uiBlocked")) {
+      this.player.body.setVelocity(0);
+      return;
+    }
+
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
     const rightJustDown = pointerRightDown && !this.prevRight;
@@ -398,6 +406,18 @@ export default class KaimaruScene extends Phaser.Scene {
       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "LeaveKaimaru" } }));
       this.player.body.setVelocity(0);
       return;
+    }
+
+    // Main table interaction: trigger Kaimaru story dialog once.
+    if (!this.kaimaruStoryDone && this.mainTablePos) {
+      const distToMain = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mainTablePos.x, this.mainTablePos.y);
+      if (distToMain < 90 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+        this.lastTriggerTime = this.time.now;
+        this.kaimaruStoryDone = true;
+        window.dispatchEvent(new CustomEvent("open-kaimaru-story"));
+        this.player.body.setVelocity(0);
+        return;
+      }
     }
 
     const isRunning = this.shiftKey.isDown;
