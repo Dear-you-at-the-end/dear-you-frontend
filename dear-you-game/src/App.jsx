@@ -971,7 +971,8 @@ function App() {
               ? "development_room"
               : null;
       if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
-        return;
+        // Allow the final NPC interaction even if quest-room state is out of sync (demo flow).
+        if (npcId !== "npc-pseongjun") return;
       }
 
       const npcState = gameStateRef.current.getNpcState(npcId);
@@ -1123,6 +1124,7 @@ function App() {
     gameStateRef.current.getSelectedSlot = () => selectedSlot;
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
+    gameStateRef.current.getCurrentQuestRoom = () => quests[currentQuestIndex]?.room;
     gameStateRef.current.getNpcState = (id) => npcs.find((n) => n.id === id);
     gameStateRef.current.getLetterGroups = () => letterGroups;
     gameStateRef.current.getMathGameSolved = () => mathGameSolved;
