@@ -124,6 +124,7 @@ export default class HallwayScene extends Phaser.Scene {
         const plz = this.add.image(x + 14, doorY - doorHeight / 2 - 22, "plz_icon");
         plz.setScale(pixelScale * 0.45);
         plz.setDepth(5);
+        door.plzIcon = plz;
         this.tweens.add({
           targets: plz,
           y: plz.y - 8,
@@ -134,21 +135,22 @@ export default class HallwayScene extends Phaser.Scene {
         });
       }
 
-      if (room === "103" || room === "104") {
-        const notice = this.add.image(x, doorY - doorHeight / 2 - 10, "notice_icon");
-        notice.setScale(pixelScale * 0.4);
-        notice.setDepth(4);
-        notice.setVisible(false);
-        door.noticeIcon = notice;
+      if (room === "104") {
+        // Use plz_icon as the "?" marker above Room 104.
+        const plz = this.add.image(x, doorY - doorHeight / 2 - 12, "plz_icon");
+        plz.setScale(pixelScale * 0.45);
+        plz.setDepth(4);
+        plz.setVisible(false);
+        door.questionIcon = plz;
         this.tweens.add({
-          targets: notice,
-          y: notice.y - 4,
+          targets: plz,
+          y: plz.y - 4,
           duration: 900,
           yoyo: true,
           repeat: -1,
           ease: "Sine.easeInOut",
         });
-      } else {
+      } else if (room !== "103") {
         const ban = this.add.image(x, doorY - doorHeight / 2 - 10, "ban_icon");
         ban.setScale(pixelScale * 0.4);
         ban.setDepth(4);
@@ -407,8 +409,20 @@ export default class HallwayScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
+    const room104QuestionActive = this.registry.get("room104QuestionActive") ?? false;
+    const room103LettersDelivered = this.registry.get("room103LettersDelivered") ?? false;
+
     this.nearDoor = null;
     this.doors.children.entries.forEach((door) => {
+      if (door.roomNumber === "103" && door.plzIcon) {
+        // After delivering all letters in Room103 and exiting, hide the exclamation icon.
+        door.plzIcon.setVisible(!room103LettersDelivered);
+      }
+      if (door.roomNumber === "104" && door.questionIcon) {
+        // Show the marker only after Room103 completion triggers the "go to 104" prompt.
+        door.questionIcon.setVisible(!!room104QuestionActive);
+      }
+
       const distance = Phaser.Math.Distance.Between(
         this.player.x,
         this.player.y,
@@ -420,15 +434,9 @@ export default class HallwayScene extends Phaser.Scene {
         if (door.banIcon) {
           door.banIcon.setVisible(true);
         }
-        if (door.noticeIcon) {
-          door.noticeIcon.setVisible(true);
-        }
       } else {
         if (door.banIcon) {
           door.banIcon.setVisible(false);
-        }
-        if (door.noticeIcon) {
-          door.noticeIcon.setVisible(false);
         }
       }
     });
@@ -453,6 +461,9 @@ export default class HallwayScene extends Phaser.Scene {
 
       // Special handling for Room 103
       if (this.nearDoor.roomNumber === "103") {
+        // After finishing Room103 (delivered all letters + exited), disable any further interaction with door 103.
+        if (room103LettersDelivered) return;
+
         const miniGameCompleted = this.registry.get("room103MiniGameCompleted") ?? false;
 
         if (!miniGameCompleted) {
@@ -484,6 +495,12 @@ export default class HallwayScene extends Phaser.Scene {
       }
 
       if (this.nearDoor.roomNumber === "104") {
+        if (room104QuestionActive) {
+          window.dispatchEvent(new CustomEvent("open-room104-hall-entry"));
+          return;
+        }
+        // Before completing Room103 quest, Room104 is not interactable.
+        if (!room103LettersDelivered) return;
         window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom104" } }));
         return;
       }

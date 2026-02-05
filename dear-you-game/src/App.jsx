@@ -110,6 +110,7 @@ function App() {
   const [showBanToast, setShowBanToast] = useState(false);
   const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
+  const [banToastText, setBanToastText] = useState("들어갈 수 없는 곳 같아..");
   const [exitRoomKey, setExitRoomKey] = useState(null);
   const [exitRoomData, setExitRoomData] = useState(null);
   const [interactionTargetId, setInteractionTargetId] = useState(null);
@@ -122,6 +123,8 @@ function App() {
   const [gameGuideTitle, setGameGuideTitle] = useState("");
   const [gameGuideText, setGameGuideText] = useState("");
   const [gameGuideAction, setGameGuideAction] = useState(null); // { type: string } | null
+  const [room104QuestionActive, setRoom104QuestionActive] = useState(false);
+  const [room103LettersDelivered, setRoom103LettersDelivered] = useState(false);
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
@@ -166,6 +169,83 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+<<<<<<< HEAD
+=======
+  const openGroundItbAfterDialog = useCallback(() => {
+    setRoomDialogLines([
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "편지 배달 왔습니다!!",
+      },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom103AllDeliveredOutro = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "휴.. 다행히 들키지 않은 것 같아" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "이렇게 다 돌면 혼나진않을거같아 다행이야" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "104호도 바로 옆방이니까 가보자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "room103ToHallwayActivate104" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom103LeaveBlockedDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남아있어..!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom104HallEntryDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지배달왔습니다!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "잠잠하다.." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "방에있는게 맞나?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "문이 살짝 열려있네? 들어가볼까..?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "enterRoom104FromHallway" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom104LeaveBlockedDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남아있어..." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom104AllDeliveredOutro = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "음.. 이제 개발실로 가야하나?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "근데 너무 배가 고파... 밥은 먹고 살아야지..." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "카이마루라는 곳에서 밥을 먹을 수 있는 것 같던데.. 가볼까?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "room104ToKaimaruConfirm" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openPre103GateDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "우선 103호에 가보자...." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -248,8 +328,19 @@ function App() {
       }, 1200);
     };
     window.addEventListener("ban-door", handleBanToast);
+    const handleBanToastText = (e) => {
+      const text = e.detail?.text;
+      if (typeof text === "string" && text.trim()) {
+        setBanToastText(text.trim());
+      } else {
+        setBanToastText("들어갈 수 없는 곳 같아..");
+      }
+      handleBanToast();
+    };
+    window.addEventListener("ban-door-text", handleBanToastText);
     return () => {
       window.removeEventListener("ban-door", handleBanToast);
+      window.removeEventListener("ban-door-text", handleBanToastText);
       if (banToastTimerRef.current) {
         clearTimeout(banToastTimerRef.current);
       }
@@ -259,13 +350,41 @@ function App() {
   useEffect(() => {
     const handleExitConfirm = (e) => {
       const key = e.detail?.roomKey ?? e.detail?.key;
+
+      // Gate optional areas until Room103 quest is completed.
+      if (
+        (key === "EnterKaimaru" || key === "EnterGround") &&
+        !room103LettersDelivered
+      ) {
+        openPre103GateDialog();
+        return;
+      }
+
       setExitRoomKey(key);
       setExitRoomData(e.detail ?? null);
       setShowExitConfirm(true);
     };
     window.addEventListener("open-exit-confirm", handleExitConfirm);
+<<<<<<< HEAD
     return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, []);
+=======
+    return () =>
+      window.removeEventListener("open-exit-confirm", handleExitConfirm);
+  }, [room103LettersDelivered, openPre103GateDialog]);
+
+  useEffect(() => {
+    const handleRoom104HallEntry = () => {
+      openRoom104HallEntryDialog();
+    };
+    window.addEventListener("open-room104-hall-entry", handleRoom104HallEntry);
+    return () =>
+      window.removeEventListener(
+        "open-room104-hall-entry",
+        handleRoom104HallEntry,
+      );
+  }, [openRoom104HallEntryDialog]);
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
 
   useEffect(() => {
     const handleOpenLyjQuest = () => {
@@ -517,7 +636,11 @@ function App() {
           return;
         }
       }
+<<<<<<< HEAD
       if (npcId === "npc-mdh-psj" || npcId === "npc-mdh" || npcId === "npc-psj") {
+=======
+      if (npcId === "npc-mdh" || npcId === "npc-psj") {
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
         if (!groundCatchBallCompleted) {
           openGroundCatchBallBeforeDialog();
           return;
@@ -1261,6 +1384,42 @@ function App() {
       // Door
       if (isNearDoor && !this.interactionCooldown) {
         if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+          if (this.scene.key === "Room103") {
+            const allDelivered = ["npc-103-1", "npc-103-2", "npc-103-3"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom103LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom103AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
+          if (this.scene.key === "Room104") {
+            const allDelivered = ["npc-104-1", "npc-104-2"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom104LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom104AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -1268,6 +1427,42 @@ function App() {
         }
         // Move down check
         if (this.moveKeys.down.isDown || this.moveKeys.s.isDown) {
+          if (this.scene.key === "Room103") {
+            const allDelivered = ["npc-103-1", "npc-103-2", "npc-103-3"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom103LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom103AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
+          if (this.scene.key === "Room104") {
+            const allDelivered = ["npc-104-1", "npc-104-2"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom104LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom104AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -1498,8 +1693,38 @@ function App() {
                       setGameGuideAction({ type: "startRunning" });
                       setShowGameGuide(true);
                     } else if (action?.type === "kaimaruToGround") {
+<<<<<<< HEAD
                       window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
                       window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
+=======
+                      window.dispatchEvent(
+                        new CustomEvent("kaimaru-quest-complete"),
+                      );
+                      window.dispatchEvent(
+                        new CustomEvent("open-exit-confirm", {
+                          detail: { roomKey: "EnterGround", x: 260, y: 180 },
+                        }),
+                      );
+                    } else if (action?.type === "room103ToHallwayActivate104") {
+                      setRoom103LettersDelivered(true);
+                      setRoom104QuestionActive(true);
+                      // Prevent a registry/state timing race during immediate scene transition.
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("room103LettersDelivered", true);
+                        gameRef.current.registry.set("room104QuestionActive", true);
+                      }
+                      transitionToScene("Hallway", { x: 750, y: 330 });
+                    } else if (action?.type === "enterRoom104FromHallway") {
+                      setRoom104QuestionActive(false);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("room104QuestionActive", false);
+                      }
+                      transitionToScene("Room104");
+                    } else if (action?.type === "room104ToKaimaruConfirm") {
+                      setExitRoomKey("EnterKaimaru");
+                      setExitRoomData(null);
+                      setShowExitConfirm(true);
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
                     }
                   }}
                   style={{
@@ -2724,6 +2949,7 @@ function App() {
         }}
       />
 
+<<<<<<< HEAD
       <MathMiniGameModal
         isOpen={showMathGame}
         onClose={() => setShowMathGame(false)}
@@ -2754,6 +2980,8 @@ function App() {
         }}
       />
 
+=======
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
       <HospitalGameModal
         isOpen={showHospitalGame}
         onClose={() => setShowHospitalGame(false)}
@@ -2768,6 +2996,14 @@ function App() {
           setShowExitConfirm(false);
           const sceneKey = exitRoomKey;
           if (!sceneKey) return;
+
+          if (
+            (sceneKey === "EnterKaimaru" || sceneKey === "EnterGround") &&
+            !room103LettersDelivered
+          ) {
+            openPre103GateDialog();
+            return;
+          }
 
           let targetScene = null;
           let targetData = undefined;
@@ -2838,6 +3074,13 @@ function App() {
             const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
             targetScene = "Hallway";
             targetData = exitCoords;
+            if (sceneKey === "Room104") {
+              // Ensure hallway marker doesn't reappear after exiting Room104.
+              setRoom104QuestionActive(false);
+              if (gameRef.current) {
+                gameRef.current.registry.set("room104QuestionActive", false);
+              }
+            }
           }
 
           if (targetScene) {
@@ -2989,6 +3232,14 @@ function App() {
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
           setShowCatchBall(false);
+<<<<<<< HEAD
+=======
+          setGroundCatchBallCompleted(true);
+          if (gameRef.current) {
+            gameRef.current.registry.set("groundCatchBallCompleted", true);
+          }
+          openGroundCatchBallAfterDialog();
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
         }}
       />
 
@@ -3012,6 +3263,7 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
+<<<<<<< HEAD
       <EatingGameModal
         isOpen={showEatingGame}
         onClose={() => setShowEatingGame(false)}
@@ -3021,6 +3273,8 @@ function App() {
           window.dispatchEvent(new CustomEvent("eating-game-won"));
         }}
       />
+=======
+>>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
     </div>
   );
 }
