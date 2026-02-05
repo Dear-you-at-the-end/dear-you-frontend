@@ -262,7 +262,7 @@ function App() {
 
   const openRoom103LeaveBlockedDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남은 것 같아.." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남아있어..!" },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
