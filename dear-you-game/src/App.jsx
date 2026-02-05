@@ -63,6 +63,7 @@ function App() {
     { id: "npc-bsy", name: "배서연", hasLetter: false, hasWritten: false },
     { id: "npc-kys", name: "강예서", hasLetter: false, hasWritten: false },
     { id: "npc-thj", name: "탁한진", hasLetter: false, hasWritten: false },
+    { id: "npc-jjw", name: "정재원", hasLetter: false, hasWritten: false },
     { id: "npc-mdh", name: "민동휘", hasLetter: false, hasWritten: false },
     { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
