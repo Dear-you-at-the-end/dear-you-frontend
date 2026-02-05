@@ -7,6 +7,7 @@ import RunningGameModal from "./components/RunningGameModal";
 import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
+import HospitalGameModal from "./components/HospitalGameModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
@@ -26,6 +27,7 @@ function App() {
   const [mathGameSolved, setMathGameSolved] = useState(false);
   const [showRunningGame, setShowRunningGame] = useState(false);
   const [showCatchBall, setShowCatchBall] = useState(false);
+  const [showHospitalGame, setShowHospitalGame] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [, setIsQuestCompleted] = useState(false);
@@ -36,6 +38,10 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
   const [debugTab, setDebugTab] = useState("장소"); // Place | MiniGame
+  const [showLyjQuestConfirm, setShowLyjQuestConfirm] = useState(false);
+  const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
+  const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
+  const [headsetCount, setHeadsetCount] = useState(0);
 
   // Quest System
   const [quests, setQuests] = useState([
@@ -146,6 +152,7 @@ function App() {
     padX: 14,
     padY: 12,
   };
+  const HEADSET_SLOT = inventoryConfig.slots - 1;
   const letterPaper = {
     width: 330,
     height: 390,
@@ -199,10 +206,51 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handleOpenLyjQuest = () => {
+      if (!lyjQuestAccepted && !lyjQuestCompleted) {
+        setShowLyjQuestConfirm(true);
+      }
+    };
+    const handleFindHeadset = () => {
+      if (lyjQuestAccepted && !lyjQuestCompleted) {
+        setHeadsetCount((prev) => {
+          const next = prev > 0 ? prev : 1;
+          return next;
+        });
+        setSelectedSlot(HEADSET_SLOT);
+      }
+    };
+    const handleCompleteLyjQuest = () => {
+      if (!lyjQuestCompleted && headsetCount > 0) {
+        setHeadsetCount(0);
+        setLyjQuestCompleted(true);
+        setQuests((prevQuests) =>
+          prevQuests.map((q) =>
+            q.room === "development_room" ? { ...q, completed: true } : q
+          )
+        );
+      }
+    };
+
+    window.addEventListener("open-lyj-quest", handleOpenLyjQuest);
+    window.addEventListener("find-lyj-headset", handleFindHeadset);
+    window.addEventListener("complete-lyj-quest", handleCompleteLyjQuest);
+    return () => {
+      window.removeEventListener("open-lyj-quest", handleOpenLyjQuest);
+      window.removeEventListener("find-lyj-headset", handleFindHeadset);
+      window.removeEventListener("complete-lyj-quest", handleCompleteLyjQuest);
+    };
+  }, [lyjQuestAccepted, lyjQuestCompleted, headsetCount, HEADSET_SLOT]);
+
+  useEffect(() => {
     const onOpeningStart = () => setIsOpeningScene(true);
     const onOpeningEnd = () => {
       setIsOpeningScene(false);
       setChecklistOpen(true);
+      if (checklistTimerRef.current) clearTimeout(checklistTimerRef.current);
+      checklistTimerRef.current = setTimeout(() => {
+        setChecklistOpen(false);
+      }, 5000);
     };
     window.addEventListener("opening-start", onOpeningStart);
     window.addEventListener("opening-end", onOpeningEnd);
@@ -251,9 +299,14 @@ function App() {
         setShowMiniGame(true);
       }
     };
+    const handleHospitalGameStart = () => {
+      setShowHospitalGame(true);
+    };
     window.addEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+    window.addEventListener("start-hospital-game", handleHospitalGameStart);
     return () => {
       window.removeEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+      window.removeEventListener("start-hospital-game", handleHospitalGameStart);
     };
   }, [room103MiniGameCompleted]);
 
@@ -348,7 +401,7 @@ function App() {
 
     const tick = () => {
       // Pause conditions
-      if (showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead) {
+      if (showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead || showHospitalGame) {
         return;
       }
       accumulatedTimeRef.current += gameMinutesPerRealSecond;
@@ -359,7 +412,7 @@ function App() {
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead]);
+  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showHospitalGame]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -403,6 +456,19 @@ function App() {
         setShowCatchBall(true);
         return;
       }
+
+      const currentQuestRoom = gameStateRef.current.getCurrentQuestRoom?.();
+      const npcRoom = npcId?.includes("npc-103")
+        ? "103"
+        : npcId?.includes("npc-104")
+          ? "104"
+          : npcId === "npc-lyj"
+            ? "development_room"
+            : null;
+      if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
+        return;
+      }
+
       const npcState = gameStateRef.current.getNpcState(npcId);
       if (!npcState) return;
 
@@ -410,6 +476,9 @@ function App() {
       const letterCount = gameStateRef.current.getLetterCount();
       const selectedSlot = gameStateRef.current.getSelectedSlot();
       const writtenCount = gameStateRef.current.getWrittenCount();
+      if (selectedSlot === HEADSET_SLOT) {
+        return;
+      }
 
       // Write logic: Empty hands (slot 0) and no letter yet
       if (!hasLetter && !hasWritten && letterCount > 0 && selectedSlot === 0) {
@@ -484,6 +553,7 @@ function App() {
     getSelectedSlot: () => selectedSlot,
     getLetterCount: () => letterCount,
     getWrittenCount: () => writtenCount,
+    getCurrentQuestRoom: () => quests[currentQuestIndex]?.room,
     getNpcState: (id) => npcs.find((n) => n.id === id),
     setNpcHasLetter: (id) =>
       setNpcs((prev) => prev.map((n) => (n.id === id ? { ...n, hasLetter: true } : n))),
@@ -521,7 +591,7 @@ function App() {
   useEffect(() => {
     if (showIntro) return; // Do not initialize game until intro is done
     gameStateRef.current.isMiniGameOpen =
-      showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead;
+      showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead || showHospitalGame;
     gameStateRef.current.getSelectedSlot = () => selectedSlot;
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
@@ -535,8 +605,12 @@ function App() {
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
+      gameRef.current.registry.set("headsetCount", headsetCount);
+      gameRef.current.registry.set("lyjQuestAccepted", lyjQuestAccepted);
+      gameRef.current.registry.set("lyjQuestCompleted", lyjQuestCompleted);
+      gameRef.current.registry.set("currentQuestRoom", quests[currentQuestIndex]?.room ?? null);
     }
-  }, [showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
+  }, [showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, headsetCount, lyjQuestAccepted, lyjQuestCompleted, showHospitalGame, quests, currentQuestIndex]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -666,7 +740,7 @@ function App() {
       const row3Y = startY + 215;
       const row4Y = startY + 265;
 
-      createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
+      createFurniture({ x: leftX + 10, y: row1Y, texture: "deskl", scaleX: 1 });
       createFurniture({ x: leftX + 10, y: row2Y, texture: "bed_2", scaleX: 0.85 });
       createFurniture({ x: leftX - 5, y: row3Y, texture: "closet", scaleX: 1 });
       createFurniture({ x: leftX - 5, y: row4Y, texture: "closet", scaleX: 1 });
@@ -1760,8 +1834,9 @@ function App() {
           >
             {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
               const isSlot0 = index === 0;
+              const isHeadsetSlot = index === HEADSET_SLOT;
               const groupIndex = index - 1;
-              const group = index > 0 ? letterGroups[groupIndex] : null;
+              const group = index > 0 && !isHeadsetSlot ? letterGroups[groupIndex] : null;
               const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
               const topPos = inventoryConfig.padY;
 
@@ -1864,6 +1939,44 @@ function App() {
                         }}
                       >
                         {group.letters.length}
+                      </span>
+                    </>
+                  )}
+
+                  {isHeadsetSlot && headsetCount > 0 && (
+                    <>
+                      <img
+                        src="/assets/development_room/headset.png"
+                        alt="Headset"
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + 4}px`,
+                          top: `${topPos + 4}px`,
+                          width: `${inventoryConfig.slotSize - 8}px`,
+                          height: `${inventoryConfig.slotSize - 8}px`,
+                          imageRendering: "pixelated",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                          top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#5B3A24",
+                          backgroundColor: "rgba(230, 210, 181, 0.85)",
+                          borderRadius: "999px",
+                          minWidth: "16px",
+                          height: "16px",
+                          lineHeight: "16px",
+                          textAlign: "center",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {headsetCount}
                       </span>
                     </>
                   )}
@@ -2443,6 +2556,42 @@ function App() {
           window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom103" } }));
         }}
       />
+
+      <MathMiniGameModal
+        isOpen={showMathGame}
+        onClose={() => setShowMathGame(false)}
+        onWin={() => {
+          setMathGameSolved(true);
+          setShowMathGame(false);
+        }}
+      />
+
+      <RunningGameModal
+        isOpen={showRunningGame}
+        onClose={() => setShowRunningGame(false)}
+        onWin={() => {
+          window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-itb" } }));
+          setShowRunningGame(false);
+        }}
+      />
+
+      <CatchBallModal
+        isOpen={showCatchBall}
+        onClose={() => setShowCatchBall(false)}
+        onWin={() => {
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
+          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
+          setShowCatchBall(false);
+        }}
+      />
+
+      <HospitalGameModal
+        isOpen={showHospitalGame}
+        onClose={() => setShowHospitalGame(false)}
+        onWin={() => {
+          setShowHospitalGame(false);
+        }}
+      />
       <ExitConfirmModal
         isOpen={showExitConfirm}
         onCancel={() => setShowExitConfirm(false)}
@@ -2541,132 +2690,15 @@ function App() {
         })()}
       />
 
-      {/* Scooter Animation Overlay */}
-      {
-        showScooterAnim && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 99999,
-              backgroundImage: "url('/assets/hospital/road1.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "flex-start",
-              overflow: "hidden",
-            }}
-          >
-            <style>{`
-            @keyframes scooterMove {
-              0% { transform: translateX(-300px); }
-              100% { transform: translateX(120vw); }
-            }
-          `}</style>
-            <img
-              src="/assets/hospital/scooter_ride.png"
-              alt="Scooter"
-              style={{
-                width: "300px",
-                marginBottom: "8%",
-                marginLeft: "0px",
-                animation: "scooterMove 2.5s linear forwards",
-                imageRendering: "pixelated",
-              }}
-            />
-          </div>
-        )
-      }
-
-      {
-        showScooterReverse && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 99999,
-              backgroundImage: "url('/assets/hospital/road1.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "flex-start",
-              overflow: "hidden",
-            }}
-          >
-            <style>{`
-            @keyframes scooterMoveReverse {
-              0% { transform: translateX(100vw) scaleX(-1); }
-              100% { transform: translateX(-300px) scaleX(-1); }
-            }
-          `}</style>
-            <img
-              src="/assets/hospital/scooter_ride.png"
-              alt="Scooter"
-              style={{
-                width: "300px",
-                marginBottom: "8%",
-                marginLeft: "0px",
-                animation: "scooterMoveReverse 2.5s linear forwards",
-                imageRendering: "pixelated",
-              }}
-            />
-          </div>
-        )
-      }
-
-      <HeartQuestModal
-        isOpen={showHeartQuest}
-        onClose={() => setShowHeartQuest(false)}
-        onWin={() => {
-          setIsQuestCompleted(true);
+      <ExitConfirmModal
+        isOpen={showLyjQuestConfirm}
+        onCancel={() => setShowLyjQuestConfirm(false)}
+        onConfirm={() => {
+          setLyjQuestAccepted(true);
+          setShowLyjQuestConfirm(false);
         }}
-        onFail={() => alert("...")}
+        message="헤드셋을 찾아줄래?"
       />
-
-      <MathMiniGameModal
-        isOpen={showMathGame}
-        onClose={() => setShowMathGame(false)}
-        onWin={() => {
-          setMathGameSolved(true);
-          setShowMathGame(false);
-          openRoom104AfterMathDialog();
-        }}
-      />
-
-      <RunningGameModal
-        isOpen={showRunningGame}
-        onClose={() => setShowRunningGame(false)}
-        onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
-          // Give a reward or just close? User didn't specify.
-          // But usually we mark quest completion or something.
-          // For now, just trigger happy event and close.
-          setShowRunningGame(false);
-        }}
-      />
-
-      <CatchBallModal
-        isOpen={showCatchBall}
-        onClose={() => setShowCatchBall(false)}
-        onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
-          setShowCatchBall(false);
-        }}
-      />
-
-      {showIntro && <IntroScreen onStart={handleIntroStart} />}
-
       <div
         style={{
           position: "fixed",
@@ -2685,6 +2717,7 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
+      {showIntro && <IntroScreen onStart={() => setShowIntro(false)} />}
     </div >
   );
 }

@@ -17,17 +17,22 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
     const MAX_SPEED = 5;
     const ITB_SPEED = 0.9; // Increased speed
 
+    const resetGame = useCallback(() => {
+        setGameState("idle");
+        setCountDown(3);
+        setPlayerPos(0);
+        setItbPos(0);
+        setResult(null);
+        playerVelocity.current = 0;
+    }, []);
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (!isOpen) return;
+        let countdown = null;
         const timer = setTimeout(() => {
-            setGameState("idle");
-            setCountDown(3);
-            setPlayerPos(0);
-            setItbPos(0);
-            setResult(null);
-            playerVelocity.current = 0;
-
-            const countdown = setInterval(() => {
+            resetGame();
+            countdown = setInterval(() => {
                 setCountDown((prev) => {
                     if (prev <= 1) {
                         clearInterval(countdown);
@@ -43,12 +48,13 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
 
         return () => {
             clearTimeout(timer);
+            if (countdown) clearInterval(countdown);
             if (gameLoopRef.current) {
                 clearInterval(gameLoopRef.current);
                 gameLoopRef.current = null;
             }
         };
-    }, [isOpen]);
+    }, [isOpen, resetGame]);
 
     const endGame = useCallback((res) => {
         setGameState("finished");
@@ -328,12 +334,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                     }}>
                         <button
                             onClick={() => {
-                                setGameState("idle");
-                                setCountDown(3);
-                                setPlayerPos(0);
-                                setItbPos(0);
-                                setResult(null);
-                                playerVelocity.current = 0;
+                                resetGame();
                             }}
                             style={{
                                 padding: "10px 20px",

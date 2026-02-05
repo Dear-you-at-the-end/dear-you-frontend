@@ -21,6 +21,7 @@ const MathMiniGameModal = ({ isOpen, onClose, onWin }) => {
         }
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (!isOpen) return;
         const timer = setTimeout(() => {

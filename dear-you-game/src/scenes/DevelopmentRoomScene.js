@@ -34,6 +34,8 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.load.image("dev_door_right", `${assetPath}door_right.png`);
         this.load.image("plz_icon", `${commonPath}plz.png`);
         this.load.image("dev_mic", `${assetPath}mic.png`);
+        this.load.image("x", `${commonPath}x.png`);
+        this.load.image("dialog_bubble", `${commonPath}dialog.png`);
 
         const characterPath = `${commonPath}character/`;
         this.load.atlas(
@@ -97,8 +99,8 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         const decor = this.physics.add.staticGroup();
 
         // Board on the wall (interactive)
-        const board = decor.create(MAP_WIDTH / 2, wallY + 30, "dev_board");
-        board.setScale(pixelScale * 1.1);
+        const board = decor.create(MAP_WIDTH / 2, wallY + 18, "dev_board");
+        board.setScale(pixelScale * 1.25);
         board.setDepth(2.2);
         board.setOrigin(0.5, 0.5);
         this.devBoard = board;
@@ -147,10 +149,11 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.doorExitY = doorLeft.y - doorLeft.displayHeight * 0.5;
 
         // Mic (Top Left area, free standing)
-        const mic = decor.create(MAP_WIDTH / 2 + 40, floorTop + 40, "dev_mic");
+        const mic = decor.create(MAP_WIDTH / 2 + 140, floorTop + 40, "dev_mic");
         mic.setScale(pixelScale * 0.8);
         mic.setDepth(floorTop + 40);
         mic.setOrigin(0.5, 1);
+        this.devMic = mic;
         // 3. Desks Layout
         const createDeskRow = (y, rowIndex) => {
             // Groups positions (Center X) and margins
@@ -308,6 +311,21 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.lyjPlz.setScale(scale * 0.45);
         this.lyjPlz.setDepth(startY + 1);
 
+        // Speech bubble (quest hint)
+        const bubble = this.add.image(0, 0, "dialog_bubble");
+        bubble.setOrigin(0.5, 1);
+        bubble.setScale(scale * 0.7);
+        const bubbleText = this.add.text(0, 0, "헤드셋을 잃어버렸어", {
+            fontFamily: "Galmuri11-Bold",
+            fontSize: "12px",
+            color: "#6a4b37",
+            align: "center",
+        });
+        bubbleText.setOrigin(0.5, 1);
+        bubbleText.setDepth(10002);
+        this.lyjBubble = this.add.container(0, 0, [bubble, bubbleText]);
+        this.lyjBubble.setDepth(10001);
+
         // Name Tag
         this.lyjName = this.add.text(startX, startY - 40, "lyj", {
             fontFamily: "Galmuri11-Bold",
@@ -365,7 +383,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
     createLjy(scale) {
         const corridorX = MAP_WIDTH - 140;
-        const corridorY = (MAP_HEIGHT - FLOOR_HEIGHT) + 210;
+        const corridorY = (MAP_HEIGHT - FLOOR_HEIGHT) + 190;
 
         this.ljy = this.physics.add.sprite(corridorX, corridorY, "ljy");
         this.ljy.setScale(scale);
@@ -414,10 +432,26 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
     update() {
         if (!this.player) return;
         if (this.lyj && this.lyjPlz) {
+            const currentQuestRoom = this.registry.get("currentQuestRoom");
+            const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
             const bob = Math.sin(this.time.now / 200) * 3;
             this.lyjPlz.x = this.lyj.x + 14;
             this.lyjPlz.y = this.lyj.y - 24 + bob;
             this.lyjPlz.setDepth(this.lyj.depth + 1);
+            this.lyjPlz.setVisible(questUnlocked);
+        }
+        if (this.lyjBubble && this.lyj) {
+            const currentQuestRoom = this.registry.get("currentQuestRoom");
+            const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
+            const accepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const completed = this.registry.get("lyjQuestCompleted") ?? false;
+            const bubbleOffsetY = 44;
+            this.lyjBubble.setVisible(questUnlocked && !accepted && !completed);
+            if (questUnlocked && !accepted && !completed) {
+                this.lyjBubble.x = this.lyj.x;
+                this.lyjBubble.y = this.lyj.y - bubbleOffsetY;
+                this.lyjBubble.setDepth(this.lyj.depth + 2);
+            }
         }
         const pointer = this.input.activePointer;
         const pointerRightDown = pointer.rightButtonDown();
@@ -436,29 +470,74 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     this.devBoardLetter.destroy();
                     this.devBoardLetter = null;
                 } else {
-                    const centerX = this.cameras.main.worldView.centerX;
-                    const centerY = this.cameras.main.worldView.centerY;
+                    const centerX = this.scale.width / 2;
+                    const centerY = this.scale.height / 2;
                     const dim = this.add.rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x000000, 0.35);
                     dim.setScrollFactor(0).setDepth(10000);
-                    const letter = this.add.image(centerX, centerY, "dev_board_letter");
-                    letter.setScrollFactor(0).setDepth(10001);
-                    const closeBtn = this.add.text(centerX + 170, centerY - 140, "X", {
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "22px",
-                        color: "#ffffff",
-                        stroke: "#000000",
-                        strokeThickness: 3,
-                    });
-                    closeBtn.setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+
+                    const letter = this.add.image(0, 0, "dev_board_letter");
+                    letter.setOrigin(0.5);
+
+                    const closeBtn = this.add.image(0, 0, "x");
+                    closeBtn.setScale(0.6);
+                    closeBtn.setOrigin(0.5);
+                    closeBtn.setInteractive({ useHandCursor: true });
+
+                    const popup = this.add.container(centerX, centerY, [letter, closeBtn]);
+                    popup.setScrollFactor(0).setDepth(10001);
+
+                    const closeOffsetX = (letter.displayWidth / 2) - 18;
+                    const closeOffsetY = (-letter.displayHeight / 2) + 18;
+                    closeBtn.setPosition(closeOffsetX, closeOffsetY);
+
                     closeBtn.on("pointerdown", () => {
                         if (this.devBoardLetter) {
                             this.devBoardLetter.destroy();
                             this.devBoardLetter = null;
                         }
                     });
-                    this.devBoardLetter = this.add.container(0, 0, [dim, letter, closeBtn]);
-                    this.devBoardLetter.setDepth(10003);
+
+                    this.devBoardLetter = this.add.container(0, 0, [dim, popup]);
+                    this.devBoardLetter.setDepth(10002);
                 }
+                return;
+            }
+        }
+
+        if (rightJustDown && this.lyj) {
+            const distToLyj = Phaser.Math.Distance.Between(
+                this.player.x,
+                this.player.y,
+                this.lyj.x,
+                this.lyj.y
+            );
+            const headsetCount = this.registry.get("headsetCount") ?? 0;
+            const selectedSlot = this.registry.get("selectedSlot") ?? -1;
+            const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+
+            if (distToLyj < 70) {
+                if (headsetCount > 0 && selectedSlot === 6 && lyjQuestAccepted && !lyjQuestCompleted) {
+                    window.dispatchEvent(new CustomEvent("complete-lyj-quest"));
+                } else if (!lyjQuestAccepted && !lyjQuestCompleted) {
+                    window.dispatchEvent(new CustomEvent("open-lyj-quest"));
+                }
+                return;
+            }
+        }
+
+        if (rightJustDown && this.devMic) {
+            const distToMic = Phaser.Math.Distance.Between(
+                this.player.x,
+                this.player.y,
+                this.devMic.x,
+                this.devMic.y
+            );
+            const headsetCount = this.registry.get("headsetCount") ?? 0;
+            const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount <= 0) {
+                window.dispatchEvent(new CustomEvent("find-lyj-headset"));
                 return;
             }
         }

@@ -60,6 +60,11 @@ export default class Room103Scene extends Phaser.Scene {
         this.load.spritesheet("player_run", `${characterPath}16x16 Run-Sheet.png`, spriteConfig);
         this.load.spritesheet("player_jump", `${characterPath}16x16 Jump-Sheet.png`, spriteConfig);
         this.load.spritesheet("player_idle", `${characterPath}16x16 Idle-Sheet.png`, spriteConfig);
+
+        // Room 103 NPC sprites
+        this.load.spritesheet("npc_kms", `${characterPath}kms.png`, spriteConfig);
+        this.load.spritesheet("npc_syy", `${characterPath}swy.png`, spriteConfig);
+        this.load.spritesheet("npc_pcw", `${characterPath}pcw.png`, spriteConfig);
     }
 
     create() {
@@ -208,38 +213,60 @@ export default class Room103Scene extends Phaser.Scene {
             padding: { x: 4, y: 4 }
         }).setOrigin(0.5).setDepth(99999).setVisible(false);
 
-        // NPC
-        this.npc = this.physics.add.staticSprite(
-            leftX + 70,
-            row2Y + 10,
-            "player_idle",
-            0
-        );
-        this.npc.setScale(pixelScale);
-        this.npc.setDepth(this.npc.y);
-        this.npc.refreshBody();
-        this.npc.anims.play("idle-right");
+        // NPCs (KMS, SYY, PCW)
+        const npcScale = pixelScale;
+        this.npcGroup = this.physics.add.group({ immovable: true, allowGravity: false });
+        const ensureNpcAnim = (key) => {
+            const animKey = `${key}-idle`;
+            if (this.anims.exists(animKey)) return animKey;
+            const frameCount = this.textures.get(key).getSourceImage().width / spriteFrame.size;
+            const endFrame = Math.max(0, frameCount - 1);
+            this.anims.create({
+                key: animKey,
+                frames: this.anims.generateFrameNumbers(key, { start: 0, end: endFrame }),
+                frameRate: 6,
+                repeat: -1,
+            });
+            return animKey;
+        };
 
-        // NPC Name Tag
-        this.npcName = this.add.text(this.npc.x, this.npc.y - 50, "syy", {
-            fontFamily: "Galmuri11-Bold",
-            fontSize: "12px",
-            color: "#ffffff",
-            stroke: "#000000",
-            strokeThickness: 3
-        }).setOrigin(0.5).setDepth(99999).setVisible(false);
+        const createNpc = ({ key, name, x, y, face }) => {
+            const npc = this.physics.add.sprite(x, y, key, 0);
+            npc.setScale(npcScale);
+            npc.setDepth(npc.y);
+            npc.body.setImmovable(true);
+            npc.body.setAllowGravity(false);
+            npc.body.setSize(10, 8).setOffset(5, 12);
+            npc.setFlipX(face === "left");
+            npc.play(ensureNpcAnim(key));
+            this.npcGroup.add(npc);
 
-        // Quest icon
-        this.questIcon = this.add.image(this.npc.x, this.npc.y - 40, "quest_icon");
-        this.questIcon.setScale(pixelScale * 0.6);
-        this.questIcon.setDepth(99999);
-        this.questIcon.setVisible(false);
+            const nameText = this.add.text(npc.x, npc.y - 50, name, {
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "12px",
+                color: "#ffffff",
+                stroke: "#000000",
+                strokeThickness: 3
+            }).setOrigin(0.5).setDepth(99999).setVisible(false);
 
-        this.happyIcon = this.add.image(this.npc.x, this.npc.y - 40, "happy_icon");
-        this.happyIcon.setScale(pixelScale * 0.6);
-        this.happyIcon.setDepth(99999);
-        this.happyIcon.setVisible(false);
-        this.happyTimer = null;
+            const questIcon = this.add.image(npc.x, npc.y - 40, "quest_icon");
+            questIcon.setScale(pixelScale * 0.6);
+            questIcon.setDepth(99999);
+            questIcon.setVisible(false);
+
+            return { npc, nameText, questIcon, name };
+        };
+
+        const leftBedX = leftX + 20;
+        const rightBedX = rightX - 20;
+        const leftBedFrontY = row2Y + 42;
+        const rightBedFrontY = row3Y + 42;
+
+        this.npcs = [
+            createNpc({ key: "npc_kms", name: "kms", x: leftBedX - 16, y: leftBedFrontY, face: "right" }),
+            createNpc({ key: "npc_syy", name: "syy", x: leftBedX + 16, y: leftBedFrontY + 4, face: "right" }),
+            createNpc({ key: "npc_pcw", name: "pcw", x: rightBedX, y: rightBedFrontY, face: "left" }),
+        ];
         this.prevRight = false;
 
         // Player
@@ -253,7 +280,7 @@ export default class Room103Scene extends Phaser.Scene {
         this.player.body.setSize(10, 8).setOffset(5, 12);
 
         this.physics.add.collider(this.player, obstacles);
-        this.physics.add.collider(this.player, this.npc);
+        this.physics.add.collider(this.player, this.npcGroup);
         this.physics.add.collider(this.player, walls);
 
         this.player.anims.play("idle-down");
@@ -373,28 +400,28 @@ export default class Room103Scene extends Phaser.Scene {
         }
 
         // NPC interaction (simplified version without gameStateRef)
-        const isNearNPC = this.npc && Phaser.Math.Distance.Between(
-            this.player.x,
-            this.player.y,
-            this.npc.x,
-            this.npc.y
-        ) < 60;
+        let isNearAnyNpc = false;
+        const currentQuestRoom = this.registry.get("currentQuestRoom");
+        const questUnlocked = currentQuestRoom === "103";
+        if (this.npcs) {
+            this.npcs.forEach((npcData) => {
+                const dist = Phaser.Math.Distance.Between(
+                    this.player.x,
+                    this.player.y,
+                    npcData.npc.x,
+                    npcData.npc.y
+                );
+                const isNear = dist < 60;
+                if (isNear) isNearAnyNpc = true;
+                npcData.questIcon.setVisible(isNear && questUnlocked);
+                npcData.nameText.setVisible(isNear && questUnlocked);
+            });
+        }
 
-        if (isNearNPC) {
-            this.questIcon.setVisible(true);
-            this.npcName.setVisible(true);
-
-            if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-                console.log("NPC interaction - minigame would open here");
-                // gameStateRef.current.setShowMiniGame(true) would be called here
-            }
-        } else {
-            this.questIcon.setVisible(false);
-            this.npcName.setVisible(false);
-            // Jump only when not near NPC or door
-            if (!isNearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-                this.startJump();
-            }
+        if (isNearAnyNpc && questUnlocked && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            console.log("NPC interaction - minigame would open here");
+        } else if (!isNearDoor && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            this.startJump();
         }
 
         if (this.isJumping) {
