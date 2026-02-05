@@ -66,6 +66,20 @@ export default class KaimaruScene extends Phaser.Scene {
     this.events.once("shutdown", () => {
       window.removeEventListener("kaimaru-quest-complete", handleKaimaruQuestDone);
     });
+
+    const handleEatingGameWon = () => {
+      this.kaimaruStoryDone = true;
+      if (this.plzIcon) {
+        this.tweens.killTweensOf(this.plzIcon);
+        this.plzIcon.destroy();
+        this.plzIcon = null;
+      }
+      this.registry.set("eatingGameSolved", true);
+    };
+    window.addEventListener("eating-game-won", handleEatingGameWon);
+    this.events.once("shutdown", () => {
+      window.removeEventListener("eating-game-won", handleEatingGameWon);
+    });
     this.kaimaruBubbles = {};
     this.kaimaruBubbleTimers = [];
 
@@ -205,17 +219,21 @@ export default class KaimaruScene extends Phaser.Scene {
           });
         });
 
-        const plz = this.add.image(pos.x, pos.y - table.displayHeight * 0.72, "plz_icon");
-        plz.setScale(pixelScale * 0.45);
-        plz.setDepth(Math.round(pos.y) + 10);
-        this.tweens.add({
-          targets: plz,
-          y: plz.y - 6,
-          duration: 800,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.easeInOut",
-        });
+        const eatingGameSolved = this.registry.get("eatingGameSolved");
+        if (!eatingGameSolved) {
+          const plz = this.add.image(pos.x, pos.y - table.displayHeight * 0.72, "plz_icon");
+          plz.setScale(pixelScale * 0.45);
+          plz.setDepth(Math.round(pos.y) + 10);
+          this.plzIcon = plz; // Store reference
+          this.tweens.add({
+            targets: plz,
+            y: plz.y - 6,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+          });
+        }
       }
     });
 
@@ -422,15 +440,17 @@ export default class KaimaruScene extends Phaser.Scene {
       return;
     }
 
-    // Main table interaction: trigger Kaimaru story dialog once.
-    if (!this.kaimaruStoryDone && this.mainTablePos) {
-      const distToMain = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mainTablePos.x, this.mainTablePos.y);
-      if (distToMain < 90 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
-        this.lastTriggerTime = this.time.now;
-        this.kaimaruStoryDone = true;
-        window.dispatchEvent(new CustomEvent("open-kaimaru-story"));
-        this.player.body.setVelocity(0);
-        return;
+    // Main table interaction: trigger Eating Game if not solved
+    if (this.mainTablePos) {
+      const eatingGameSolved = this.registry.get("eatingGameSolved");
+      if (!eatingGameSolved) {
+        const distToMain = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mainTablePos.x, this.mainTablePos.y);
+        if (distToMain < 90 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+          this.lastTriggerTime = this.time.now;
+          window.dispatchEvent(new CustomEvent("start-eating-game"));
+          this.player.body.setVelocity(0);
+          return;
+        }
       }
     }
 

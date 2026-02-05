@@ -293,6 +293,52 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.createLyj(pixelScale);
         // Create LJY NPC (right corridor, side view)
         this.createLjy(pixelScale);
+
+        // Player Speech Bubble Handler
+        this.events.on("shutdown", () => {
+            window.removeEventListener("player-say", this.handlePlayerSay);
+        });
+
+        this.handlePlayerSay = (e) => {
+            const text = e.detail;
+            if (!this.player) return;
+
+            // Remove existing bubble if any
+            if (this.playerBubble) {
+                this.playerBubble.destroy();
+                this.playerBubble = null;
+            }
+
+            const bubble = this.add.image(0, 0, "dialog_bubble");
+            bubble.setOrigin(0.5, 1);
+            bubble.setScale(0.8, 0.6); // Adjust size
+
+            const bubbleText = this.add.text(0, -5, text, {
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "12px",
+                color: "#6a4b37",
+                align: "center",
+            });
+            bubbleText.setOrigin(0.5, 1);
+
+            this.playerBubble = this.add.container(this.player.x, this.player.y - 30, [bubble, bubbleText]);
+            this.playerBubble.setDepth(99999);
+
+            // Access scene context correctly inside callback
+            this.tweens.add({
+                targets: this.playerBubble,
+                alpha: 0,
+                delay: 2000,
+                duration: 500,
+                onComplete: () => {
+                    if (this.playerBubble) {
+                        this.playerBubble.destroy();
+                        this.playerBubble = null;
+                    }
+                }
+            });
+        };
+        window.addEventListener("player-say", this.handlePlayerSay);
     }
 
 
@@ -308,16 +354,16 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.lyj.setDepth(startY);
 
         this.lyjPlz = this.add.image(startX + 14, startY - 24, "plz_icon");
-        this.lyjPlz.setScale(scale * 0.45);
+        this.lyjPlz.setScale(scale * 0.35);
         this.lyjPlz.setDepth(startY + 1);
 
         // Speech bubble (quest hint)
         const bubble = this.add.image(0, 0, "dialog_bubble");
         bubble.setOrigin(0.5, 1);
-        bubble.setScale(scale * 0.7);
-        const bubbleText = this.add.text(0, 0, "헤드셋을 잃어버렸어", {
+        bubble.setScale(scale * 0.7, scale * 0.4);
+        const bubbleText = this.add.text(0, -5, "헤드셋을 잃어버렸어", {
             fontFamily: "Galmuri11-Bold",
-            fontSize: "12px",
+            fontSize: "10px",
             color: "#6a4b37",
             align: "center",
         });
@@ -431,6 +477,9 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
     update() {
         if (!this.player) return;
+        if (this.playerBubble) {
+            this.playerBubble.setPosition(this.player.x, this.player.y - 30);
+        }
         if (this.lyj && this.lyjPlz) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
             const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
@@ -445,7 +494,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
             const accepted = this.registry.get("lyjQuestAccepted") ?? false;
             const completed = this.registry.get("lyjQuestCompleted") ?? false;
-            const bubbleOffsetY = 44;
+            const bubbleOffsetY = 36;
             this.lyjBubble.setVisible(questUnlocked && !accepted && !completed);
             if (questUnlocked && !accepted && !completed) {
                 this.lyjBubble.x = this.lyj.x;
@@ -472,33 +521,40 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                 } else {
                     const centerX = this.scale.width / 2;
                     const centerY = this.scale.height / 2;
-                    const dim = this.add.rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x000000, 0.35);
-                    dim.setScrollFactor(0).setDepth(10000);
 
+                    // Main Container centered on screen, fixed to camera
+                    this.devBoardLetter = this.add.container(centerX, centerY);
+                    this.devBoardLetter.setScrollFactor(0);
+                    this.devBoardLetter.setDepth(10002);
+
+                    // Dim Background (blocks clicks underneath)
+                    const dim = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.35);
+                    dim.setInteractive();
+
+                    // Letter Image
                     const letter = this.add.image(0, 0, "dev_board_letter");
-                    letter.setOrigin(0.5);
 
-                    const closeBtn = this.add.image(0, 0, "x");
+                    // Close Button
+                    const closeBtn = this.add.image(
+                        (letter.width / 2) - 20,
+                        -(letter.height / 2) + 20,
+                        "x"
+                    );
                     closeBtn.setScale(0.6);
-                    closeBtn.setOrigin(0.5);
+                    // Explicit hit area to ensure it's clickable
                     closeBtn.setInteractive({ useHandCursor: true });
 
-                    const popup = this.add.container(centerX, centerY, [letter, closeBtn]);
-                    popup.setScrollFactor(0).setDepth(10001);
-
-                    const closeOffsetX = (letter.displayWidth / 2) - 18;
-                    const closeOffsetY = (-letter.displayHeight / 2) + 18;
-                    closeBtn.setPosition(closeOffsetX, closeOffsetY);
-
-                    closeBtn.on("pointerdown", () => {
+                    closeBtn.on("pointerdown", (pointer, localX, localY, event) => {
+                        // Stop propagation just in case
+                        if (event) event.stopPropagation();
                         if (this.devBoardLetter) {
                             this.devBoardLetter.destroy();
                             this.devBoardLetter = null;
                         }
                     });
 
-                    this.devBoardLetter = this.add.container(0, 0, [dim, popup]);
-                    this.devBoardLetter.setDepth(10002);
+                    // Add all to the single container
+                    this.devBoardLetter.add([dim, letter, closeBtn]);
                 }
                 return;
             }
