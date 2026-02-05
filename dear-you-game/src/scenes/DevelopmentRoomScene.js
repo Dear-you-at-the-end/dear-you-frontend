@@ -10,6 +10,60 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         super({ key: "DevelopmentRoom" });
     }
 
+    spawnPseongjun(pixelScale) {
+        if (this.pseongjun) return;
+        const startX = this.doorRightX ?? (MAP_WIDTH - 120);
+        const startY = (this.doorRightY ?? (MAP_HEIGHT - FLOOR_HEIGHT)) + 20;
+        const targetY = (this.devMic?.y ?? ((MAP_HEIGHT - FLOOR_HEIGHT) + 40)) + 10;
+
+        if (!this.anims.exists("psjun-walk")) {
+            this.anims.create({
+                key: "psjun-walk",
+                frames: this.anims.generateFrameNumbers("psjun", { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1,
+            });
+        }
+
+        this.pseongjun = this.physics.add.sprite(startX, startY, "psjun");
+        this.pseongjun.setScale(pixelScale);
+        this.pseongjun.setDepth(startY);
+        this.pseongjun.body.setImmovable(true);
+        this.pseongjun.body.setAllowGravity(false);
+        this.pseongjun.body.setSize(12, 10).setOffset(4, 10);
+        this.pseongjun.play("psjun-walk");
+
+        this.pseongjunQuestIcon = this.add.image(startX, startY - 38, "quest_icon");
+        this.pseongjunQuestIcon.setScale(pixelScale * 0.55);
+        this.pseongjunQuestIcon.setDepth(99999);
+        this.pseongjunQuestIcon.setVisible(false);
+        this.tweens.add({
+            targets: this.pseongjunQuestIcon,
+            y: this.pseongjunQuestIcon.y - 4,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+        });
+
+        this.tweens.add({
+            targets: this.pseongjun,
+            y: targetY,
+            duration: 900,
+            ease: "Linear",
+            onUpdate: () => {
+                if (!this.pseongjun) return;
+                this.pseongjun.setDepth(this.pseongjun.y);
+            },
+            onComplete: () => {
+                if (!this.pseongjun) return;
+                this.pseongjun.anims.stop();
+                this.pseongjun.setFrame(0);
+                window.dispatchEvent(new CustomEvent("open-pseongjun-arrive-dialog"));
+            },
+        });
+    }
+
     init(data) {
         this.spawnX = data?.x ?? MAP_WIDTH / 2;
         this.spawnY = data?.y ?? MAP_HEIGHT - 100;
@@ -47,6 +101,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         // Load LYJ NPC
         this.load.spritesheet("lyj", `${characterPath}lyj.png`, { frameWidth: 20, frameHeight: 20 });
         this.load.spritesheet("ljy", `${characterPath}ljy.png`, { frameWidth: 20, frameHeight: 20 });
+        this.load.spritesheet("psjun", `${characterPath}psjun.png`, { frameWidth: 20, frameHeight: 20 });
         this.load.image("cyw_chair", `${characterPath}cyw_chair.png`);
         this.load.image("zhe_chair", `${characterPath}zhe_chair.png`);
         this.load.image("jjaewoo_chair", `${characterPath}jjaewoo_chair.png`);
@@ -159,6 +214,8 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             door.setScale(pixelScale * 1.5);
             door.setDepth(2.1);
         });
+        this.doorRightX = doorRight.x;
+        this.doorRightY = doorRight.y - doorRight.displayHeight * 0.5;
         this.doorExitX = doorLeft.x;
         this.doorExitY = doorLeft.y - doorLeft.displayHeight * 0.5;
 
@@ -390,8 +447,14 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             });
         };
         window.addEventListener("player-say", this.handlePlayerSay);
+
+        this.handleSpawnPseongjun = () => {
+            this.spawnPseongjun(pixelScale);
+        };
+        window.addEventListener("spawn-pseongjun", this.handleSpawnPseongjun);
         this.events.on("shutdown", () => {
             window.removeEventListener("player-say", this.handlePlayerSay);
+            window.removeEventListener("spawn-pseongjun", this.handleSpawnPseongjun);
         });
     }
 
@@ -626,6 +689,14 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             }
         }
 
+        if (interactJustDown && this.pseongjun) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.pseongjun.x, this.pseongjun.y);
+            if (dist < 110) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-pseongjun" } }));
+                return;
+            }
+        }
+
         const devNpcInteractRadius = 140;
 
         // Standard interaction for other NPCs in Development Room
@@ -845,6 +916,13 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     npcData.questIcon.setVisible(devLettersUnlocked && !(hasLetterMap[npcData.npcId] ?? false));
                 }
             });
+        }
+
+        if (this.pseongjunQuestIcon && this.pseongjun) {
+            const ready = this.registry.get("pseongjunReady") ?? false;
+            const hasLetter = this.registry.get("pseongjunHasLetter") ?? false;
+            this.pseongjunQuestIcon.setPosition(this.pseongjun.x, this.pseongjun.y - 38);
+            this.pseongjunQuestIcon.setVisible(ready && devLettersUnlocked && !hasLetter);
         }
     }
 }

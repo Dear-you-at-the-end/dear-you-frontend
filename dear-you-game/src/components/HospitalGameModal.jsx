@@ -28,7 +28,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
     const GAME_HEIGHT = 300;
     const PLAYER_SIZE = 40;
     const ITEM_SIZE = 30;
-    const TARGET_SCORE = 10;
+    const TARGET_SCORE = 5;
 
     useEffect(() => {
         // Preload images

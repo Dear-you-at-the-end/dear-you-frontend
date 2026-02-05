@@ -39,6 +39,10 @@ function App() {
   const [bgm, setBgm] = useState(null);
   const [hospitalGameSolved, setHospitalGameSolved] = useState(false);
   const [hospitalOutroPlayed, setHospitalOutroPlayed] = useState(false);
+  const [pseongjunPending, setPseongjunPending] = useState(false);
+  const [pseongjunSpawned, setPseongjunSpawned] = useState(false);
+  const [pseongjunReady, setPseongjunReady] = useState(false);
+  const [pseongjunOutroPlayed, setPseongjunOutroPlayed] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
@@ -98,6 +102,7 @@ function App() {
     { id: "npc-jjaewoo", name: "이재우", hasLetter: false, hasWritten: false },
     { id: "npc-psy", name: "박세윤", hasLetter: false, hasWritten: false },
     { id: "npc-kjy", name: "김지연", hasLetter: false, hasWritten: false },
+    { id: "npc-pseongjun", name: "박성준", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -327,6 +332,49 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "hospitalReturnToDev" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevReturnDialog = useCallback(() => {
+    // Return scooter key immediately (remove from inventory).
+    setDevKeyCount(0);
+    setSelectedSlot(0);
+    if (gameRef.current) {
+      gameRef.current.registry.set("devKeyCount", 0);
+      gameRef.current.registry.set("selectedSlot", 0);
+    }
+
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "스쿠터 잘썼어요 감사합니다" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "근데 혹시 박성준이라는 사람 아세요?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "왜 못 봤지..?" },
+      { speaker: "최영운", portrait: "/assets/common/dialog/cyw.png", text: "성준이형… 우리 분반 임원진인데 … 음… 언제올지는 잘 모르겠어요" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "네? 지금 5시 40분인데 아직도 출근을 안했다고요?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "pseongjunWait" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openPseongjunArriveDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "박성준", portrait: "/assets/common/dialog/pseongjun.png", text: "밥 뭐드실거에요~~" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어 ? 혹시 박성준님?? 편지 배달 왔습니다!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "enablePseongjunDelivery" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openPseongjunOutroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "박성준", portrait: "/assets/common/dialog/pseongjun.png", text: "어 감사합니다." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "휴 다 끝냈다." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아무런 컴플레인 없는거 보니 편지 내용도 별 내용 아니었나봐" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "다행이야. 이제 집으로 가자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "goHome" });
     setShowRoomDialog(true);
   }, []);
 
@@ -858,12 +906,17 @@ function App() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const handleInteract = (e) => {
-      const { npcId } = e.detail;
-      if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
-        openRoom104BeforeMathDialog();
-        return;
-      }
+      const handleInteract = (e) => {
+        const { npcId } = e.detail;
+        if (npcId === "npc-pseongjun" && !pseongjunReady) {
+          // If the player tries to interact too early, show the arrival dialog again.
+          openPseongjunArriveDialog();
+          return;
+        }
+        if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
+          openRoom104BeforeMathDialog();
+          return;
+        }
       if (npcId === "npc-itb") {
         if (!groundItbRunningCompleted) {
           openGroundItbBeforeDialog();
@@ -904,18 +957,19 @@ function App() {
       }
 
       const currentQuestRoom = gameStateRef.current.getCurrentQuestRoom?.();
-      const npcRoom = npcId?.includes("npc-103")
-        ? "103"
-        : npcId?.includes("npc-104")
-          ? "104"
-          : npcId === "npc-lyj" ||
-              npcId === "npc-ljy" ||
-              npcId === "npc-cyw" ||
-              npcId === "npc-zhe" ||
-              npcId === "npc-jjaewoo" ||
-              npcId === "npc-ajy"
-            ? "development_room"
-            : null;
+        const npcRoom = npcId?.includes("npc-103")
+          ? "103"
+          : npcId?.includes("npc-104")
+            ? "104"
+            : npcId === "npc-lyj" ||
+                npcId === "npc-ljy" ||
+                npcId === "npc-pseongjun" ||
+                npcId === "npc-cyw" ||
+                npcId === "npc-zhe" ||
+                npcId === "npc-jjaewoo" ||
+                npcId === "npc-ajy"
+              ? "development_room"
+              : null;
       if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
         return;
       }
@@ -971,6 +1025,8 @@ function App() {
     devLettersUnlocked,
     devLyjMinigameDone,
     openDevLyjHeadsetDialog,
+    openPseongjunArriveDialog,
+    pseongjunReady,
   ]);
 
   useEffect(() => {
@@ -1153,6 +1209,11 @@ function App() {
         "kjyHasLetter",
         npcs.find((n) => n.id === "npc-kjy")?.hasLetter ?? false,
       );
+      gameRef.current.registry.set("pseongjunReady", pseongjunReady);
+      gameRef.current.registry.set(
+        "pseongjunHasLetter",
+        npcs.find((n) => n.id === "npc-pseongjun")?.hasLetter ?? false,
+      );
     }
   }, [
     showMiniGame,
@@ -1179,6 +1240,7 @@ function App() {
     lyjQuestCompleted,
     hospitalGameSolved,
     showHospitalGame,
+    pseongjunReady,
     quests,
     currentQuestIndex,
     groundCatchBallCompleted,
@@ -1199,6 +1261,30 @@ function App() {
       openHospitalAllDeliveredDialog();
     }
   }, [hospitalGameSolved, hospitalOutroPlayed, npcs, openHospitalAllDeliveredDialog]);
+
+  useEffect(() => {
+    if (!pseongjunReady || pseongjunOutroPlayed) return;
+    const delivered = npcs.find((n) => n.id === "npc-pseongjun")?.hasLetter ?? false;
+    if (delivered) {
+      setPseongjunOutroPlayed(true);
+      openPseongjunOutroDialog();
+    }
+  }, [npcs, openPseongjunOutroDialog, pseongjunOutroPlayed, pseongjunReady]);
+
+  useEffect(() => {
+    if (!pseongjunPending || pseongjunSpawned) return;
+    const id = setTimeout(() => {
+      setPseongjunSpawned(true);
+      window.dispatchEvent(new CustomEvent("spawn-pseongjun"));
+    }, 5000);
+    return () => clearTimeout(id);
+  }, [pseongjunPending, pseongjunSpawned]);
+
+  useEffect(() => {
+    const onPseongjunArrive = () => openPseongjunArriveDialog();
+    window.addEventListener("open-pseongjun-arrive-dialog", onPseongjunArrive);
+    return () => window.removeEventListener("open-pseongjun-arrive-dialog", onPseongjunArrive);
+  }, [openPseongjunArriveDialog]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -2142,8 +2228,27 @@ function App() {
                       setShowScooterReverse(true);
                       setTimeout(() => {
                         setShowScooterReverse(false);
+                        // Set the clock to 5:40 PM for the return sequence.
+                        accumulatedTimeRef.current = 520;
+                        setGameMinutes(520);
                         transitionToScene("DevelopmentRoom");
+                        setPseongjunPending(false);
+                        setPseongjunSpawned(false);
+                        setPseongjunReady(false);
+                        setPseongjunOutroPlayed(false);
+                        setTimeout(() => openDevReturnDialog(), 200);
                       }, 2500);
+                    } else if (action?.type === "pseongjunWait") {
+                      setPseongjunPending(true);
+                    } else if (action?.type === "enablePseongjunDelivery") {
+                      setPseongjunReady(true);
+                      setDevLettersUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("pseongjunReady", true);
+                        gameRef.current.registry.set("devLettersUnlocked", true);
+                      }
+                    } else if (action?.type === "goHome") {
+                      transitionToScene("MyRoom");
                     }
                   }}
                   style={{
@@ -3439,6 +3544,26 @@ function App() {
                       }}
                     >
                       104호
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleWarp("Hospital");
+                        setTimeout(() => openHospitalIntroDialog(), 150);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "10px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      병원
                     </button>
                   </div>
                 )}
