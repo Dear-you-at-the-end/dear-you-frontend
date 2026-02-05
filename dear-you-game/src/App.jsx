@@ -766,7 +766,7 @@ function App() {
           return;
         }
       }
-      if (npcId === "npc-mdh-psj") {
+      if (npcId === "npc-mdh" || npcId === "npc-psj") {
         if (!groundCatchBallCompleted) {
           openGroundCatchBallBeforeDialog();
           return;
@@ -3381,40 +3381,6 @@ function App() {
         }}
       />
 
-      <MathMiniGameModal
-        isOpen={showMathGame}
-        onClose={() => setShowMathGame(false)}
-        onWin={() => {
-          setMathGameSolved(true);
-          setShowMathGame(false);
-        }}
-      />
-
-      <RunningGameModal
-        isOpen={showRunningGame}
-        onClose={() => setShowRunningGame(false)}
-        onWin={() => {
-          window.dispatchEvent(
-            new CustomEvent("interact-npc", { detail: { npcId: "npc-itb" } }),
-          );
-          setShowRunningGame(false);
-        }}
-      />
-
-      <CatchBallModal
-        isOpen={showCatchBall}
-        onClose={() => setShowCatchBall(false)}
-        onWin={() => {
-          window.dispatchEvent(
-            new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }),
-          );
-          window.dispatchEvent(
-            new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }),
-          );
-          setShowCatchBall(false);
-        }}
-      />
-
       <HospitalGameModal
         isOpen={showHospitalGame}
         onClose={() => setShowHospitalGame(false)}
@@ -3675,6 +3641,9 @@ function App() {
           );
           setShowCatchBall(false);
           setGroundCatchBallCompleted(true);
+          if (gameRef.current) {
+            gameRef.current.registry.set("groundCatchBallCompleted", true);
+          }
           openGroundCatchBallAfterDialog();
         }}
       />
@@ -3699,7 +3668,6 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
-      {showIntro && <IntroScreen onStart={() => setShowIntro(false)} />}
     </div>
   );
 }
