@@ -46,6 +46,11 @@ function App() {
   const [lyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
   const [headsetCount, setHeadsetCount] = useState(0);
+  const [devLyjMinigameDone, setDevLyjMinigameDone] = useState(false);
+  const [devLettersUnlocked, setDevLettersUnlocked] = useState(false);
+  const [devBoardUnlocked, setDevBoardUnlocked] = useState(false);
+  const [devBoardDone, setDevBoardDone] = useState(false);
+  const [devKeyCount, setDevKeyCount] = useState(0);
 
   // Quest System
   const [quests, setQuests] = useState([
@@ -81,7 +86,12 @@ function App() {
     { id: "npc-jjw", name: "정재원", hasLetter: false, hasWritten: false },
     { id: "npc-mdh", name: "민동휘", hasLetter: false, hasWritten: false },
     { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
-    { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
+    { id: "npc-lyj", name: "임유진", hasLetter: false, hasWritten: false },
+    { id: "npc-ljy", name: "이준엽", hasLetter: false, hasWritten: false },
+    { id: "npc-cyw", name: "최영운", hasLetter: false, hasWritten: false },
+    { id: "npc-zhe", name: "전하은", hasLetter: false, hasWritten: false },
+    { id: "npc-jjaewoo", name: "정재우", hasLetter: false, hasWritten: false },
+    { id: "npc-ajy", name: "안준영", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "임태빈", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
@@ -323,6 +333,57 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openDevRoomIntroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevLyjHeadsetDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "아 어떡해 내 헤드셋.. 어디 갔지..." },
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "편지고 뭐고 헤드셋부터 찾아줘" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "헤드셋…? 내가 왜 찾아줘야하는진 모르겠지만 일단 찾아볼까?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "openDevHeadsetGuide" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevLyjThanksDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "너무 감사합니다~~" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devEnableLyjDelivery" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevAllDeliveredDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어..? 근데 아직 편지가 남았는데.." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "칠판에 뭐가 써있네..?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devUnlockBoard" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevBoardInteractDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "차가 없는데 병원까지 어떻게 가지..." },
+      { speaker: "준엽", portrait: "/assets/common/dialog/ljy.png", text: "아 유진이 헤드셋도 찾아주셨으니 제 스쿠터 빌려드릴게요!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "정말요? 감사합니다!!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devGiveKey" });
+    setShowRoomDialog(true);
+  }, []);
+
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -415,6 +476,7 @@ function App() {
     padX: 14,
     padY: 12,
   };
+  const KEY_SLOT = inventoryConfig.slots - 2;
   const HEADSET_SLOT = inventoryConfig.slots - 1;
   const letterPaper = {
     width: 330,
@@ -501,6 +563,35 @@ function App() {
         handleRoom104HallEntry,
       );
   }, [openRoom104HallEntryDialog]);
+
+  useEffect(() => {
+    const onDevIntro = () => {
+      if (devBoardDone) return;
+      openDevRoomIntroDialog();
+    };
+    const onDevAllDelivered = () => {
+      if (devBoardUnlocked || devBoardDone) return;
+      openDevAllDeliveredDialog();
+    };
+    const onDevBoardInteract = () => {
+      if (!devBoardUnlocked || devBoardDone) return;
+      openDevBoardInteractDialog();
+    };
+    window.addEventListener("open-devroom-intro", onDevIntro);
+    window.addEventListener("dev-all-delivered", onDevAllDelivered);
+    window.addEventListener("dev-board-interact", onDevBoardInteract);
+    return () => {
+      window.removeEventListener("open-devroom-intro", onDevIntro);
+      window.removeEventListener("dev-all-delivered", onDevAllDelivered);
+      window.removeEventListener("dev-board-interact", onDevBoardInteract);
+    };
+  }, [
+    devBoardDone,
+    devBoardUnlocked,
+    openDevAllDeliveredDialog,
+    openDevBoardInteractDialog,
+    openDevRoomIntroDialog,
+  ]);
 
   useEffect(() => {
     const handleOpenLyjQuest = () => {
@@ -695,7 +786,14 @@ function App() {
         Room104: ["npc-104-1", "npc-104-2"],
         Kaimaru: ["npc-bsy", "npc-kys", "npc-thj", "npc-jjw"],
         Ground: ["npc-mdh", "npc-psj", "npc-itb"],
-        DevelopmentRoom: ["npc-lyj"],
+        DevelopmentRoom: [
+          "npc-cyw",
+          "npc-lyj",
+          "npc-zhe",
+          "npc-jjaewoo",
+          "npc-ajy",
+          "npc-ljy",
+        ],
       };
 
       const ids = placeToNpcIds[placeKey] ?? [];
@@ -732,6 +830,16 @@ function App() {
             q.room === "development_room" ? { ...q, completed: true } : q,
           ),
         );
+        setDevLyjMinigameDone(true);
+        setDevBoardUnlocked(true);
+        setDevBoardDone(true);
+        setDevKeyCount(1);
+        if (gameRef.current) {
+          gameRef.current.registry.set("devLyjMinigameDone", true);
+          gameRef.current.registry.set("devBoardUnlocked", true);
+          gameRef.current.registry.set("devBoardDone", true);
+          gameRef.current.registry.set("devKeyCount", 1);
+        }
       }
       if (placeKey === "Ground") {
         setGroundCatchBallCompleted(true);
@@ -853,13 +961,32 @@ function App() {
           return;
         }
       }
+      const devNpcIds = [
+        "npc-cyw",
+        "npc-lyj",
+        "npc-zhe",
+        "npc-jjaewoo",
+        "npc-ajy",
+        "npc-ljy",
+      ];
+      if (devNpcIds.includes(npcId) && !devLettersUnlocked) {
+        if (npcId === "npc-lyj" && !devLyjMinigameDone) {
+          openDevLyjHeadsetDialog();
+        }
+        return;
+      }
 
       const currentQuestRoom = gameStateRef.current.getCurrentQuestRoom?.();
       const npcRoom = npcId?.includes("npc-103")
         ? "103"
         : npcId?.includes("npc-104")
           ? "104"
-          : npcId === "npc-lyj"
+          : npcId === "npc-lyj" ||
+              npcId === "npc-ljy" ||
+              npcId === "npc-cyw" ||
+              npcId === "npc-zhe" ||
+              npcId === "npc-jjaewoo" ||
+              npcId === "npc-ajy"
             ? "development_room"
             : null;
       if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
@@ -874,6 +1001,9 @@ function App() {
       const selectedSlot = gameStateRef.current.getSelectedSlot();
       const writtenCount = gameStateRef.current.getWrittenCount();
       if (selectedSlot === HEADSET_SLOT) {
+        return;
+      }
+      if (selectedSlot === KEY_SLOT) {
         return;
       }
 
@@ -911,6 +1041,9 @@ function App() {
     groundCatchBallCompleted,
     openGroundItbBeforeDialog,
     groundItbRunningCompleted,
+    devLettersUnlocked,
+    devLyjMinigameDone,
+    openDevLyjHeadsetDialog,
   ]);
 
   useEffect(() => {
@@ -1030,6 +1163,10 @@ function App() {
     gameStateRef.current.getMathGameSolved = () => mathGameSolved;
     gameStateRef.current.setShowMathGame = setShowMathGame;
     if (gameRef.current) {
+      const devNpcIds = ["npc-cyw", "npc-lyj", "npc-zhe", "npc-jjaewoo", "npc-ajy", "npc-ljy"];
+      const devAllLettersDelivered = devNpcIds.every(
+        (id) => npcs.find((n) => n.id === id)?.hasLetter,
+      );
       gameRef.current.registry.set("selectedSlot", selectedSlot);
       gameRef.current.registry.set("letterCount", letterCount);
       gameRef.current.registry.set("writtenCount", writtenCount);
@@ -1069,6 +1206,36 @@ function App() {
         "itbHasLetter",
         npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false,
       );
+      gameRef.current.registry.set("devLyjMinigameDone", devLyjMinigameDone);
+      gameRef.current.registry.set("devLettersUnlocked", devLettersUnlocked);
+      gameRef.current.registry.set("devAllLettersDelivered", devAllLettersDelivered);
+      gameRef.current.registry.set("devBoardUnlocked", devBoardUnlocked);
+      gameRef.current.registry.set("devBoardDone", devBoardDone);
+      gameRef.current.registry.set("devKeyCount", devKeyCount);
+      gameRef.current.registry.set(
+        "cywHasLetter",
+        npcs.find((n) => n.id === "npc-cyw")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "zheHasLetter",
+        npcs.find((n) => n.id === "npc-zhe")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "jjaewooHasLetter",
+        npcs.find((n) => n.id === "npc-jjaewoo")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "ajyHasLetter",
+        npcs.find((n) => n.id === "npc-ajy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "lyjHasLetter",
+        npcs.find((n) => n.id === "npc-lyj")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "ljyHasLetter",
+        npcs.find((n) => n.id === "npc-ljy")?.hasLetter ?? false,
+      );
     }
   }, [
     showMiniGame,
@@ -1096,6 +1263,11 @@ function App() {
     currentQuestIndex,
     groundCatchBallCompleted,
     groundItbRunningCompleted,
+    devLyjMinigameDone,
+    devLettersUnlocked,
+    devBoardUnlocked,
+    devBoardDone,
+    devKeyCount,
   ]);
 
   useEffect(() => {
@@ -2136,6 +2308,11 @@ function App() {
                       );
                       setGameGuideAction({ type: "startRunning" });
                       setShowGameGuide(true);
+                    } else if (action?.type === "openDevHeadsetGuide") {
+                      setGameGuideTitle("개발실 미니게임");
+                      setGameGuideText("헤드셋 찾기 (구현 중)  확인을 누르면 성공 처리됩니다.");
+                      setGameGuideAction({ type: "devHeadsetWin" });
+                      setShowGameGuide(true);
                     } else if (action?.type === "kaimaruToGround") {
                       window.dispatchEvent(
                         new CustomEvent("kaimaru-quest-complete"),
@@ -2171,6 +2348,25 @@ function App() {
                         noScooter: true,
                       });
                       setShowExitConfirm(true);
+                    } else if (action?.type === "devEnableLyjDelivery") {
+                      setDevLettersUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devLettersUnlocked", true);
+                      }
+                    } else if (action?.type === "devUnlockBoard") {
+                      setDevBoardUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devBoardUnlocked", true);
+                      }
+                    } else if (action?.type === "devGiveKey") {
+                      setDevBoardDone(true);
+                      setDevKeyCount(1);
+                      setSelectedSlot(KEY_SLOT);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devBoardDone", true);
+                        gameRef.current.registry.set("devKeyCount", 1);
+                        gameRef.current.registry.set("selectedSlot", KEY_SLOT);
+                      }
                     }
                   }}
                   style={{
@@ -2257,8 +2453,16 @@ function App() {
                       setShowGameGuide(false);
                       setGameGuideAction(null);
                       setGameGuideTitle("");
+                      setGameGuideText("");
                       if (action?.type === "startRunning")
                         setShowRunningGame(true);
+                      if (action?.type === "devHeadsetWin") {
+                        setDevLyjMinigameDone(true);
+                        if (gameRef.current) {
+                          gameRef.current.registry.set("devLyjMinigameDone", true);
+                        }
+                        openDevLyjThanksDialog();
+                      }
                     }}
                     style={{
                       width: "96px",
@@ -2898,6 +3102,44 @@ function App() {
                         }}
                       >
                         {headsetCount}
+                      </span>
+                    </>
+                  )}
+
+                  {index === KEY_SLOT && devKeyCount > 0 && (
+                    <>
+                      <img
+                        src="/assets/hospital/key_.png"
+                        alt="Key"
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + 4}px`,
+                          top: `${topPos + 4}px`,
+                          width: `${inventoryConfig.slotSize - 8}px`,
+                          height: `${inventoryConfig.slotSize - 8}px`,
+                          imageRendering: "pixelated",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                          top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#5B3A24",
+                          backgroundColor: "rgba(230, 210, 181, 0.85)",
+                          borderRadius: "999px",
+                          minWidth: "16px",
+                          height: "16px",
+                          lineHeight: "16px",
+                          textAlign: "center",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {devKeyCount}
                       </span>
                     </>
                   )}
