@@ -9,7 +9,6 @@ import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
 import HospitalGameModal from "./components/HospitalGameModal";
-import ReceivedNeopjukModal from "./components/ReceivedNeopjukModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
@@ -61,8 +60,6 @@ function App() {
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
   const [, setNjCount] = useState(0);
-  const [showNeopjukModal, setShowNeopjukModal] = useState(false);
-  const [neopjukNpcName, setNeopjukNpcName] = useState("");
   const [headsetCount, setHeadsetCount] = useState(0);
   const [devLyjMinigameDone, setDevLyjMinigameDone] = useState(false);
   const [devLettersUnlocked, setDevLettersUnlocked] = useState(false);
@@ -479,7 +476,7 @@ function App() {
   }, []);
 
   const openReceivedNeopjukDialog = useCallback((npcName) => {
-    setNeopjukNpcName(npcName);
+    // setNeopjukNpcName(npcName); // Removed as modal is disabled
     setRoomDialogLines([
       { speaker: npcName, portrait: "/assets/common/character/nj.png", text: "편지 고마워! 선물로 넙죽이를 줄게!" },
       { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "넙죽이를 받았다! ??" },
@@ -2688,8 +2685,27 @@ function App() {
                       setShowExitConfirm(true);
                     } else if (action?.type === "receiveNeopjuk") {
                       setNjCount((prev) => prev + 1);
-                      setShowNeopjukModal(true);
+                      // setShowNeopjukModal(true); // Disable Neopjuk modal as requested
                       window.dispatchEvent(new CustomEvent("player-happy"));
+                      // Dispatch event to show happy emotion bubble
+                      if (gameRef.current) {
+                        const scene = gameRef.current.scene.getScenes(true)[0];
+                        if (scene && scene.player) {
+                          // const scale = scene.cameras?.main?.zoom ?? 1; // Unused
+                          const bubble = scene.add.image(scene.player.x, scene.player.y - 45, "happy");
+                          bubble.setOrigin(0.5, 1);
+                          bubble.setScale(0.8);
+                          bubble.setDepth(999999);
+                          scene.tweens.add({
+                            targets: bubble,
+                            y: bubble.y - 10,
+                            alpha: 0,
+                            duration: 1500,
+                            ease: "Power1",
+                            onComplete: () => bubble.destroy()
+                          });
+                        }
+                      }
                     } else if (action?.type === "devEnableLyjDelivery") {
                       setDevLettersUnlocked(true);
                       if (gameRef.current) {
@@ -4405,11 +4421,6 @@ function App() {
         }}
       />
 
-      <ReceivedNeopjukModal
-        isOpen={showNeopjukModal}
-        onClose={() => setShowNeopjukModal(false)}
-        npcName={neopjukNpcName}
-      />
       {showIntro && <IntroScreen onStart={handleIntroStart} bgm={bgm} />}
 
       <div
