@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+﻿import React, { useCallback, useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import "./App.css";
 import MathMiniGameModal from "./components/MathMiniGameModal";
@@ -46,6 +46,8 @@ function App() {
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
   const [headsetCount, setHeadsetCount] = useState(0);
   const [njCount, setNjCount] = useState(0);
+  const [, setBanToastText] = useState("");
+  const [, setRoom104QuestionActive] = useState(false);
 
   // Quest System
   const [quests, setQuests] = useState([
@@ -78,6 +80,11 @@ function App() {
     { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "임태빈", hasLetter: false, hasWritten: false },
+    { id: "npc-zhe", name: "박동현", hasLetter: false, hasWritten: false },
+    { id: "npc-ljy", name: "이연지", hasLetter: false, hasWritten: false },
+    { id: "npc-ajy", name: "안준영", hasLetter: false, hasWritten: false },
+    { id: "npc-cyw", name: "최연우", hasLetter: false, hasWritten: false },
+    { id: "npc-jjaewoo", name: "이재우", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -110,7 +117,6 @@ function App() {
   const [showBanToast, setShowBanToast] = useState(false);
   const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
-  const [banToastText, setBanToastText] = useState("들어갈 수 없는 곳 같아..");
   const [exitRoomKey, setExitRoomKey] = useState(null);
   const [exitRoomData, setExitRoomData] = useState(null);
   const [interactionTargetId, setInteractionTargetId] = useState(null);
@@ -123,7 +129,6 @@ function App() {
   const [gameGuideTitle, setGameGuideTitle] = useState("");
   const [gameGuideText, setGameGuideText] = useState("");
   const [gameGuideAction, setGameGuideAction] = useState(null); // { type: string } | null
-  const [room104QuestionActive, setRoom104QuestionActive] = useState(false);
   const [room103LettersDelivered, setRoom103LettersDelivered] = useState(false);
 
   const openRoom104BeforeMathDialog = useCallback(() => {
@@ -166,21 +171,6 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "openRunningGuide" });
-    setShowRoomDialog(true);
-  }, []);
-
-<<<<<<< HEAD
-=======
-  const openGroundItbAfterDialog = useCallback(() => {
-    setRoomDialogLines([
-      {
-        speaker: "나",
-        portrait: "/assets/common/dialog/main.png",
-        text: "편지 배달 왔습니다!!",
-      },
-    ]);
-    setRoomDialogIndex(0);
-    setRoomDialogAction(null);
     setShowRoomDialog(true);
   }, []);
 
@@ -245,7 +235,6 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -301,6 +290,7 @@ function App() {
     padX: 30,
     padTop: 45,
     padBottom: 40,
+
   };
 
   useEffect(() => {
@@ -365,10 +355,6 @@ function App() {
       setShowExitConfirm(true);
     };
     window.addEventListener("open-exit-confirm", handleExitConfirm);
-<<<<<<< HEAD
-    return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
-  }, []);
-=======
     return () =>
       window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, [room103LettersDelivered, openPre103GateDialog]);
@@ -384,7 +370,6 @@ function App() {
         handleRoom104HallEntry,
       );
   }, [openRoom104HallEntryDialog]);
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
 
   useEffect(() => {
     const handleOpenLyjQuest = () => {
@@ -394,13 +379,23 @@ function App() {
     };
     const handleFindHeadset = () => {
       if (lyjQuestAccepted && !lyjQuestCompleted) {
-        setHeadsetCount((prev) => {
-          const next = prev > 0 ? prev : 1;
-          return next;
-        });
+        // Play Ta-da sound
+        const audio = new Audio("/assets/common/quest_complete.mp3"); // Assuming this exists or similar
+        audio.volume = 0.5;
+        audio.play().catch(() => { });
+
+        setHeadsetCount(1);
         setSelectedSlot(HEADSET_SLOT);
+
+        setRoomDialogLines([
+          { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "헤드셋을 찾았다! (우클릭으로 전달하자)" }
+        ]);
+        setRoomDialogIndex(0);
+        setRoomDialogAction(null);
+        setShowRoomDialog(true);
       }
     };
+
     const handleCompleteLyjQuest = () => {
       if (!lyjQuestCompleted && headsetCount > 0) {
         setHeadsetCount(0);
@@ -410,6 +405,10 @@ function App() {
             q.room === "development_room" ? { ...q, completed: true } : q
           )
         );
+        if (gameRef.current) {
+          gameRef.current.registry.set("lyjQuestCompleted", true);
+          gameRef.current.registry.set("headsetCount", 0);
+        }
       }
     };
 
@@ -596,6 +595,7 @@ function App() {
     return () => clearInterval(id);
   }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (showIntro) return;
     const handleWheel = (event) => {
@@ -623,6 +623,7 @@ function App() {
     };
   }, [showLetterWrite]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const handleInteract = (e) => {
       const { npcId } = e.detail;
@@ -636,11 +637,7 @@ function App() {
           return;
         }
       }
-<<<<<<< HEAD
-      if (npcId === "npc-mdh-psj" || npcId === "npc-mdh" || npcId === "npc-psj") {
-=======
       if (npcId === "npc-mdh" || npcId === "npc-psj") {
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
         if (!groundCatchBallCompleted) {
           openGroundCatchBallBeforeDialog();
           return;
@@ -798,6 +795,7 @@ function App() {
     },
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (showIntro) return; // Do not initialize game until intro is done
     gameStateRef.current.isMiniGameOpen =
@@ -817,9 +815,13 @@ function App() {
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
       gameRef.current.registry.set("eatingGameSolved", eatingGameSolved);
+      gameRef.current.registry.set("lyjQuestAccepted", lyjQuestAccepted);
+      gameRef.current.registry.set("lyjQuestCompleted", lyjQuestCompleted);
+      gameRef.current.registry.set("headsetCount", headsetCount);
     }
-  }, [showMiniGame, showMathGame, showEatingGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, eatingGameSolved]);
+  }, [showMiniGame, showMathGame, showEatingGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, eatingGameSolved, lyjQuestAccepted, lyjQuestCompleted, headsetCount]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (showIntro) return;
 
@@ -1693,10 +1695,6 @@ function App() {
                       setGameGuideAction({ type: "startRunning" });
                       setShowGameGuide(true);
                     } else if (action?.type === "kaimaruToGround") {
-<<<<<<< HEAD
-                      window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
-                      window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
-=======
                       window.dispatchEvent(
                         new CustomEvent("kaimaru-quest-complete"),
                       );
@@ -1724,7 +1722,6 @@ function App() {
                       setExitRoomKey("EnterKaimaru");
                       setExitRoomData(null);
                       setShowExitConfirm(true);
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
                     }
                   }}
                   style={{
@@ -2949,7 +2946,6 @@ function App() {
         }}
       />
 
-<<<<<<< HEAD
       <MathMiniGameModal
         isOpen={showMathGame}
         onClose={() => setShowMathGame(false)}
@@ -2980,8 +2976,6 @@ function App() {
         }}
       />
 
-=======
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
       <HospitalGameModal
         isOpen={showHospitalGame}
         onClose={() => setShowHospitalGame(false)}
@@ -3232,14 +3226,10 @@ function App() {
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
           setShowCatchBall(false);
-<<<<<<< HEAD
-=======
           setGroundCatchBallCompleted(true);
           if (gameRef.current) {
             gameRef.current.registry.set("groundCatchBallCompleted", true);
           }
-          openGroundCatchBallAfterDialog();
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
         }}
       />
 
@@ -3263,7 +3253,6 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
-<<<<<<< HEAD
       <EatingGameModal
         isOpen={showEatingGame}
         onClose={() => setShowEatingGame(false)}
@@ -3273,8 +3262,6 @@ function App() {
           window.dispatchEvent(new CustomEvent("eating-game-won"));
         }}
       />
-=======
->>>>>>> 9ee7cbbca2bcf365142aeed88c11dcbcc2d0695c
     </div>
   );
 }

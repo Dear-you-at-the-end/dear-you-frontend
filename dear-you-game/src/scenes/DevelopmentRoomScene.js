@@ -483,11 +483,12 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         if (this.lyj && this.lyjPlz) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
             const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
+            const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
             const bob = Math.sin(this.time.now / 200) * 3;
             this.lyjPlz.x = this.lyj.x + 14;
             this.lyjPlz.y = this.lyj.y - 24 + bob;
             this.lyjPlz.setDepth(this.lyj.depth + 1);
-            this.lyjPlz.setVisible(questUnlocked);
+            this.lyjPlz.setVisible(questUnlocked && !lyjQuestCompleted);
         }
         if (this.lyjBubble && this.lyj) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
@@ -575,24 +576,55 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             if (distToLyj < 70) {
                 if (headsetCount > 0 && selectedSlot === 6 && lyjQuestAccepted && !lyjQuestCompleted) {
                     window.dispatchEvent(new CustomEvent("complete-lyj-quest"));
+                    // Make LYJ stop facing
+                    this.lyj.anims.stop();
+                    this.tweens.killTweensOf(this.lyj);
+                    this.lyj.setFrame(0); // Idle frame
                 } else if (!lyjQuestAccepted && !lyjQuestCompleted) {
                     window.dispatchEvent(new CustomEvent("open-lyj-quest"));
+                } else if (lyjQuestCompleted) {
+                    // Standard interaction (give letter)
+                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
                 }
                 return;
             }
         }
 
+        // Standard interaction for other NPCs in Development Room
+        if (rightJustDown && this.developmentNpcs) {
+            this.developmentNpcs.forEach(npcData => {
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npcData.sprite.x, npcData.sprite.y);
+                if (dist < 70) {
+                    const name = npcData.nameText.text;
+                    let npcId = null;
+                    if (name === "zhe") npcId = "npc-zhe";
+                    else if (name === "ajy") npcId = "npc-ajy";
+                    else if (name === "cyw") npcId = "npc-cyw";
+                    else if (name === "jjaewoo") npcId = "npc-jjaewoo";
+
+                    if (npcId) {
+                        window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: npcId } }));
+                    }
+                }
+            });
+        }
+
+        // Handle LJY (Lee Yeon-ji) separate interaction
+        if (rightJustDown && this.ljy) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.ljy.x, this.ljy.y);
+            if (dist < 70) {
+                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-ljy" } }));
+            }
+        }
+
         if (rightJustDown && this.devMic) {
-            const distToMic = Phaser.Math.Distance.Between(
-                this.player.x,
-                this.player.y,
-                this.devMic.x,
-                this.devMic.y
-            );
+            const distToMic = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.devMic.x, this.devMic.y);
             const headsetCount = this.registry.get("headsetCount") ?? 0;
             const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
             const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
-            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount <= 0) {
+
+            // Only allow finding if quest accepted, not completed, and headset not yet found
+            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount === 0) {
                 window.dispatchEvent(new CustomEvent("find-lyj-headset"));
                 return;
             }
