@@ -290,6 +290,15 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openPre103GateDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "우선 103호에 가보자...." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -438,6 +447,16 @@ function App() {
   useEffect(() => {
     const handleExitConfirm = (e) => {
       const key = e.detail?.roomKey ?? e.detail?.key;
+
+      // Gate optional areas until Room103 quest is completed.
+      if (
+        (key === "EnterKaimaru" || key === "EnterGround") &&
+        !room103LettersDelivered
+      ) {
+        openPre103GateDialog();
+        return;
+      }
+
       setExitRoomKey(key);
       setExitRoomData(e.detail ?? null);
       setShowExitConfirm(true);
@@ -445,7 +464,7 @@ function App() {
     window.addEventListener("open-exit-confirm", handleExitConfirm);
     return () =>
       window.removeEventListener("open-exit-confirm", handleExitConfirm);
-  }, []);
+  }, [room103LettersDelivered, openPre103GateDialog]);
 
   useEffect(() => {
     const handleRoom104HallEntry = () => {
@@ -3410,6 +3429,14 @@ function App() {
           setShowExitConfirm(false);
           const sceneKey = exitRoomKey;
           if (!sceneKey) return;
+
+          if (
+            (sceneKey === "EnterKaimaru" || sceneKey === "EnterGround") &&
+            !room103LettersDelivered
+          ) {
+            openPre103GateDialog();
+            return;
+          }
 
           let targetScene = null;
           let targetData = undefined;
