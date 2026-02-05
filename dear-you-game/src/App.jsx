@@ -102,6 +102,7 @@ function App() {
   const [showBanToast, setShowBanToast] = useState(false);
   const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
+  const [banToastText, setBanToastText] = useState("들어갈 수 없는 곳 같아..");
   const [exitRoomKey, setExitRoomKey] = useState(null);
   const [exitRoomData, setExitRoomData] = useState(null);
   const [interactionTargetId, setInteractionTargetId] = useState(null);
@@ -114,6 +115,8 @@ function App() {
   const [gameGuideTitle, setGameGuideTitle] = useState("");
   const [gameGuideText, setGameGuideText] = useState("");
   const [gameGuideAction, setGameGuideAction] = useState(null); // { type: string } | null
+  const [room104QuestionActive, setRoom104QuestionActive] = useState(false);
+  const [room103LettersDelivered, setRoom103LettersDelivered] = useState(false);
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
@@ -174,6 +177,38 @@ function App() {
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom103AllDeliveredOutro = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "휴.. 다행히 들키지 않은 것 같아" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "이렇게 다 돌면 혼나진않을거같아 다행이야" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "104호도 바로 옆방이니까 가보자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "room103ToHallwayActivate104" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom103LeaveBlockedDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남은 것 같아.." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openRoom104HallEntryDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지배달왔습니다!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "잠잠하다.." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "방에있는게 맞나?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "문이 살짝 열려있네? 들어가볼까..?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "enterRoom104FromHallway" });
     setShowRoomDialog(true);
   }, []);
 
@@ -258,8 +293,19 @@ function App() {
       }, 1200);
     };
     window.addEventListener("ban-door", handleBanToast);
+    const handleBanToastText = (e) => {
+      const text = e.detail?.text;
+      if (typeof text === "string" && text.trim()) {
+        setBanToastText(text.trim());
+      } else {
+        setBanToastText("들어갈 수 없는 곳 같아..");
+      }
+      handleBanToast();
+    };
+    window.addEventListener("ban-door-text", handleBanToastText);
     return () => {
       window.removeEventListener("ban-door", handleBanToast);
+      window.removeEventListener("ban-door-text", handleBanToastText);
       if (banToastTimerRef.current) {
         clearTimeout(banToastTimerRef.current);
       }
@@ -276,6 +322,14 @@ function App() {
     window.addEventListener("open-exit-confirm", handleExitConfirm);
     return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, []);
+
+  useEffect(() => {
+    const handleRoom104HallEntry = () => {
+      openRoom104HallEntryDialog();
+    };
+    window.addEventListener("open-room104-hall-entry", handleRoom104HallEntry);
+    return () => window.removeEventListener("open-room104-hall-entry", handleRoom104HallEntry);
+  }, [openRoom104HallEntryDialog]);
 
   useEffect(() => {
     const onOpeningStart = () => setIsOpeningScene(true);
@@ -640,8 +694,10 @@ function App() {
       gameRef.current.registry.set("mdhHasLetter", npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false);
       gameRef.current.registry.set("psjHasLetter", npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false);
       gameRef.current.registry.set("itbHasLetter", npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false);
+      gameRef.current.registry.set("room104QuestionActive", room104QuestionActive);
+      gameRef.current.registry.set("room103LettersDelivered", room103LettersDelivered);
     }
-  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted, groundItbRunningCompleted]);
+  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted, groundItbRunningCompleted, room104QuestionActive, room103LettersDelivered]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -1207,6 +1263,24 @@ function App() {
       // Door
       if (isNearDoor && !this.interactionCooldown) {
         if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+          if (this.scene.key === "Room103") {
+            const allDelivered = ["npc-103-1", "npc-103-2", "npc-103-3"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom103LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom103AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -1214,6 +1288,24 @@ function App() {
         }
         // Move down check
         if (this.moveKeys.down.isDown || this.moveKeys.s.isDown) {
+          if (this.scene.key === "Room103") {
+            const allDelivered = ["npc-103-1", "npc-103-2", "npc-103-3"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom103LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+            openRoom103AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
+          }
+
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -1446,6 +1538,13 @@ function App() {
                       } else if (action?.type === "kaimaruToGround") {
                         window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
                         window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
+                      } else if (action?.type === "room103ToHallwayActivate104") {
+                        setRoom103LettersDelivered(true);
+                        setRoom104QuestionActive(true);
+                        transitionToScene("Hallway", { x: 750, y: 330 });
+                      } else if (action?.type === "enterRoom104FromHallway") {
+                        setRoom104QuestionActive(false);
+                        transitionToScene("Room104");
                       }
                     }}
                   style={{
@@ -2294,7 +2393,7 @@ function App() {
               transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
               transition: "opacity 0.3s ease, transform 0.3s ease",
             }}>
-                  ..
+              {banToastText}
             </div>
           )}
 

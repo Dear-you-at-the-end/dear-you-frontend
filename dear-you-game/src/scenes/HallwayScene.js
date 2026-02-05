@@ -124,6 +124,7 @@ export default class HallwayScene extends Phaser.Scene {
         const plz = this.add.image(x + 14, doorY - doorHeight / 2 - 22, "plz_icon");
         plz.setScale(pixelScale * 0.45);
         plz.setDepth(5);
+        door.plzIcon = plz;
         this.tweens.add({
           targets: plz,
           y: plz.y - 8,
@@ -407,8 +408,16 @@ export default class HallwayScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
+    const room104QuestionActive = this.registry.get("room104QuestionActive") ?? false;
+    const room103LettersDelivered = this.registry.get("room103LettersDelivered") ?? false;
+
     this.nearDoor = null;
     this.doors.children.entries.forEach((door) => {
+      if (door.roomNumber === "103" && door.plzIcon) {
+        // After delivering all letters in Room103 and exiting, hide the exclamation icon.
+        door.plzIcon.setVisible(!room103LettersDelivered);
+      }
+
       const distance = Phaser.Math.Distance.Between(
         this.player.x,
         this.player.y,
@@ -421,14 +430,24 @@ export default class HallwayScene extends Phaser.Scene {
           door.banIcon.setVisible(true);
         }
         if (door.noticeIcon) {
-          door.noticeIcon.setVisible(true);
+          // Room 104 should not be interactable/noticeable before Room103 is completed.
+          if (door.roomNumber === "104" && !room103LettersDelivered && !room104QuestionActive) {
+            door.noticeIcon.setVisible(false);
+          } else {
+            door.noticeIcon.setVisible(true);
+          }
         }
       } else {
         if (door.banIcon) {
           door.banIcon.setVisible(false);
         }
         if (door.noticeIcon) {
-          door.noticeIcon.setVisible(false);
+          // Room 104: keep the notice icon visible as a question marker after Room103 completion.
+          if (door.roomNumber === "104" && room104QuestionActive) {
+            door.noticeIcon.setVisible(true);
+          } else {
+            door.noticeIcon.setVisible(false);
+          }
         }
       }
     });
@@ -484,6 +503,12 @@ export default class HallwayScene extends Phaser.Scene {
       }
 
       if (this.nearDoor.roomNumber === "104") {
+        if (room104QuestionActive) {
+          window.dispatchEvent(new CustomEvent("open-room104-hall-entry"));
+          return;
+        }
+        // Before completing Room103 quest, Room104 is not interactable.
+        if (!room103LettersDelivered) return;
         window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom104" } }));
         return;
       }
