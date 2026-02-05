@@ -27,6 +27,7 @@ function App() {
   const [showRunningGame, setShowRunningGame] = useState(false);
   const [showCatchBall, setShowCatchBall] = useState(false);
   const [groundCatchBallCompleted, setGroundCatchBallCompleted] = useState(false);
+  const [groundItbRunningCompleted, setGroundItbRunningCompleted] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [, setIsQuestCompleted] = useState(false);
@@ -67,7 +68,7 @@ function App() {
     { id: "npc-mdh", name: "민동휘", hasLetter: false, hasWritten: false },
     { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
-    { id: "npc-itb", name: "itb", hasLetter: false, hasWritten: false },
+    { id: "npc-itb", name: "임태빈", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -109,6 +110,10 @@ function App() {
   const [roomDialogLines, setRoomDialogLines] = useState([]);
   const [roomDialogIndex, setRoomDialogIndex] = useState(0);
   const [roomDialogAction, setRoomDialogAction] = useState(null); // { type: string } | null
+  const [showGameGuide, setShowGameGuide] = useState(false);
+  const [gameGuideTitle, setGameGuideTitle] = useState("");
+  const [gameGuideText, setGameGuideText] = useState("");
+  const [gameGuideAction, setGameGuideAction] = useState(null); // { type: string } | null
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
@@ -146,6 +151,26 @@ function App() {
     setRoomDialogLines([
       { speaker: "박성재", portrait: "/assets/common/dialog/psj.png", text: "오 캐치볼 좀 치시네요~ 근데 아까 뭐라고 하셨죠?" },
       { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔어요!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openGroundItbBeforeDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!!" },
+      { speaker: "임태빈", portrait: "/assets/common/dialog/main.png", text: "..." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "러닝 중이라 들리지 않나봐.." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "openRunningGuide" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openGroundItbAfterDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!!" },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
@@ -402,7 +427,7 @@ function App() {
 
     const tick = () => {
       // Pause conditions
-      if (showMiniGame || showMathGame || showRoomDialog || showRunningGame || showCatchBall || showWriteConfirm || showLetterWrite || showLetterRead) {
+      if (showMiniGame || showMathGame || showRoomDialog || showGameGuide || showRunningGame || showCatchBall || showWriteConfirm || showLetterWrite || showLetterRead) {
         return;
       }
       accumulatedTimeRef.current += gameMinutesPerRealSecond;
@@ -413,7 +438,7 @@ function App() {
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead]);
+  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showGameGuide, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -450,8 +475,10 @@ function App() {
         return;
       }
       if (npcId === "npc-itb") {
-        setShowRunningGame(true);
-        return;
+        if (!groundItbRunningCompleted) {
+          openGroundItbBeforeDialog();
+          return;
+        }
       }
       if (npcId === "npc-mdh-psj" || npcId === "npc-mdh" || npcId === "npc-psj") {
         if (!groundCatchBallCompleted) {
@@ -495,7 +522,7 @@ function App() {
 
     window.addEventListener("interact-npc", handleInteract);
     return () => window.removeEventListener("interact-npc", handleInteract);
-  }, [openRoom104BeforeMathDialog, openGroundCatchBallBeforeDialog, groundCatchBallCompleted]);
+  }, [openRoom104BeforeMathDialog, openGroundCatchBallBeforeDialog, groundCatchBallCompleted, openGroundItbBeforeDialog, groundItbRunningCompleted]);
 
   useEffect(() => {
     const handleKaimaruStory = () => {
@@ -588,6 +615,7 @@ function App() {
       showMiniGame ||
       showMathGame ||
       showRoomDialog ||
+      showGameGuide ||
       showRunningGame ||
       showCatchBall ||
       showWriteConfirm ||
@@ -608,10 +636,12 @@ function App() {
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
       gameRef.current.registry.set("uiBlocked", gameStateRef.current.isMiniGameOpen);
       gameRef.current.registry.set("groundCatchBallCompleted", groundCatchBallCompleted);
+      gameRef.current.registry.set("groundItbRunningCompleted", groundItbRunningCompleted);
       gameRef.current.registry.set("mdhHasLetter", npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false);
       gameRef.current.registry.set("psjHasLetter", npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false);
+      gameRef.current.registry.set("itbHasLetter", npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false);
     }
-  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted]);
+  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted, groundItbRunningCompleted]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -1330,7 +1360,7 @@ function App() {
       {!showIntro && !isOpeningScene && (
         <>
 
-          {showRoomDialog && roomDialogLines.length > 0 && (
+                  {showRoomDialog && roomDialogLines.length > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -1406,6 +1436,13 @@ function App() {
                         setShowMathGame(true);
                       } else if (action?.type === "startCatchBall") {
                         setShowCatchBall(true);
+                      } else if (action?.type === "startRunning") {
+                        setShowRunningGame(true);
+                      } else if (action?.type === "openRunningGuide") {
+                        setGameGuideTitle("태빈이를 이겨라!");
+                        setGameGuideText("스페이스바를 연타해서 러닝하는 태빈이를 멈춰 세워보자.");
+                        setGameGuideAction({ type: "startRunning" });
+                        setShowGameGuide(true);
                       } else if (action?.type === "kaimaruToGround") {
                         window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
                         window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
@@ -1429,6 +1466,73 @@ function App() {
                 >
                   다음
                 </button>
+              </div>
+            </div>
+          )}
+
+          {showGameGuide && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 1470,
+                backgroundColor: "rgba(0,0,0,0.7)",
+              }}
+            >
+              <div
+                style={{
+                  width: "520px",
+                  minHeight: "200px",
+                  backgroundImage: "url('/assets/common/modal1.png')",
+                  backgroundSize: "100% 100%",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                  padding: "26px 34px",
+                  boxSizing: "border-box",
+                  imageRendering: "pixelated",
+                  color: "#4E342E",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "14px",
+                }}
+              >
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "18px" }}>게임 안내</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", lineHeight: 1.45 }}>
+                  <div style={{ fontSize: "18px", marginBottom: "10px" }}>{gameGuideTitle}</div>
+                  <div style={{ fontSize: "15px" }}>{gameGuideText}</div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const action = gameGuideAction;
+                      setShowGameGuide(false);
+                      setGameGuideAction(null);
+                      setGameGuideTitle("");
+                      if (action?.type === "startRunning") setShowRunningGame(true);
+                    }}
+                    style={{
+                      width: "96px",
+                      height: "36px",
+                      fontFamily: "Galmuri11-Bold",
+                      fontSize: "14px",
+                      color: "#4E342E",
+                      backgroundColor: "#f1d1a8",
+                      border: "2px solid #caa47d",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    확인
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2728,10 +2832,9 @@ function App() {
         onClose={() => setShowRunningGame(false)}
         onWin={() => {
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
-          // Give a reward or just close? User didn't specify.
-          // But usually we mark quest completion or something.
-          // For now, just trigger happy event and close.
           setShowRunningGame(false);
+          setGroundItbRunningCompleted(true);
+          openGroundItbAfterDialog();
         }}
       />
 

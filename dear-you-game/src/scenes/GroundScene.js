@@ -174,6 +174,22 @@ export default class GroundScene extends Phaser.Scene {
     this.psjNpc = psj;
     this.mdhNpc = mdh;
 
+    // Name tags (show when player is close)
+    this.psjName = this.add.text(psj.x, psj.y - 40, "박성재", {
+      fontFamily: "Galmuri11-Bold",
+      fontSize: "12px",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(99999).setVisible(false);
+    this.mdhName = this.add.text(mdh.x, mdh.y - 40, "민동휘", {
+      fontFamily: "Galmuri11-Bold",
+      fontSize: "12px",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(99999).setVisible(false);
+
     // Entrance stairs (connect from Road)
     const stairScale = 2;
     const stairTex = this.textures.get("stair_down").getSourceImage();
@@ -211,7 +227,7 @@ export default class GroundScene extends Phaser.Scene {
     this.itb.setDepth(itbY);
 
     // ITB Name Tag
-    this.itbName = this.add.text(this.itb.x, this.itb.y - 40, "itb", {
+    this.itbName = this.add.text(this.itb.x, this.itb.y - 40, "임태빈", {
       fontFamily: "Galmuri11-Bold", fontSize: "12px", color: "#ffffff", stroke: "#000000", strokeThickness: 3
     }).setOrigin(0.5).setDepth(99999).setVisible(false);
 
@@ -219,7 +235,8 @@ export default class GroundScene extends Phaser.Scene {
       const frameCount = this.textures.get("itb").getSourceImage().width / 20;
       this.anims.create({
         key: "itb-run",
-        frames: this.anims.generateFrameNumbers("itb", { start: 1, end: Math.max(1, frameCount - 1) }),
+        // Use frames 6~11 (1-based) => 5~10 (0-based), clamped by sheet width.
+        frames: this.anims.generateFrameNumbers("itb", { start: 5, end: Math.min(10, Math.max(5, frameCount - 1)) }),
         frameRate: 10,
         repeat: -1,
       });
@@ -244,7 +261,7 @@ export default class GroundScene extends Phaser.Scene {
     const runDistance = itbRightX - itbLeftX; // Run across the full track
     this.itbDirection = 1; // 1 for right, -1 for left
 
-    this.tweens.add({
+    this.itbMoveTween = this.tweens.add({
       targets: this.itb,
       x: itbStartX + runDistance,
       duration: 2000,
@@ -263,6 +280,21 @@ export default class GroundScene extends Phaser.Scene {
 
     // Store ITB initial position for plz icon following
     this.itbPlzIcon = itbPlz;
+
+    // Quest icon shown after running game success until letter delivered.
+    const itbQuestIconScale = pixelScale * 0.55;
+    this.itbQuestIcon = this.add.image(this.itb.x, this.itb.y - 38, "quest_icon");
+    this.itbQuestIcon.setScale(itbQuestIconScale);
+    this.itbQuestIcon.setDepth(99999);
+    this.itbQuestIcon.setVisible(false);
+    this.tweens.add({
+      targets: this.itbQuestIcon,
+      y: this.itbQuestIcon.y - 4,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
 
     // Bottom stairs removed (no development room entry from ground)
 
@@ -331,6 +363,28 @@ export default class GroundScene extends Phaser.Scene {
       return;
     }
 
+    // After running mini-game win, stop ITB next to player.
+    if (this.itb && (this.registry.get("groundItbRunningCompleted") ?? false) && !this.itbStoppedNearPlayer) {
+      this.itbStoppedNearPlayer = true;
+      if (this.itbMoveTween) {
+        this.itbMoveTween.stop();
+        this.itbMoveTween.remove();
+        this.itbMoveTween = null;
+      }
+      // Ensure no other tweens keep moving ITB.
+      this.tweens.killTweensOf(this.itb);
+
+      const bounds = this.physics.world.bounds;
+      const targetX = Phaser.Math.Clamp(this.player.x + 26, bounds.x + 10, bounds.right - 10);
+      const targetY = Phaser.Math.Clamp(this.player.y + 8, bounds.y + 10, bounds.bottom - 10);
+      this.itb.setPosition(targetX, targetY);
+      this.itb.setFlipX(false);
+      if (this.itb.body) this.itb.body.setVelocity(0);
+      // Use a static frame when stopped.
+      this.itb.anims.stop();
+      this.itb.setFrame(0);
+    }
+
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
     const rightJustDown = pointerRightDown && !this.prevRight;
@@ -362,9 +416,19 @@ export default class GroundScene extends Phaser.Scene {
         this.itbName.setVisible(distItb < 60);
       }
 
-      // Update plz icon position
+      const itbDone = this.registry.get("groundItbRunningCompleted") ?? false;
+      const itbDelivered = this.registry.get("itbHasLetter") ?? false;
+
+      // Update plz icon position + visibility
       if (this.itbPlzIcon) {
         this.itbPlzIcon.x = this.itb.x + 14;
+        this.itbPlzIcon.setVisible(!itbDone);
+      }
+
+      // Quest icon visibility (after win, before delivery)
+      if (this.itbQuestIcon) {
+        this.itbQuestIcon.setPosition(this.itb.x, this.itb.y - 38);
+        this.itbQuestIcon.setVisible(itbDone && !itbDelivered);
       }
 
       if (distItb < 60 && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
@@ -374,6 +438,17 @@ export default class GroundScene extends Phaser.Scene {
 
     // MDH & PSJ Catch Ball Interaction
     if (this.catchBallNpcs) {
+      if (this.psjNpc && this.psjName) {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.psjNpc.x, this.psjNpc.y);
+        this.psjName.setPosition(this.psjNpc.x, this.psjNpc.y - 40);
+        this.psjName.setVisible(dist < 60);
+      }
+      if (this.mdhNpc && this.mdhName) {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mdhNpc.x, this.mdhNpc.y);
+        this.mdhName.setPosition(this.mdhNpc.x, this.mdhNpc.y - 40);
+        this.mdhName.setVisible(dist < 60);
+      }
+
       const distCatchBall = Phaser.Math.Distance.Between(
         this.player.x,
         this.player.y,

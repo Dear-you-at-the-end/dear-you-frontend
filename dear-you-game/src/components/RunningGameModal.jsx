@@ -9,51 +9,71 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
 
     const playerVelocity = useRef(0);
     const finishLine = 90; // Finish at 90%
-    const gameLoopRef = useRef(null);
+    const rafRef = useRef(null);
+    const countdownRef = useRef(null);
 
     // Constants
-    const FRICTION = 0.5;
-    const SPEED_BOOST = 3.0; // Speed added per spacebar press
-    const MAX_SPEED = 5;
+    // No stacking speed boost: each Space press refreshes a fixed impulse.
+    const IMPULSE_SPEED = 3.2;
+    const VELOCITY_DECAY = 0.88;
     const ITB_SPEED = 0.9; // Increased speed
+    const MOVE_SCALE = 0.16; // Position delta scale (bigger => faster visual movement)
+
+    const resetAndStartCountdown = useCallback(() => {
+        // Clear any in-flight timers/loops
+        if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+        }
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
+
+        setGameState("idle");
+        setCountDown(3);
+        setPlayerPos(0);
+        setItbPos(0);
+        setResult(null);
+        playerVelocity.current = 0;
+
+        countdownRef.current = setInterval(() => {
+            setCountDown((prev) => {
+                if (prev <= 1) {
+                    if (countdownRef.current) {
+                        clearInterval(countdownRef.current);
+                        countdownRef.current = null;
+                    }
+                    setGameState("playing");
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
-        const timer = setTimeout(() => {
-            setGameState("idle");
-            setCountDown(3);
-            setPlayerPos(0);
-            setItbPos(0);
-            setResult(null);
-            playerVelocity.current = 0;
-
-            const countdown = setInterval(() => {
-                setCountDown((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(countdown);
-                        setGameState("playing");
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-
-            gameLoopRef.current = countdown;
-        }, 0);
-
+        resetAndStartCountdown();
         return () => {
-            clearTimeout(timer);
-            if (gameLoopRef.current) {
-                clearInterval(gameLoopRef.current);
-                gameLoopRef.current = null;
+            if (countdownRef.current) {
+                clearInterval(countdownRef.current);
+                countdownRef.current = null;
+            }
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
             }
         };
-    }, [isOpen]);
+    }, [isOpen, resetAndStartCountdown]);
 
     const endGame = useCallback((res) => {
         setGameState("finished");
         setResult(res);
-        cancelAnimationFrame(gameLoopRef.current);
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
         if (res === "win") {
             setTimeout(() => {
                 if (onWin) onWin();
@@ -68,7 +88,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
         const loop = () => {
             // Move Player
             setPlayerPos((prev) => {
-                const next = prev + (playerVelocity.current * 0.1); // Scale factor
+                const next = prev + (playerVelocity.current * MOVE_SCALE);
                 if (next >= finishLine) {
                     endGame("win");
                     return finishLine;
@@ -81,7 +101,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                 if (playerPos >= finishLine) return prev; // If player won, stop ITB update (handled in endGame but just in case)
 
                 // ITB accelerates slightly near the end? No, constant for now.
-                const next = prev + (ITB_SPEED * 0.1);
+                const next = prev + (ITB_SPEED * MOVE_SCALE);
                 if (next >= finishLine) {
                     endGame("lose");
                     return finishLine;
@@ -89,15 +109,20 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                 return next;
             });
 
-            // Friction
-            playerVelocity.current = Math.max(0, playerVelocity.current - FRICTION * 0.1);
+            // Decay (prevents "flying" after multiple presses)
+            playerVelocity.current = Math.max(0, playerVelocity.current * VELOCITY_DECAY);
 
-            gameLoopRef.current = requestAnimationFrame(loop);
+            rafRef.current = requestAnimationFrame(loop);
         };
 
-        gameLoopRef.current = requestAnimationFrame(loop);
+        rafRef.current = requestAnimationFrame(loop);
 
-        return () => cancelAnimationFrame(gameLoopRef.current);
+        return () => {
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
+            }
+        };
     }, [gameState, endGame, finishLine, ITB_SPEED, playerPos]);
 
     /*
@@ -119,7 +144,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (gameState === "playing" && e.code === "Space") {
-                playerVelocity.current = Math.min(playerVelocity.current + SPEED_BOOST, MAX_SPEED);
+                playerVelocity.current = IMPULSE_SPEED;
             }
         };
 
@@ -235,7 +260,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         transform: "scale(2.5)",
                         transformOrigin: "bottom center",
                         imageRendering: "pixelated",
-                        transition: "left 0.05s linear",
+                        transition: gameState === "playing" ? "left 0.01s linear" : "left 0.05s linear",
                         animation: gameState === 'playing' ? "playerRun 0.6s steps(1) infinite" : "none"
                     }} />
                     <div style={{
@@ -248,6 +273,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         fontSize: "10px",
                         fontWeight: "bold",
                         textShadow: "1px 1px 0 #000",
+                        transition: gameState === "playing" ? "left 0.01s linear" : "left 0.05s linear",
                         transform: "translateX(-40px)"
                     }}>나</div>
 
@@ -259,13 +285,16 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         width: "20px",
                         height: "20px",
                         backgroundImage: "url('/assets/common/character/itb.png')",
-                        backgroundPosition: "0 0",
-                        backgroundSize: "auto 20px",
+                        // itb.png = 220x20 (20x20 x 11 frames). Use frames 6~11 (1-based).
+                        backgroundPosition: "-100px 0",
+                        backgroundSize: "220px 20px",
                         transform: "scale(2.5)",
                         transformOrigin: "bottom center",
                         imageRendering: "pixelated",
-                        transition: "left 0.05s linear",
-                        animation: gameState === 'playing' ? "runBounce 0.2s infinite alternate" : "none"
+                        transition: gameState === "playing" ? "left 0.01s linear" : "left 0.05s linear",
+                        animation: gameState === 'playing'
+                            ? "itbRun 0.6s steps(1) infinite, runBounce 0.2s infinite alternate"
+                            : "none"
                     }} />
                     <div style={{
                         position: "absolute",
@@ -277,8 +306,9 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         fontSize: "10px",
                         fontWeight: "bold",
                         textShadow: "1px 1px 0 #000",
+                        transition: gameState === "playing" ? "left 0.01s linear" : "left 0.05s linear",
                         transform: "translateX(-40px)"
-                    }}>ITB</div>
+                    }}>임태빈</div>
 
                 </div>
 
@@ -295,6 +325,14 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                     @keyframes runBounce {
                         0% { transform: scale(2.5) translateY(0); }
                         100% { transform: scale(2.5) translateY(-2px); }
+                    }
+                    @keyframes itbRun {
+                        0% { background-position: -100px 0; }
+                        20% { background-position: -120px 0; }
+                        40% { background-position: -140px 0; }
+                        60% { background-position: -160px 0; }
+                        80% { background-position: -180px 0; }
+                        100% { background-position: -200px 0; }
                     }
                 `}</style>
 
@@ -327,14 +365,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         gap: "20px"
                     }}>
                         <button
-                            onClick={() => {
-                                setGameState("idle");
-                                setCountDown(3);
-                                setPlayerPos(0);
-                                setItbPos(0);
-                                setResult(null);
-                                playerVelocity.current = 0;
-                            }}
+                            onClick={resetAndStartCountdown}
                             style={{
                                 padding: "10px 20px",
                                 fontFamily: "Galmuri11-Bold",
