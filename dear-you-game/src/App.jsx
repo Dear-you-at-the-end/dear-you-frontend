@@ -26,6 +26,7 @@ function App() {
   const [mathGameSolved, setMathGameSolved] = useState(false);
   const [showRunningGame, setShowRunningGame] = useState(false);
   const [showCatchBall, setShowCatchBall] = useState(false);
+  const [groundCatchBallCompleted, setGroundCatchBallCompleted] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [, setIsQuestCompleted] = useState(false);
@@ -62,6 +63,8 @@ function App() {
     { id: "npc-bsy", name: "배서연", hasLetter: false, hasWritten: false },
     { id: "npc-kys", name: "강예서", hasLetter: false, hasWritten: false },
     { id: "npc-thj", name: "탁한진", hasLetter: false, hasWritten: false },
+    { id: "npc-mdh", name: "민동휘", hasLetter: false, hasWritten: false },
+    { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "itb", hasLetter: false, hasWritten: false },
   ]);
@@ -121,6 +124,27 @@ function App() {
     setRoomDialogLines([
       { speaker: "남중", portrait: "/assets/common/dialog/inj.png", text: "너 꽤 똑똑하구나" },
       { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "아 맞다 너 여기 온 목적이 뭐였지?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openGroundCatchBallBeforeDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!" },
+      { speaker: "민동휘", portrait: "/assets/common/dialog/mdh.png", text: "어 그건 잘 모르겠고, 일단 캐치볼 한 판 고?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어... 네...!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "startCatchBall" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openGroundCatchBallAfterDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "박성재", portrait: "/assets/common/dialog/psj.png", text: "오 캐치볼 좀 치시네요~ 근데 아까 뭐라고 하셨죠?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔어요!" },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
@@ -377,7 +401,7 @@ function App() {
 
     const tick = () => {
       // Pause conditions
-      if (showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead) {
+      if (showMiniGame || showMathGame || showRoomDialog || showRunningGame || showCatchBall || showWriteConfirm || showLetterWrite || showLetterRead) {
         return;
       }
       accumulatedTimeRef.current += gameMinutesPerRealSecond;
@@ -388,7 +412,7 @@ function App() {
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead]);
+  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -428,9 +452,11 @@ function App() {
         setShowRunningGame(true);
         return;
       }
-      if (npcId === "npc-mdh-psj") {
-        setShowCatchBall(true);
-        return;
+      if (npcId === "npc-mdh-psj" || npcId === "npc-mdh" || npcId === "npc-psj") {
+        if (!groundCatchBallCompleted) {
+          openGroundCatchBallBeforeDialog();
+          return;
+        }
       }
       const npcState = gameStateRef.current.getNpcState(npcId);
       if (!npcState) return;
@@ -468,7 +494,7 @@ function App() {
 
     window.addEventListener("interact-npc", handleInteract);
     return () => window.removeEventListener("interact-npc", handleInteract);
-  }, [openRoom104BeforeMathDialog]);
+  }, [openRoom104BeforeMathDialog, openGroundCatchBallBeforeDialog, groundCatchBallCompleted]);
 
   useEffect(() => {
     const handleKaimaruStory = () => {
@@ -558,7 +584,14 @@ function App() {
   useEffect(() => {
     if (showIntro) return; // Do not initialize game until intro is done
     gameStateRef.current.isMiniGameOpen =
-      showMiniGame || showMathGame || showRoomDialog || showWriteConfirm || showLetterWrite || showLetterRead;
+      showMiniGame ||
+      showMathGame ||
+      showRoomDialog ||
+      showRunningGame ||
+      showCatchBall ||
+      showWriteConfirm ||
+      showLetterWrite ||
+      showLetterRead;
     gameStateRef.current.getSelectedSlot = () => selectedSlot;
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
@@ -573,8 +606,11 @@ function App() {
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
       gameRef.current.registry.set("uiBlocked", gameStateRef.current.isMiniGameOpen);
+      gameRef.current.registry.set("groundCatchBallCompleted", groundCatchBallCompleted);
+      gameRef.current.registry.set("mdhHasLetter", npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false);
+      gameRef.current.registry.set("psjHasLetter", npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false);
     }
-  }, [showMiniGame, showMathGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved]);
+  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -1367,6 +1403,8 @@ function App() {
                       setRoomDialogAction(null);
                       if (action?.type === "startMath") {
                         setShowMathGame(true);
+                      } else if (action?.type === "startCatchBall") {
+                        setShowCatchBall(true);
                       } else if (action?.type === "kaimaruToGround") {
                         window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
                         window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
@@ -2703,6 +2741,8 @@ function App() {
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
           window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
           setShowCatchBall(false);
+          setGroundCatchBallCompleted(true);
+          openGroundCatchBallAfterDialog();
         }}
       />
 

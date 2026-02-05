@@ -26,6 +26,7 @@ export default class GroundScene extends Phaser.Scene {
     this.load.image("ground_top", `${groundPath}ground_top.png`);
     this.load.image("ground_ball", `${groundPath}ball.png`);
     this.load.image("plz_icon", `${commonPath}plz.png`);
+    this.load.image("quest_icon", `${commonPath}quest_icon.png`);
     this.load.image("stair_down", `${roadPath}stair_down.png`);
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
@@ -87,9 +88,38 @@ export default class GroundScene extends Phaser.Scene {
     const plzBetween = this.add.image((psj.x + mdh.x) / 2 + 14, grassTopY - 24, "plz_icon");
     plzBetween.setScale(pixelScale * 0.45);
     plzBetween.setDepth(Math.round(grassTopY) + 5);
+    this.catchBallPlzIcon = plzBetween;
     this.tweens.add({
       targets: plzBetween,
       y: plzBetween.y - 6,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    // Quest icons (speech bubble style) shown after catchball success until letter delivered
+    const questIconScale = pixelScale * 0.55;
+    this.mdhQuestIcon = this.add.image(mdh.x, mdh.y - 38, "quest_icon");
+    this.mdhQuestIcon.setScale(questIconScale);
+    this.mdhQuestIcon.setDepth(99999);
+    this.mdhQuestIcon.setVisible(false);
+    this.tweens.add({
+      targets: this.mdhQuestIcon,
+      y: this.mdhQuestIcon.y - 4,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.psjQuestIcon = this.add.image(psj.x, psj.y - 38, "quest_icon");
+    this.psjQuestIcon.setScale(questIconScale);
+    this.psjQuestIcon.setDepth(99999);
+    this.psjQuestIcon.setVisible(false);
+    this.tweens.add({
+      targets: this.psjQuestIcon,
+      y: this.psjQuestIcon.y - 4,
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -296,6 +326,11 @@ export default class GroundScene extends Phaser.Scene {
   update() {
     if (!this.player) return;
 
+    if (this.registry.get("uiBlocked")) {
+      this.player.body.setVelocity(0);
+      return;
+    }
+
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
     const rightJustDown = pointerRightDown && !this.prevRight;
@@ -346,8 +381,27 @@ export default class GroundScene extends Phaser.Scene {
         this.catchBallNpcs.y
       );
 
+      const done = this.registry.get("groundCatchBallCompleted") ?? false;
+      const mdhDelivered = this.registry.get("mdhHasLetter") ?? false;
+      const psjDelivered = this.registry.get("psjHasLetter") ?? false;
+
+      // Before success: show plz. After success: hide plz and show quest icons over each NPC until delivered.
+      if (this.catchBallPlzIcon) this.catchBallPlzIcon.setVisible(!done);
+
+      if (this.mdhQuestIcon) {
+        this.mdhQuestIcon.setPosition(this.mdhNpc.x, this.mdhNpc.y - 38);
+        this.mdhQuestIcon.setVisible(done && !mdhDelivered);
+      }
+      if (this.psjQuestIcon) {
+        this.psjQuestIcon.setPosition(this.psjNpc.x, this.psjNpc.y - 38);
+        this.psjQuestIcon.setVisible(done && !psjDelivered);
+      }
+
       if (distCatchBall < 60 && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-        window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-mdh-psj" } }));
+        const distPsj = this.psjNpc ? Phaser.Math.Distance.Between(this.player.x, this.player.y, this.psjNpc.x, this.psjNpc.y) : 9999;
+        const distMdh = this.mdhNpc ? Phaser.Math.Distance.Between(this.player.x, this.player.y, this.mdhNpc.x, this.mdhNpc.y) : 9999;
+        const target = distMdh <= distPsj ? "npc-mdh" : "npc-psj";
+        window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: target } }));
       }
     }
 
