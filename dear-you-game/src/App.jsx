@@ -9,6 +9,7 @@ import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
 import HospitalGameModal from "./components/HospitalGameModal";
+import ReceivedNeopjukModal from "./components/ReceivedNeopjukModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
@@ -21,6 +22,7 @@ import GroundScene from "./scenes/GroundScene";
 
 const canvasWidth = 1200;
 const canvasHeight = 720;
+const ENDING_LETTERS = 21;
 
 function App() {
   const [showMiniGame, setShowMiniGame] = useState(false);
@@ -36,18 +38,60 @@ function App() {
   const [, setIsQuestCompleted] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [isOpeningScene, setIsOpeningScene] = useState(false);
+  const [endingUnlocked, setEndingUnlocked] = useState(false);
+  const [endingActive, setEndingActive] = useState(false);
+  const [endingStep, setEndingStep] = useState("idle");
+  const [endingPhonePos, setEndingPhonePos] = useState("corner");
+  const [endingPhoneOn, setEndingPhoneOn] = useState(false);
+  const [endingFadeOut, setEndingFadeOut] = useState(false);
+  const [endingGlitch, setEndingGlitch] = useState(false);
+  const endingAudioRef = useRef(null);
   const [bgm, setBgm] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
-  const [debugTab, setDebugTab] = useState("장소"); // Place | MiniGame
+  const [debugTab, setDebugTab] = useState("장소"); // Place | Quest | MiniGame
   const [showLyjQuestConfirm, setShowLyjQuestConfirm] = useState(false);
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
+  const [njCount, setNjCount] = useState(0);
+  const [showNeopjukModal, setShowNeopjukModal] = useState(false);
+  const [neopjukNpcName, setNeopjukNpcName] = useState("");
   const [headsetCount, setHeadsetCount] = useState(0);
-  const [njCount] = useState(0);
   const [, setBanToastText] = useState("");
   const [, setRoom104QuestionActive] = useState(false);
+
+  useEffect(() => {
+    const audio = new Audio("/assets/common/bgm.mp3");
+    audio.loop = true;
+    audio.volume = 0.4;
+    audio.preload = "auto";
+
+    // Attempt early play (might fail in some browsers)
+    const playAttempt = audio.play();
+    if (playAttempt !== undefined) {
+      playAttempt.catch(() => {
+        console.log("Autoplay blocked. Waiting for user interaction...");
+      });
+    }
+
+    setBgm(audio);
+
+    // Global interaction listener to ensure BGM starts as soon as user clicks anywhere
+    const handleFirstClick = () => {
+      if (audio.paused) {
+        audio.play().catch(() => { });
+      }
+      window.removeEventListener("click", handleFirstClick);
+    };
+    window.addEventListener("click", handleFirstClick);
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+      window.removeEventListener("click", handleFirstClick);
+    };
+  }, []);
 
   // Quest System
   const [quests, setQuests] = useState([
@@ -64,7 +108,7 @@ function App() {
   const [groundItbRunningCompleted, setGroundItbRunningCompleted] = useState(false);
   const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
-  const [letterCount, setLetterCount] = useState(21);
+  const [letterCount, setLetterCount] = useState(ENDING_LETTERS);
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
     { id: "npc-103-1", name: "신원영", hasLetter: false, hasWritten: false },
@@ -93,29 +137,10 @@ function App() {
   const [writtenLetters, setWrittenLetters] = useState([]);
   const [readingLetters, setReadingLetters] = useState([]); // Subset of letters to read
   const [showLetterRead, setShowLetterRead] = useState(false);
-
-  const letterGroups = React.useMemo(() => {
-    const groups = [];
-    const map = new Map();
-    writtenLetters.forEach((l) => {
-      if (!map.has(l.npcId)) {
-        map.set(l.npcId, groups.length);
-        groups.push({ npcId: l.npcId, letters: [] });
-      }
-      groups[map.get(l.npcId)].letters.push(l);
-    });
-    return groups;
-  }, [writtenLetters]);
   const [readIndex, setReadIndex] = useState(0);
-  const writtenLettersRef = useRef([]);
-  const accumulatedTimeRef = useRef(0);
-  const gameRef = useRef(null);
-  const wheelSfxRef = useRef(null);
-  const kaimaruQuestNotifiedRef = useRef(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
   const [showBanToast, setShowBanToast] = useState(false);
-  const banToastTimerRef = useRef(null);
   const [banToastVisible, setBanToastVisible] = useState(false);
   const [exitRoomKey, setExitRoomKey] = useState(null);
   const [exitRoomData, setExitRoomData] = useState(null);
@@ -130,6 +155,61 @@ function App() {
   const [gameGuideText, setGameGuideText] = useState("");
   const [gameGuideAction, setGameGuideAction] = useState(null); // { type: string } | null
   const [room103LettersDelivered, setRoom103LettersDelivered] = useState(false);
+
+  const writtenLettersRef = useRef([]);
+  const accumulatedTimeRef = useRef(0);
+  const gameRef = useRef(null);
+  const wheelSfxRef = useRef(null);
+  const kaimaruQuestNotifiedRef = useRef(false);
+  const banToastTimerRef = useRef(null);
+
+  const lettersRemaining = letterCount + writtenCount;
+
+  useEffect(() => {
+    if (!endingUnlocked && lettersRemaining <= 0) {
+      setEndingUnlocked(true);
+    }
+  }, [endingUnlocked, lettersRemaining]);
+
+  const startEndingSequence = useCallback(() => {
+    setEndingActive(true);
+    setEndingStep("phone-off");
+    setEndingPhonePos("corner");
+    setEndingPhoneOn(false);
+    setEndingFadeOut(false);
+    setEndingGlitch(false);
+    if (bgm) {
+      bgm.pause();
+      bgm.currentTime = 0;
+    }
+    if (gameRef.current) {
+      gameRef.current.registry.set("uiBlocked", true);
+    }
+  }, [bgm]);
+
+  useEffect(() => {
+    if (!endingUnlocked || endingActive || !gameRef.current) return;
+    const activeSceneKey =
+      gameRef.current?.scene
+        ?.getScenes(true)
+        ?.find((s) => s?.sys?.settings?.active)?.sys?.settings?.key;
+    if (activeSceneKey === "MyRoom") {
+      startEndingSequence();
+    }
+  }, [endingUnlocked, endingActive, startEndingSequence]);
+
+  const letterGroups = React.useMemo(() => {
+    const groups = [];
+    const map = new Map();
+    writtenLetters.forEach((l) => {
+      if (!map.has(l.npcId)) {
+        map.set(l.npcId, groups.length);
+        groups.push({ npcId: l.npcId, letters: [] });
+      }
+      groups[map.get(l.npcId)].letters.push(l);
+    });
+    return groups;
+  }, [writtenLetters]);
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
@@ -260,6 +340,40 @@ function App() {
     setRoomDialogAction({ type: "kaimaruToGround" });
     setShowRoomDialog(true);
   }, []);
+
+  const openReceivedNeopjukDialog = useCallback((npcName) => {
+    setNeopjukNpcName(npcName);
+    setRoomDialogLines([
+      { speaker: npcName, portrait: "/assets/common/character/nj.png", text: "편지 고마워! 선물로 넙죽이를 줄게!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "넙죽이를 받았다! 😊" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "receiveNeopjuk" });
+    setShowRoomDialog(true);
+  }, []);
+
+
+  const handleEndingPhoneClick = useCallback(() => {
+    if (endingStep !== "phone-off") return;
+    setEndingPhonePos("center");
+    setTimeout(() => {
+      setEndingPhoneOn(true);
+      setEndingStep("phone-on");
+    }, 700);
+  }, [endingStep]);
+
+  const handleEndingEndIconClick = useCallback(() => {
+    if (endingStep === "phone-on") {
+      setEndingStep("confirm");
+    }
+  }, [endingStep]);
+
+  const handleEndingConfirm = useCallback(() => {
+    if (endingStep === "confirm") {
+      setEndingStep("shutdown");
+    }
+  }, [endingStep]);
+
 
   const debugCompleteLettersForPlace = useCallback((place) => {
     const placeNpcMap = {
@@ -474,6 +588,16 @@ function App() {
   }, [openRoom104HallEntryDialog]);
 
   useEffect(() => {
+    const handleEnterMyRoom = () => {
+      if (endingUnlocked && !endingActive) {
+        startEndingSequence();
+      }
+    };
+    window.addEventListener("enter-my-room", handleEnterMyRoom);
+    return () => window.removeEventListener("enter-my-room", handleEnterMyRoom);
+  }, [endingUnlocked, endingActive, startEndingSequence]);
+
+  useEffect(() => {
     const handleOpenLyjQuest = () => {
       if (!lyjQuestAccepted && !lyjQuestCompleted) {
         setShowLyjQuestConfirm(true);
@@ -523,6 +647,63 @@ function App() {
       window.removeEventListener("complete-lyj-quest", handleCompleteLyjQuest);
     };
   }, [lyjQuestAccepted, lyjQuestCompleted, headsetCount, HEADSET_SLOT]);
+
+  useEffect(() => {
+    if (!endingActive) return;
+    const timers = [];
+
+    if (endingStep === "shutdown") {
+      timers.push(
+        setTimeout(() => {
+          setEndingGlitch(true);
+          setEndingStep("collapse");
+        }, 2200),
+      );
+    }
+
+    if (endingStep === "collapse") {
+      timers.push(
+        setTimeout(() => {
+          setEndingStep("intro");
+        }, 2600),
+      );
+    }
+
+    if (endingStep === "intro") {
+      const audio = new Audio("/assets/ending/ending.mp3");
+      audio.volume = 0.7;
+      audio.play().catch(() => { });
+      endingAudioRef.current = audio;
+      timers.push(
+        setTimeout(() => {
+          setEndingFadeOut(true);
+        }, 6500),
+      );
+    }
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [endingActive, endingStep]);
+
+  useEffect(() => {
+    if (!endingFadeOut) return;
+    const audio = endingAudioRef.current;
+    if (!audio) return;
+    let ticks = 0;
+    const startVolume = audio.volume ?? 0.7;
+    const id = setInterval(() => {
+      ticks += 1;
+      const next = Math.max(0, startVolume - (startVolume / 20) * ticks);
+      audio.volume = next;
+      if (ticks >= 20) {
+        audio.pause();
+        audio.currentTime = 0;
+        clearInterval(id);
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [endingFadeOut]);
 
   useEffect(() => {
     const onOpeningStart = () => setIsOpeningScene(true);
@@ -1311,7 +1492,25 @@ function App() {
         }
       };
       window.addEventListener("npc-happy", onNpcHappy);
-      this.events.on("shutdown", () => window.removeEventListener("npc-happy", onNpcHappy));
+
+      const onPlayerHappy = () => {
+        if (this.player) {
+          this.tweens.add({
+            targets: this.player,
+            y: this.player.y - 25,
+            duration: 250,
+            yoyo: true,
+            repeat: 1,
+            ease: "Power1",
+          });
+        }
+      };
+      window.addEventListener("player-happy", onPlayerHappy);
+
+      this.events.on("shutdown", () => {
+        window.removeEventListener("npc-happy", onNpcHappy);
+        window.removeEventListener("player-happy", onPlayerHappy);
+      });
 
       this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
       this.prevRight = false;
@@ -1685,8 +1884,27 @@ function App() {
     };
   }, [showIntro]);
 
+  const showGameUi = !showIntro && !isOpeningScene && (!endingActive || endingStep === "collapse");
+  const endingFallStyle = (delayMs) =>
+    endingStep === "collapse"
+      ? {
+        animation: `endingFall 1.6s ease-in ${delayMs}ms forwards`,
+        transformOrigin: "center",
+      }
+      : {};
+
   return (
-    <div id="game-container">
+    <div
+      id="game-container"
+      style={
+        endingGlitch || endingStep === "intro"
+          ? {
+            filter: "grayscale(1) contrast(1.2)",
+            animation: "endingFlicker 0.8s infinite",
+          }
+          : undefined
+      }
+    >
       <style>{`
         @font-face {
           font-family: "PixelFont";
@@ -1710,10 +1928,254 @@ function App() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes endingPhoneShake {
+          0% { transform: translate(0, 0) scale(var(--ending-phone-scale)); }
+          25% { transform: translate(-5px, 3px) scale(var(--ending-phone-scale)); }
+          50% { transform: translate(5px, -3px) scale(var(--ending-phone-scale)); }
+          75% { transform: translate(-3px, -5px) scale(var(--ending-phone-scale)); }
+          100% { transform: translate(3px, 5px) scale(var(--ending-phone-scale)); }
+        }
+        @keyframes endingPulse {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
+          50% { transform: translate(-50%, -50%) scale(1.08); filter: brightness(1.3); }
+        }
+        @keyframes endingFlicker {
+          0% { opacity: 0.9; }
+          20% { opacity: 0.6; }
+          40% { opacity: 1; }
+          60% { opacity: 0.5; }
+          80% { opacity: 0.95; }
+          100% { opacity: 0.7; }
+        }
+        @keyframes endingFall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(120vh) rotate(18deg); opacity: 0; }
+        }
+        @keyframes endingIntroFlicker {
+          0% { filter: grayscale(1); opacity: 0.9; }
+          35% { filter: grayscale(0.6); opacity: 0.7; }
+          60% { filter: grayscale(1); opacity: 1; }
+          100% { filter: grayscale(0.2); opacity: 0.8; }
+        }
+        @keyframes endingFadeToBlack {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
       `}</style>
 
+      {endingActive && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 20000,
+            pointerEvents: "auto",
+            backgroundColor: endingStep === "intro" ? "#000" : "rgba(0, 0, 0, 0.35)",
+            overflow: "hidden",
+          }}
+        >
+          {(endingGlitch || endingStep === "collapse") && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                background:
+                  "repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 2px, transparent 2px, transparent 4px)",
+                mixBlendMode: "difference",
+                animation: "endingFlicker 0.3s infinite",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+
+          {endingStep !== "intro" && (
+            <>
+              {endingStep === "phone-off" && (
+                <img
+                  src="/assets/opening/phone_off.png"
+                  alt="Phone"
+                  onClick={handleEndingPhoneClick}
+                  style={{
+                    position: "fixed",
+                    right: endingPhonePos === "corner" ? "40px" : "auto",
+                    bottom: endingPhonePos === "corner" ? "80px" : "auto",
+                    left: endingPhonePos === "center" ? "50%" : "auto",
+                    top: endingPhonePos === "center" ? "50%" : "auto",
+                    transform:
+                      endingPhonePos === "center"
+                        ? "translate(-50%, -50%) scale(0.75)"
+                        : "scale(0.18)",
+                    transition: "all 0.7s ease-out",
+                    imageRendering: "pixelated",
+                    zIndex: 20010,
+                    cursor: "pointer",
+                    "--ending-phone-scale": "0.18",
+                    animation:
+                      endingPhonePos === "corner"
+                        ? "endingPhoneShake 0.05s infinite"
+                        : "none",
+                  }}
+                />
+              )}
+
+              {endingPhoneOn && endingStep !== "collapse" && endingStep !== "intro" && (
+                <>
+                  <img
+                    src="/assets/opening/phone.png"
+                    alt="Phone On"
+                    style={{
+                      position: "fixed",
+                      left: "50%",
+                      top: "50%",
+                      transform: "translate(-50%, -50%) scale(0.75)",
+                      imageRendering: "pixelated",
+                      zIndex: 20010,
+                    }}
+                  />
+                  <img
+                    src="/assets/ending/end.png"
+                    alt="End"
+                    onClick={handleEndingEndIconClick}
+                    style={{
+                      position: "fixed",
+                      left: "50%",
+                      top: "50%",
+                      width: "72px",
+                      height: "72px",
+                      transform: "translate(-50%, -50%)",
+                      imageRendering: "pixelated",
+                      zIndex: 20011,
+                      cursor: endingStep === "phone-on" ? "pointer" : "default",
+                      animation: "endingPulse 0.8s infinite",
+                    }}
+                  />
+                </>
+              )}
+
+              {endingStep === "confirm" && (
+                <div
+                  style={{
+                    position: "fixed",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "320px",
+                    height: "180px",
+                    backgroundImage: "url('/assets/common/modal1.png')",
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    imageRendering: "pixelated",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "12px",
+                    zIndex: 20020,
+                    color: "#4E342E",
+                    fontFamily: "Galmuri11-Bold",
+                  }}
+                >
+                  <div style={{ fontSize: "13px" }}>??? ?????????</div>
+                  <img
+                    src="/assets/ending/end.png"
+                    alt="End Confirm"
+                    onClick={handleEndingConfirm}
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      imageRendering: "pixelated",
+                      cursor: "pointer",
+                      marginTop: "8px",
+                    }}
+                  />
+                </div>
+              )}
+
+              {endingStep === "shutdown" && (
+                <div
+                  style={{
+                    position: "fixed",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "320px",
+                    height: "180px",
+                    backgroundImage: "url('/assets/common/modal1.png')",
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    imageRendering: "pixelated",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "12px",
+                    zIndex: 20020,
+                    color: "#4E342E",
+                    fontFamily: "Galmuri11-Bold",
+                  }}
+                >
+                  <div style={{ fontSize: "13px" }}>??? ?????</div>
+                </div>
+              )}
+            </>
+          )}
+
+          {endingStep === "intro" && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#000",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  backgroundImage: "url('/assets/common/main.png')",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  animation: "endingIntroFlicker 0.9s infinite",
+                }}
+              />
+            </div>
+          )}
+
+          {endingFadeOut && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: "#000",
+                opacity: 0,
+                animation: "endingFadeToBlack 2s forwards",
+                zIndex: 20030,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+
       {/* UI Elements */}
-      {!showIntro && !isOpeningScene && (
+      {showGameUi && (
         <>
 
           {showRoomDialog && roomDialogLines.length > 0 && (
@@ -1834,6 +2296,10 @@ function App() {
                         noScooter: true,
                       });
                       setShowExitConfirm(true);
+                    } else if (action?.type === "receiveNeopjuk") {
+                      setNjCount((prev) => prev + 1);
+                      setShowNeopjukModal(true);
+                      window.dispatchEvent(new CustomEvent("player-happy"));
                     }
                   }}
                   style={{
@@ -2002,6 +2468,8 @@ function App() {
                             n.id === targetId ? { ...n, hasLetter: true } : n
                           )
                         );
+                        const targetNpc = npcs.find((n) => n.id === targetId);
+                        openReceivedNeopjukDialog(targetNpc?.name ?? "NPC");
                         window.dispatchEvent(
                           new CustomEvent("npc-happy", {
                             detail: { npcId: targetId },
@@ -2332,6 +2800,7 @@ function App() {
               backgroundSize: "contain",
               backgroundRepeat: "no-repeat",
               imageRendering: "pixelated",
+              ...endingFallStyle(400),
             }}
           >
             {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
@@ -2589,6 +3058,7 @@ function App() {
               paddingBottom: "24px",
               paddingLeft: "48px",
               boxSizing: "border-box",
+              ...endingFallStyle(0),
             }}
           >
             <span
@@ -2630,6 +3100,7 @@ function App() {
               boxSizing: "border-box",
               transition: "right 0.5s cubic-bezier(0.25, 1, 0.5, 1)",
               cursor: "pointer",
+              ...endingFallStyle(200),
             }}
           >
             <h3
@@ -3077,6 +3548,37 @@ function App() {
                         개발실 완료
                       </button>
                     </div>
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        width: "100%",
+                        borderTop: "1px solid rgba(141, 104, 78, 0.35)",
+                      }}
+                    />
+                    <div style={{ fontSize: "11px", color: "#6b4e38" }}>
+                      디버그: 엔딩
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEndingUnlocked(true);
+                        }}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        엔딩 해금
+                      </button>
+                    </div>
                   </>
                 )}
 
@@ -3433,7 +3935,12 @@ function App() {
         }}
       />
 
-      {showIntro && <IntroScreen onStart={handleIntroStart} />}
+      <ReceivedNeopjukModal
+        isOpen={showNeopjukModal}
+        onClose={() => setShowNeopjukModal(false)}
+        npcName={neopjukNpcName}
+      />
+      {showIntro && <IntroScreen onStart={handleIntroStart} bgm={bgm} />}
 
       <div
         style={{
@@ -3467,10 +3974,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
-
-
-

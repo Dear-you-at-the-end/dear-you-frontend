@@ -15,6 +15,7 @@ const EatingGameModal = ({ isOpen, onClose, onWin }) => {
         ArrowLeft: "왼쪽",
         ArrowRight: "오른쪽",
     };
+    const currentKeyLabel = currentKey ? keyMap[currentKey] : "";
 
     const getRandomKey = () => {
         const keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
@@ -138,6 +139,7 @@ const EatingGameModal = ({ isOpen, onClose, onWin }) => {
                         <img
                             src="/assets/common/o.png"
                             alt="Start Button"
+                            ref={startBtnRef}
                             style={{
                                 width: "40px",
                                 cursor: "pointer",
@@ -271,7 +273,10 @@ const EatingGameModal = ({ isOpen, onClose, onWin }) => {
                                     alignItems: "center",
                                     marginBottom: "5px",
                                     boxShadow: "0 4px 0 #4E342E"
-                                }}>
+                                }}
+                                title={currentKeyLabel}
+                                aria-label={currentKeyLabel}
+                                >
                                     {/* Render Arrow Icon based on key */}
                                     <span style={{ fontSize: "32px", fontWeight: "bold", color: "#333" }}>
                                         {currentKey === "ArrowUp" && "↑"}

@@ -34,6 +34,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.load.image("dev_door_right", `${assetPath}door_right.png`);
         this.load.image("plz_icon", `${commonPath}plz.png`);
         this.load.image("dev_mic", `${assetPath}mic.png`);
+        this.load.image("hint_icon", `${assetPath}hint.png`);
         this.load.image("x", `${commonPath}x.png`);
         this.load.image("dialog_bubble", `${commonPath}dialog.png`);
 
@@ -294,6 +295,19 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         // Create LJY NPC (right corridor, side view)
         this.createLjy(pixelScale);
 
+        this.devNpcMap = {};
+        if (this.developmentNpcs) {
+            this.developmentNpcs.forEach(({ sprite, nameText }) => {
+                if (nameText?.text) {
+                    this.devNpcMap[nameText.text] = sprite;
+                }
+            });
+        }
+        this.questHint = this.add.image(0, 0, "hint_icon");
+        this.questHint.setScale(pixelScale * 0.45);
+        this.questHint.setDepth(10003);
+        this.questHint.setVisible(false);
+
         // Player Speech Bubble Handler
         this.events.on("shutdown", () => {
             window.removeEventListener("player-say", this.handlePlayerSay);
@@ -483,12 +497,13 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         if (this.lyj && this.lyjPlz) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
             const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
+            const accepted = this.registry.get("lyjQuestAccepted") ?? false;
             const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
             const bob = Math.sin(this.time.now / 200) * 3;
             this.lyjPlz.x = this.lyj.x + 14;
             this.lyjPlz.y = this.lyj.y - 24 + bob;
             this.lyjPlz.setDepth(this.lyj.depth + 1);
-            this.lyjPlz.setVisible(questUnlocked && !lyjQuestCompleted);
+            this.lyjPlz.setVisible(questUnlocked && !accepted && !lyjQuestCompleted);
         }
         if (this.lyjBubble && this.lyj) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
@@ -501,6 +516,34 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                 this.lyjBubble.x = this.lyj.x;
                 this.lyjBubble.y = this.lyj.y - bubbleOffsetY;
                 this.lyjBubble.setDepth(this.lyj.depth + 2);
+            }
+        }
+        if (this.questHint) {
+            const questStep = this.registry.get("lyjQuestStep") ?? 0;
+            const accepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const completed = this.registry.get("lyjQuestCompleted") ?? false;
+
+            let target = null;
+            if (accepted && !completed) {
+                if (questStep === 1) target = this.devNpcMap?.zhe;
+                else if (questStep === 2) target = this.ljy;
+                else if (questStep === 3) target = this.devNpcMap?.ajy;
+                else if (questStep === 4) target = this.devNpcMap?.cyw;
+                else if (questStep === 5) target = this.devNpcMap?.jjaewoo;
+                else if (questStep === 6) target = this.devMic;
+                else if (questStep === 7) target = this.lyj;
+            }
+
+            if (target) {
+                const bob = Math.sin(this.time.now / 200) * 3;
+                const isMic = target === this.devMic;
+                const offsetY = isMic ? 48 : 36;
+                this.questHint.x = target.x;
+                this.questHint.y = target.y - offsetY + bob;
+                this.questHint.setDepth((target.depth ?? target.y ?? 0) + 2);
+                this.questHint.setVisible(true);
+            } else {
+                this.questHint.setVisible(false);
             }
         }
         const pointer = this.input.activePointer;
@@ -572,9 +615,10 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             const selectedSlot = this.registry.get("selectedSlot") ?? -1;
             const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
             const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+            const lyjQuestStep = this.registry.get("lyjQuestStep") ?? 0;
 
             if (distToLyj < 70) {
-                if (headsetCount > 0 && selectedSlot === 6 && lyjQuestAccepted && !lyjQuestCompleted) {
+                if (headsetCount > 0 && selectedSlot === 6 && lyjQuestAccepted && !lyjQuestCompleted && lyjQuestStep >= 7) {
                     window.dispatchEvent(new CustomEvent("complete-lyj-quest"));
                     // Make LYJ stop facing
                     this.lyj.anims.stop();
@@ -622,9 +666,10 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
             const headsetCount = this.registry.get("headsetCount") ?? 0;
             const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
             const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+            const lyjQuestStep = this.registry.get("lyjQuestStep") ?? 0;
 
             // Only allow finding if quest accepted, not completed, and headset not yet found
-            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount === 0) {
+            if (distToMic < 80 && lyjQuestAccepted && !lyjQuestCompleted && headsetCount === 0 && lyjQuestStep === 6) {
                 window.dispatchEvent(new CustomEvent("find-lyj-headset"));
                 return;
             }
