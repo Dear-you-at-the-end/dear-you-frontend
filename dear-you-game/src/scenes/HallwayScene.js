@@ -135,21 +135,22 @@ export default class HallwayScene extends Phaser.Scene {
         });
       }
 
-      if (room === "103" || room === "104") {
-        const notice = this.add.image(x, doorY - doorHeight / 2 - 10, "notice_icon");
-        notice.setScale(pixelScale * 0.4);
-        notice.setDepth(4);
-        notice.setVisible(false);
-        door.noticeIcon = notice;
+      if (room === "104") {
+        // Use plz_icon as the "?" marker above Room 104.
+        const plz = this.add.image(x, doorY - doorHeight / 2 - 12, "plz_icon");
+        plz.setScale(pixelScale * 0.45);
+        plz.setDepth(4);
+        plz.setVisible(false);
+        door.questionIcon = plz;
         this.tweens.add({
-          targets: notice,
-          y: notice.y - 4,
+          targets: plz,
+          y: plz.y - 4,
           duration: 900,
           yoyo: true,
           repeat: -1,
           ease: "Sine.easeInOut",
         });
-      } else {
+      } else if (room !== "103") {
         const ban = this.add.image(x, doorY - doorHeight / 2 - 10, "ban_icon");
         ban.setScale(pixelScale * 0.4);
         ban.setDepth(4);
@@ -417,6 +418,10 @@ export default class HallwayScene extends Phaser.Scene {
         // After delivering all letters in Room103 and exiting, hide the exclamation icon.
         door.plzIcon.setVisible(!room103LettersDelivered);
       }
+      if (door.roomNumber === "104" && door.questionIcon) {
+        // Show the marker only after Room103 completion triggers the "go to 104" prompt.
+        door.questionIcon.setVisible(!!room104QuestionActive);
+      }
 
       const distance = Phaser.Math.Distance.Between(
         this.player.x,
@@ -429,25 +434,9 @@ export default class HallwayScene extends Phaser.Scene {
         if (door.banIcon) {
           door.banIcon.setVisible(true);
         }
-        if (door.noticeIcon) {
-          // Room 104 should not be interactable/noticeable before Room103 is completed.
-          if (door.roomNumber === "104" && !room103LettersDelivered && !room104QuestionActive) {
-            door.noticeIcon.setVisible(false);
-          } else {
-            door.noticeIcon.setVisible(true);
-          }
-        }
       } else {
         if (door.banIcon) {
           door.banIcon.setVisible(false);
-        }
-        if (door.noticeIcon) {
-          // Room 104: keep the notice icon visible as a question marker after Room103 completion.
-          if (door.roomNumber === "104" && room104QuestionActive) {
-            door.noticeIcon.setVisible(true);
-          } else {
-            door.noticeIcon.setVisible(false);
-          }
         }
       }
     });
@@ -472,6 +461,9 @@ export default class HallwayScene extends Phaser.Scene {
 
       // Special handling for Room 103
       if (this.nearDoor.roomNumber === "103") {
+        // After finishing Room103 (delivered all letters + exited), disable any further interaction with door 103.
+        if (room103LettersDelivered) return;
+
         const miniGameCompleted = this.registry.get("room103MiniGameCompleted") ?? false;
 
         if (!miniGameCompleted) {

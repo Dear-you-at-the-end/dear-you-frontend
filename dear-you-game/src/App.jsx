@@ -281,6 +281,15 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openRoom104LeaveBlockedDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아직 할 일이 남아있어..." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -437,6 +446,18 @@ function App() {
     return () =>
       window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, []);
+
+  useEffect(() => {
+    const handleRoom104HallEntry = () => {
+      openRoom104HallEntryDialog();
+    };
+    window.addEventListener("open-room104-hall-entry", handleRoom104HallEntry);
+    return () =>
+      window.removeEventListener(
+        "open-room104-hall-entry",
+        handleRoom104HallEntry,
+      );
+  }, [openRoom104HallEntryDialog]);
 
   useEffect(() => {
     const handleOpenLyjQuest = () => {
@@ -1698,6 +1719,17 @@ function App() {
             return;
           }
 
+          if (this.scene.key === "Room104") {
+            const allDelivered = ["npc-104-1", "npc-104-2"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom104LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
+          }
+
           setExitRoomKey(this.scene.key);
           gameStateRef.current.setShowExitConfirm(true);
           this.player.body.setVelocity(0);
@@ -1721,6 +1753,17 @@ function App() {
             }, 1200);
             this.player.body.setVelocity(0);
             return;
+          }
+
+          if (this.scene.key === "Room104") {
+            const allDelivered = ["npc-104-1", "npc-104-2"].every(
+              (id) => gameStateRef.current.getNpcState(id)?.hasLetter
+            );
+            if (!allDelivered) {
+              openRoom104LeaveBlockedDialog();
+              this.player.body.setVelocity(0);
+              return;
+            }
           }
 
           setExitRoomKey(this.scene.key);
@@ -1988,6 +2031,21 @@ function App() {
                           detail: { roomKey: "EnterGround", x: 260, y: 180 },
                         }),
                       );
+                    } else if (action?.type === "room103ToHallwayActivate104") {
+                      setRoom103LettersDelivered(true);
+                      setRoom104QuestionActive(true);
+                      // Prevent a registry/state timing race during immediate scene transition.
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("room103LettersDelivered", true);
+                        gameRef.current.registry.set("room104QuestionActive", true);
+                      }
+                      transitionToScene("Hallway", { x: 750, y: 330 });
+                    } else if (action?.type === "enterRoom104FromHallway") {
+                      setRoom104QuestionActive(false);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("room104QuestionActive", false);
+                      }
+                      transitionToScene("Room104");
                     }
                   }}
                   style={{
@@ -3423,6 +3481,13 @@ function App() {
               roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
             targetScene = "Hallway";
             targetData = exitCoords;
+            if (sceneKey === "Room104") {
+              // Ensure hallway marker doesn't reappear after exiting Room104.
+              setRoom104QuestionActive(false);
+              if (gameRef.current) {
+                gameRef.current.registry.set("room104QuestionActive", false);
+              }
+            }
           }
 
           if (targetScene) {
