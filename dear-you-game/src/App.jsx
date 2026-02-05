@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import "./App.css";
 import MathMiniGameModal from "./components/MathMiniGameModal";
@@ -45,8 +45,14 @@ function App() {
   const [endingPhoneOn, setEndingPhoneOn] = useState(false);
   const [endingFadeOut, setEndingFadeOut] = useState(false);
   const [endingGlitch, setEndingGlitch] = useState(false);
-  const endingAudioRef = useRef(null);
+  const endingAudioRef = useRef(null); const emergencyAudioRef = useRef(null);
   const [bgm, setBgm] = useState(null);
+  const [hospitalGameSolved, setHospitalGameSolved] = useState(false);
+  const [hospitalOutroPlayed, setHospitalOutroPlayed] = useState(false);
+  const [pseongjunPending, setPseongjunPending] = useState(false);
+  const [pseongjunSpawned, setPseongjunSpawned] = useState(false);
+  const [pseongjunReady, setPseongjunReady] = useState(false);
+  const [pseongjunOutroPlayed, setPseongjunOutroPlayed] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
@@ -54,10 +60,15 @@ function App() {
   const [showLyjQuestConfirm, setShowLyjQuestConfirm] = useState(false);
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
-  const [njCount, setNjCount] = useState(0);
+  const [, setNjCount] = useState(0);
   const [showNeopjukModal, setShowNeopjukModal] = useState(false);
   const [neopjukNpcName, setNeopjukNpcName] = useState("");
   const [headsetCount, setHeadsetCount] = useState(0);
+  const [devLyjMinigameDone, setDevLyjMinigameDone] = useState(false);
+  const [devLettersUnlocked, setDevLettersUnlocked] = useState(false);
+  const [devBoardUnlocked, setDevBoardUnlocked] = useState(false);
+  const [devBoardDone, setDevBoardDone] = useState(false);
+  const [devKeyCount, setDevKeyCount] = useState(0);
   const [, setBanToastText] = useState("");
   const [, setRoom104QuestionActive] = useState(false);
 
@@ -115,13 +126,21 @@ function App() {
     { id: "npc-jjw", name: "정재원", hasLetter: false, hasWritten: false },
     { id: "npc-mdh", name: "민동휘", hasLetter: false, hasWritten: false },
     { id: "npc-psj", name: "박성재", hasLetter: false, hasWritten: false },
-    { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
+    { id: "npc-lyj", name: "임유진", hasLetter: false, hasWritten: false },
+    { id: "npc-ljy", name: "이준엽", hasLetter: false, hasWritten: false },
+    { id: "npc-cyw", name: "최영운", hasLetter: false, hasWritten: false },
+    { id: "npc-zhe", name: "전하은", hasLetter: false, hasWritten: false },
+    { id: "npc-jjaewoo", name: "정재우", hasLetter: false, hasWritten: false },
+    { id: "npc-ajy", name: "안준영", hasLetter: false, hasWritten: false },
     { id: "npc-itb", name: "임태빈", hasLetter: false, hasWritten: false },
     { id: "npc-zhe", name: "박동현", hasLetter: false, hasWritten: false },
     { id: "npc-ljy", name: "이연지", hasLetter: false, hasWritten: false },
     { id: "npc-ajy", name: "안준영", hasLetter: false, hasWritten: false },
     { id: "npc-cyw", name: "최연우", hasLetter: false, hasWritten: false },
     { id: "npc-jjaewoo", name: "이재우", hasLetter: false, hasWritten: false },
+    { id: "npc-psy", name: "박세윤", hasLetter: false, hasWritten: false },
+    { id: "npc-kjy", name: "김지연", hasLetter: false, hasWritten: false },
+    { id: "npc-pseongjun", name: "박성준", hasLetter: false, hasWritten: false },
   ]);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
   const [showLetterWrite, setShowLetterWrite] = useState(false);
@@ -308,6 +327,131 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openDevRoomIntroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevLyjHeadsetDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "아 어떡해 내 헤드셋.. 어디 갔지..." },
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "편지고 뭐고 헤드셋부터 찾아줘" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "헤드셋…? 내가 왜 찾아줘야하는진 모르겠지만 일단 찾아볼까?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "openDevHeadsetGuide" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevLyjThanksDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "임유진", portrait: "/assets/common/dialog/lyj.png", text: "너무 감사합니다~~" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devEnableLyjDelivery" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevAllDeliveredDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어..? 근데 아직 편지가 남았는데.." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "칠판에 뭐가 써있네..?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devUnlockBoard" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevBoardInteractDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "차가 없는데 병원까지 어떻게 가지..." },
+      { speaker: "준엽", portrait: "/assets/common/dialog/ljy.png", text: "아 유진이 헤드셋도 찾아주셨으니 제 스쿠터 빌려드릴게요!" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "정말요? 감사합니다!!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "devGiveKey" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalIntroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "진짜 마지막이겠지?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달왔습니다!" },
+      { speaker: "박세윤", portrait: "/assets/common/dialog/psy.png", text: "어.. 편지 배달요? 지금 지연누나 상태가 별로 안좋아서…" },
+      { speaker: "김지연", portrait: "/assets/common/dialog/kjy.png", text: "..." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "openHospitalGuide" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalAfterWinDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "김지연", portrait: "/assets/common/dialog/kjy.png", text: "감사합니다. 덕분에 회복했어요." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction(null);
+    setShowRoomDialog(true);
+  }, []);
+
+  const openHospitalAllDeliveredDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어? 근데 왜 한장이 남지?? 박...성...준...?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "일단 스쿠터 돌려줘야 하니까 다시 개발실로 가보자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "hospitalReturnToDev" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openDevReturnDialog = useCallback(() => {
+    // Return scooter key immediately (remove from inventory).
+    setDevKeyCount(0);
+    setSelectedSlot(0);
+    if (gameRef.current) {
+      gameRef.current.registry.set("devKeyCount", 0);
+      gameRef.current.registry.set("selectedSlot", 0);
+    }
+
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "스쿠터 잘썼어요 감사합니다" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "근데 혹시 박성준이라는 사람 아세요?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "왜 못 봤지..?" },
+      { speaker: "최영운", portrait: "/assets/common/dialog/cyw.png", text: "성준이형… 우리 분반 임원진인데 … 음… 언제올지는 잘 모르겠어요" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "네? 지금 5시 40분인데 아직도 출근을 안했다고요?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "pseongjunWait" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openPseongjunArriveDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "박성준", portrait: "/assets/common/dialog/pseongjun.png", text: "밥 뭐드실거에요~~" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어 ? 혹시 박성준님?? 편지 배달 왔습니다!" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "enablePseongjunDelivery" });
+    setShowRoomDialog(true);
+  }, []);
+
+  const openPseongjunOutroDialog = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "박성준", portrait: "/assets/common/dialog/pseongjun.png", text: "어 감사합니다." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "휴 다 끝냈다." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "아무런 컴플레인 없는거 보니 편지 내용도 별 내용 아니었나봐" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "다행이야. 이제 집으로 가자." },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "goHome" });
+    setShowRoomDialog(true);
+  }, []);
+
   const openKaimaruStoryDialog = useCallback(() => {
     const mainPortrait = "/assets/common/dialog/main.png";
     const portraitFor = (speaker) => {
@@ -338,7 +482,7 @@ function App() {
     setNeopjukNpcName(npcName);
     setRoomDialogLines([
       { speaker: npcName, portrait: "/assets/common/character/nj.png", text: "편지 고마워! 선물로 넙죽이를 줄게!" },
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "넙죽이를 받았다! 😊" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "넙죽이를 받았다! ??" },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "receiveNeopjuk" });
@@ -453,22 +597,23 @@ function App() {
     }
 
     if (place === "DevelopmentRoom") {
-      setLyjQuestAccepted(true);
-      setLyjQuestCompleted(true);
-      setHeadsetCount(0);
-      setQuests((prev) =>
-        prev.map((q) =>
-          q.room === "development_room" ? { ...q, completed: true } : q
-        )
-      );
-      setCurrentQuestIndex((prev) => Math.max(prev, 2));
+      // Demo shortcut: immediately start LJY (준엽) board conversation and allow key reward flow.
+      setDevLyjMinigameDone(true);
+      setDevLettersUnlocked(true);
+      setDevBoardUnlocked(true);
+      setDevBoardDone(false);
+      setDevKeyCount(0);
       if (gameRef.current) {
-        gameRef.current.registry.set("lyjQuestAccepted", true);
-        gameRef.current.registry.set("lyjQuestCompleted", true);
-        gameRef.current.registry.set("headsetCount", 0);
+        gameRef.current.registry.set("devLyjMinigameDone", true);
+        gameRef.current.registry.set("devLettersUnlocked", true);
+        gameRef.current.registry.set("devBoardUnlocked", true);
+        gameRef.current.registry.set("devBoardDone", false);
+        gameRef.current.registry.set("devKeyCount", 0);
       }
+      setTimeout(() => openDevBoardInteractDialog(), 0);
+      return;
     }
-  }, []);
+  }, [openDevBoardInteractDialog]);
 
   const playWheelSfx = () => {
     const url = "/assets/common/scooter_wheel.mp3";
@@ -492,6 +637,7 @@ function App() {
     padX: 14,
     padY: 12,
   };
+  const KEY_SLOT = inventoryConfig.slots - 2;
   const HEADSET_SLOT = inventoryConfig.slots - 1;
   const letterPaper = {
     width: 330,
@@ -578,6 +724,35 @@ function App() {
     window.addEventListener("enter-my-room", handleEnterMyRoom);
     return () => window.removeEventListener("enter-my-room", handleEnterMyRoom);
   }, [endingUnlocked, endingActive, startEndingSequence]);
+
+  useEffect(() => {
+    const onDevIntro = () => {
+      if (devBoardDone) return;
+      openDevRoomIntroDialog();
+    };
+    const onDevAllDelivered = () => {
+      if (devBoardUnlocked || devBoardDone) return;
+      openDevAllDeliveredDialog();
+    };
+    const onDevBoardInteract = () => {
+      if (!devBoardUnlocked || devBoardDone) return;
+      openDevBoardInteractDialog();
+    };
+    window.addEventListener("open-devroom-intro", onDevIntro);
+    window.addEventListener("dev-all-delivered", onDevAllDelivered);
+    window.addEventListener("dev-board-interact", onDevBoardInteract);
+    return () => {
+      window.removeEventListener("open-devroom-intro", onDevIntro);
+      window.removeEventListener("dev-all-delivered", onDevAllDelivered);
+      window.removeEventListener("dev-board-interact", onDevBoardInteract);
+    };
+  }, [
+    devBoardDone,
+    devBoardUnlocked,
+    openDevAllDeliveredDialog,
+    openDevBoardInteractDialog,
+    openDevRoomIntroDialog,
+  ]);
 
   useEffect(() => {
     const handleOpenLyjQuest = () => {
@@ -669,6 +844,26 @@ function App() {
   }, [endingActive, endingStep]);
 
   useEffect(() => {
+    if (endingActive && endingStep === "phone-off") {
+      if (!emergencyAudioRef.current) {
+        const audio = new Audio("/assets/ending/emergency.mp3");
+        audio.loop = true;
+        audio.volume = 0.4;
+        audio.play().catch(() => {
+          console.warn("Emergency audio asset missing or autoplay blocked.");
+        });
+        emergencyAudioRef.current = audio;
+      }
+    } else {
+      if (emergencyAudioRef.current) {
+        emergencyAudioRef.current.pause();
+        emergencyAudioRef.current.currentTime = 0;
+        emergencyAudioRef.current = null;
+      }
+    }
+  }, [endingActive, endingStep]);
+
+  useEffect(() => {
     if (!endingFadeOut) return;
     const audio = endingAudioRef.current;
     if (!audio) return;
@@ -749,13 +944,15 @@ function App() {
     };
     window.addEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
     window.addEventListener("start-hospital-game", handleHospitalGameStart);
+    window.addEventListener("open-hospital-intro", openHospitalIntroDialog);
     window.addEventListener("start-eating-game", () => setShowEatingGame(true));
     return () => {
       window.removeEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
       window.removeEventListener("start-hospital-game", handleHospitalGameStart);
+      window.removeEventListener("open-hospital-intro", openHospitalIntroDialog);
       window.removeEventListener("start-eating-game", () => setShowEatingGame(true));
     };
-  }, [room103MiniGameCompleted]);
+  }, [room103MiniGameCompleted, openHospitalIntroDialog]);
 
   const handleChecklistClick = useCallback(() => {
     if (checklistTimerRef.current) {
@@ -891,6 +1088,11 @@ function App() {
   useEffect(() => {
     const handleInteract = (e) => {
       const { npcId } = e.detail;
+      if (npcId === "npc-pseongjun" && !pseongjunReady) {
+        // If the player tries to interact too early, show the arrival dialog again.
+        openPseongjunArriveDialog();
+        return;
+      }
       if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
         openRoom104BeforeMathDialog();
         return;
@@ -906,6 +1108,20 @@ function App() {
           openGroundCatchBallBeforeDialog();
           return;
         }
+      }
+      const devNpcIds = [
+        "npc-cyw",
+        "npc-lyj",
+        "npc-zhe",
+        "npc-jjaewoo",
+        "npc-ajy",
+        "npc-ljy",
+      ];
+      if (devNpcIds.includes(npcId) && !devLettersUnlocked) {
+        if (npcId === "npc-lyj" && !devLyjMinigameDone) {
+          openDevLyjHeadsetDialog();
+        }
+        return;
       }
 
       const kaimaruNpcIds = ["npc-bsy", "npc-kys", "npc-thj", "npc-jjw"];
@@ -925,7 +1141,13 @@ function App() {
         ? "103"
         : npcId?.includes("npc-104")
           ? "104"
-          : npcId === "npc-lyj"
+          : npcId === "npc-lyj" ||
+            npcId === "npc-ljy" ||
+            npcId === "npc-pseongjun" ||
+            npcId === "npc-cyw" ||
+            npcId === "npc-zhe" ||
+            npcId === "npc-jjaewoo" ||
+            npcId === "npc-ajy"
             ? "development_room"
             : null;
       if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
@@ -940,6 +1162,9 @@ function App() {
       const selectedSlot = gameStateRef.current.getSelectedSlot();
       const writtenCount = gameStateRef.current.getWrittenCount();
       if (selectedSlot === HEADSET_SLOT) {
+        return;
+      }
+      if (selectedSlot === KEY_SLOT) {
         return;
       }
 
@@ -971,7 +1196,18 @@ function App() {
 
     window.addEventListener("interact-npc", handleInteract);
     return () => window.removeEventListener("interact-npc", handleInteract);
-  }, [openRoom104BeforeMathDialog, openGroundCatchBallBeforeDialog, groundCatchBallCompleted, openGroundItbBeforeDialog, groundItbRunningCompleted]);
+  }, [
+    openRoom104BeforeMathDialog,
+    openGroundCatchBallBeforeDialog,
+    groundCatchBallCompleted,
+    openGroundItbBeforeDialog,
+    groundItbRunningCompleted,
+    devLettersUnlocked,
+    devLyjMinigameDone,
+    openDevLyjHeadsetDialog,
+    openPseongjunArriveDialog,
+    pseongjunReady,
+  ]);
 
   useEffect(() => {
     const handleKaimaruStory = () => {
@@ -1073,17 +1309,162 @@ function App() {
     gameStateRef.current.getEatingGameSolved = () => eatingGameSolved;
     gameStateRef.current.setShowMathGame = setShowMathGame;
     if (gameRef.current) {
+      const devNpcIds = ["npc-cyw", "npc-lyj", "npc-zhe", "npc-jjaewoo", "npc-ajy", "npc-ljy"];
+      const devAllLettersDelivered = devNpcIds.every(
+        (id) => npcs.find((n) => n.id === id)?.hasLetter,
+      );
       gameRef.current.registry.set("selectedSlot", selectedSlot);
       gameRef.current.registry.set("letterCount", letterCount);
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
       gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
       gameRef.current.registry.set("eatingGameSolved", eatingGameSolved);
+      gameRef.current.registry.set("headsetCount", headsetCount);
       gameRef.current.registry.set("lyjQuestAccepted", lyjQuestAccepted);
       gameRef.current.registry.set("lyjQuestCompleted", lyjQuestCompleted);
-      gameRef.current.registry.set("headsetCount", headsetCount);
+      gameRef.current.registry.set("hospitalGameSolved", hospitalGameSolved);
+      gameRef.current.registry.set(
+        "currentQuestRoom",
+        quests[currentQuestIndex]?.room ?? null,
+      );
+      gameRef.current.registry.set(
+        "uiBlocked",
+        gameStateRef.current.isMiniGameOpen,
+      );
+      gameRef.current.registry.set(
+        "groundCatchBallCompleted",
+        groundCatchBallCompleted,
+      );
+      gameRef.current.registry.set(
+        "groundItbRunningCompleted",
+        groundItbRunningCompleted,
+      );
+      gameRef.current.registry.set(
+        "mdhHasLetter",
+        npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "psjHasLetter",
+        npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "itbHasLetter",
+        npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set("devLyjMinigameDone", devLyjMinigameDone);
+      gameRef.current.registry.set("devLettersUnlocked", devLettersUnlocked);
+      gameRef.current.registry.set("devAllLettersDelivered", devAllLettersDelivered);
+      gameRef.current.registry.set("devBoardUnlocked", devBoardUnlocked);
+      gameRef.current.registry.set("devBoardDone", devBoardDone);
+      gameRef.current.registry.set("devKeyCount", devKeyCount);
+      gameRef.current.registry.set(
+        "cywHasLetter",
+        npcs.find((n) => n.id === "npc-cyw")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "zheHasLetter",
+        npcs.find((n) => n.id === "npc-zhe")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "jjaewooHasLetter",
+        npcs.find((n) => n.id === "npc-jjaewoo")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "ajyHasLetter",
+        npcs.find((n) => n.id === "npc-ajy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "lyjHasLetter",
+        npcs.find((n) => n.id === "npc-lyj")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "ljyHasLetter",
+        npcs.find((n) => n.id === "npc-ljy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "psyHasLetter",
+        npcs.find((n) => n.id === "npc-psy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "kjyHasLetter",
+        npcs.find((n) => n.id === "npc-kjy")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set("pseongjunReady", pseongjunReady);
+      gameRef.current.registry.set(
+        "pseongjunHasLetter",
+        npcs.find((n) => n.id === "npc-pseongjun")?.hasLetter ?? false,
+      );
     }
-  }, [showMiniGame, showMathGame, showEatingGame, showRoomDialog, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, eatingGameSolved, lyjQuestAccepted, lyjQuestCompleted, headsetCount]);
+  }, [
+    showMiniGame,
+    showMathGame,
+    showEatingGame,
+    showRoomDialog,
+    showRunningGame,
+    showCatchBall,
+    showWriteConfirm,
+    showLetterWrite,
+    showLetterRead,
+    showIntro,
+    selectedSlot,
+    letterCount,
+    writtenCount,
+    npcs,
+    writtenLetters,
+    letterGroups,
+    room103MiniGameCompleted,
+    mathGameSolved,
+    eatingGameSolved,
+    headsetCount,
+    lyjQuestAccepted,
+    lyjQuestCompleted,
+    hospitalGameSolved,
+    showHospitalGame,
+    pseongjunReady,
+    quests,
+    currentQuestIndex,
+    groundCatchBallCompleted,
+    groundItbRunningCompleted,
+    devLyjMinigameDone,
+    devLettersUnlocked,
+    devBoardUnlocked,
+    devBoardDone,
+    devKeyCount,
+  ]);
+
+  useEffect(() => {
+    if (!hospitalGameSolved || hospitalOutroPlayed) return;
+    const psyDone = npcs.find((n) => n.id === "npc-psy")?.hasLetter ?? false;
+    const kjyDone = npcs.find((n) => n.id === "npc-kjy")?.hasLetter ?? false;
+    if (psyDone && kjyDone) {
+      setHospitalOutroPlayed(true);
+      openHospitalAllDeliveredDialog();
+    }
+  }, [hospitalGameSolved, hospitalOutroPlayed, npcs, openHospitalAllDeliveredDialog]);
+
+  useEffect(() => {
+    if (!pseongjunReady || pseongjunOutroPlayed) return;
+    const delivered = npcs.find((n) => n.id === "npc-pseongjun")?.hasLetter ?? false;
+    if (delivered) {
+      setPseongjunOutroPlayed(true);
+      openPseongjunOutroDialog();
+    }
+  }, [npcs, openPseongjunOutroDialog, pseongjunOutroPlayed, pseongjunReady]);
+
+  useEffect(() => {
+    if (!pseongjunPending || pseongjunSpawned) return;
+    const id = setTimeout(() => {
+      setPseongjunSpawned(true);
+      window.dispatchEvent(new CustomEvent("spawn-pseongjun"));
+    }, 5000);
+    return () => clearTimeout(id);
+  }, [pseongjunPending, pseongjunSpawned]);
+
+  useEffect(() => {
+    const onPseongjunArrive = () => openPseongjunArriveDialog();
+    window.addEventListener("open-pseongjun-arrive-dialog", onPseongjunArrive);
+    return () => window.removeEventListener("open-pseongjun-arrive-dialog", onPseongjunArrive);
+  }, [openPseongjunArriveDialog]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1939,6 +2320,10 @@ function App() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes horizontalScroll {
+          0% { transform: translateX(100vw); }
+          100% { transform: translateX(-100%); }
+        }
       `}</style>
 
       {endingActive && (
@@ -2118,6 +2503,7 @@ function App() {
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "#000",
+                overflow: "hidden",
               }}
             >
               <div
@@ -2128,8 +2514,24 @@ function App() {
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   animation: "endingIntroFlicker 0.9s infinite",
+                  opacity: 0.6,
                 }}
               />
+              <div
+                style={{
+                  position: "absolute",
+                  width: "100%",
+                  whiteSpace: "nowrap",
+                  fontFamily: "Galmuri11-Bold",
+                  fontSize: "48px",
+                  color: "#fff",
+                  textShadow: "0 0 10px rgba(255,255,255,0.8), 2px 2px 4px rgba(0,0,0,0.5)",
+                  animation: "horizontalScroll 12s linear infinite",
+                  zIndex: 20050,
+                }}
+              >
+                2분반 다시만나~~~ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2분반 다시만나~~~ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2분반 다시만나~~~ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2분반 다시만나~~~
+              </div>
             </div>
           )}
 
@@ -2239,6 +2641,16 @@ function App() {
                       setGameGuideText("스페이스바를 연타해서 러닝하는 태빈이를 멈춰 세워보자.");
                       setGameGuideAction({ type: "startRunning" });
                       setShowGameGuide(true);
+                    } else if (action?.type === "openDevHeadsetGuide") {
+                      setGameGuideTitle("개발실 미니게임");
+                      setGameGuideText("헤드셋 찾기 (구현 중)  확인을 누르면 성공 처리됩니다.");
+                      setGameGuideAction({ type: "devHeadsetWin" });
+                      setShowGameGuide(true);
+                    } else if (action?.type === "openHospitalGuide") {
+                      setGameGuideTitle("병원 미니게임");
+                      setGameGuideText("미니게임을 시작합니다.");
+                      setGameGuideAction({ type: "startHospitalGame" });
+                      setShowGameGuide(true);
                     } else if (action?.type === "kaimaruToGround") {
                       window.dispatchEvent(
                         new CustomEvent("kaimaru-quest-complete"),
@@ -2278,6 +2690,51 @@ function App() {
                       setNjCount((prev) => prev + 1);
                       setShowNeopjukModal(true);
                       window.dispatchEvent(new CustomEvent("player-happy"));
+                    } else if (action?.type === "devEnableLyjDelivery") {
+                      setDevLettersUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devLettersUnlocked", true);
+                      }
+                    } else if (action?.type === "devUnlockBoard") {
+                      setDevBoardUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devBoardUnlocked", true);
+                      }
+                    } else if (action?.type === "devGiveKey") {
+                      setDevBoardDone(true);
+                      setDevKeyCount(1);
+                      setSelectedSlot(KEY_SLOT);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("devBoardDone", true);
+                        gameRef.current.registry.set("devKeyCount", 1);
+                        gameRef.current.registry.set("selectedSlot", KEY_SLOT);
+                      }
+                    } else if (action?.type === "hospitalReturnToDev") {
+                      playWheelSfx();
+                      setShowScooterReverse(true);
+                      setTimeout(() => {
+                        setShowScooterReverse(false);
+                        // Set the clock to 5:40 PM for the return sequence.
+                        accumulatedTimeRef.current = 520;
+                        setGameMinutes(520);
+                        transitionToScene("DevelopmentRoom");
+                        setPseongjunPending(false);
+                        setPseongjunSpawned(false);
+                        setPseongjunReady(false);
+                        setPseongjunOutroPlayed(false);
+                        setTimeout(() => openDevReturnDialog(), 200);
+                      }, 2500);
+                    } else if (action?.type === "pseongjunWait") {
+                      setPseongjunPending(true);
+                    } else if (action?.type === "enablePseongjunDelivery") {
+                      setPseongjunReady(true);
+                      setDevLettersUnlocked(true);
+                      if (gameRef.current) {
+                        gameRef.current.registry.set("pseongjunReady", true);
+                        gameRef.current.registry.set("devLettersUnlocked", true);
+                      }
+                    } else if (action?.type === "goHome") {
+                      transitionToScene("MyRoom");
                     }
                   }}
                   style={{
@@ -2348,7 +2805,16 @@ function App() {
                       setShowGameGuide(false);
                       setGameGuideAction(null);
                       setGameGuideTitle("");
+                      setGameGuideText("");
                       if (action?.type === "startRunning") setShowRunningGame(true);
+                      if (action?.type === "startHospitalGame") setShowHospitalGame(true);
+                      if (action?.type === "devHeadsetWin") {
+                        setDevLyjMinigameDone(true);
+                        if (gameRef.current) {
+                          gameRef.current.registry.set("devLyjMinigameDone", true);
+                        }
+                        openDevLyjThanksDialog();
+                      }
                     }}
                     style={{
                       width: "96px",
@@ -2784,9 +3250,8 @@ function App() {
             {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
               const isSlot0 = index === 0;
               const isHeadsetSlot = index === 6; // HEADSET_SLOT
-              const isNjSlot = index === 7; // NJ_SLOT
               const groupIndex = index - 1;
-              const group = index > 0 && !isHeadsetSlot && !isNjSlot ? letterGroups[groupIndex] : null;
+              const group = index > 0 && !isHeadsetSlot ? letterGroups[groupIndex] : null;
               const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
               const topPos = inventoryConfig.padY;
 
@@ -2931,11 +3396,11 @@ function App() {
                     </>
                   )}
 
-                  {isNjSlot && njCount > 0 && (
+                  {index === KEY_SLOT && devKeyCount > 0 && (
                     <>
                       <img
-                        src="/assets/common/nj.png"
-                        alt="Nj"
+                        src="/assets/hospital/key_.png"
+                        alt="Key"
                         style={{
                           position: "absolute",
                           left: `${leftPos + 4}px`,
@@ -2952,7 +3417,7 @@ function App() {
                           left: `${leftPos + inventoryConfig.slotSize - 16}px`,
                           top: `${topPos + inventoryConfig.slotSize - 16}px`,
                           fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
+                          fontSize: "11px",
                           color: "#5B3A24",
                           backgroundColor: "rgba(230, 210, 181, 0.85)",
                           borderRadius: "999px",
@@ -2964,7 +3429,7 @@ function App() {
                           pointerEvents: "none",
                         }}
                       >
-                        {njCount}
+                        {devKeyCount}
                       </span>
                     </>
                   )}
@@ -3090,7 +3555,7 @@ function App() {
                 textAlign: "left",
               }}
             >
-              📋 퀘스트 목록
+              ?? 퀘스트 목록
             </h3>
 
             <div
@@ -3131,7 +3596,7 @@ function App() {
                       flexShrink: 0,
                     }}
                   >
-                    {quest.completed ? "✓" : index + 1}
+                    {quest.completed ? "?" : index + 1}
                   </div>
 
                   {/* Quest Text */}
@@ -3175,7 +3640,7 @@ function App() {
               transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
               transition: "opacity 0.3s ease, transform 0.3s ease",
             }}>
-                  ..
+              ?    ..
             </div>
           )}
 
@@ -3267,161 +3732,161 @@ function App() {
 
                 {debugTab === "장소" && (
                   <>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("GameScene")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            길
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("Hospital")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            병원
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            복도
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("Kaimaru")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            카마
-                          </button>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("DevelopmentRoom")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            개발실
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("Room103")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            103
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("Room104")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            104
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleWarp("MyRoom")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            마이룸
-                          </button>
-                        </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("GameScene")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        길
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hospital")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        병원
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        복도
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Kaimaru")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        카마
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("DevelopmentRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        개발실
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room103")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        103
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("Room104")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        104
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWarp("MyRoom")}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        마이룸
+                      </button>
+                    </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
                         type="button"
                         onClick={() => handleWarp("Ground")}
-                            style={{
-                              width: "64px",
-                              height: "28px",
-                              fontFamily: "Galmuri11-Bold",
-                              fontSize: "10px",
-                              color: "#4E342E",
-                              backgroundColor: "#f1d1a8",
-                              border: "2px solid #caa47d",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
+                        style={{
+                          width: "64px",
+                          height: "28px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
                       >
                         운동장
                       </button>
@@ -3470,6 +3935,27 @@ function App() {
                       }}
                     >
                       104호
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleWarp("Hospital");
+                        setDebugWarpOpen(false);
+                        setTimeout(() => openHospitalIntroDialog(), 150);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "10px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      병원
                     </button>
                   </div>
                 )}
@@ -3688,6 +4174,8 @@ function App() {
         onClose={() => setShowHospitalGame(false)}
         onWin={() => {
           setShowHospitalGame(false);
+          setHospitalGameSolved(true);
+          openHospitalAfterWinDialog();
         }}
       />
       <ExitConfirmModal

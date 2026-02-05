@@ -240,7 +240,7 @@ export default class KaimaruScene extends Phaser.Scene {
 
     const firstFrame = "16x16 All Animations 0.aseprite";
     // Default spawn in top-left area of the room
-    const defaultSpawnX = startX + 150;
+    const defaultSpawnX = startX + 250;
     const defaultSpawnY = rowStart;
     this.spawnX = this.spawnX ?? defaultSpawnX;
     this.spawnY = this.spawnY ?? defaultSpawnY;
