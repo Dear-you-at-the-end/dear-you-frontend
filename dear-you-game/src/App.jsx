@@ -54,9 +54,9 @@ function App() {
   const [letterCount, setLetterCount] = useState(21);
   const [writtenCount, setWrittenCount] = useState(0);
   const [npcs, setNpcs] = useState([
-    { id: "npc-103-1", name: "SYY", hasLetter: false, hasWritten: false },
-    { id: "npc-103-2", name: "KMS", hasLetter: false, hasWritten: false },
-    { id: "npc-103-3", name: "PCW", hasLetter: false, hasWritten: false },
+    { id: "npc-103-1", name: "신원영", hasLetter: false, hasWritten: false },
+    { id: "npc-103-2", name: "김명성", hasLetter: false, hasWritten: false },
+    { id: "npc-103-3", name: "박찬우", hasLetter: false, hasWritten: false },
     { id: "npc-104-1", name: "IG", hasLetter: false, hasWritten: false },
     { id: "npc-104-2", name: "INJ", hasLetter: false, hasWritten: false },
     { id: "npc-lyj", name: "lyj", hasLetter: false, hasWritten: false },
@@ -386,7 +386,7 @@ function App() {
       }
       // Already wrote but not given, and holding paper?
       else if (hasWritten && !hasLetter && selectedSlot === 0) {
-        // alert("이미 편지를 썼습니다. 인벤토리에서 편지를 선택해 전달하세요.");
+        // Keep silent until a written letter slot is selected.
       }
     };
 
@@ -632,15 +632,24 @@ function App() {
         this.add
           .image(x, y, key)
           .setScale(pixelScale)
-          .setDepth(Math.round(y));
+          .setDepth(Math.round(y) - 20);
       };
-      // Left wall desk chair
-      placeChair(leftX - 22, row1Y + 8, "chair_left");
-
-      // Right wall desks: skip in Room104 (right desks excluded)
-      if (this.scene.key !== "Room104") {
-        placeChair(rightX + 22, row1Y + 8, "chair_right");
-        placeChair(rightX + 22, row2Y + 8, "chair_right");
+      if (this.scene.key === "Room103") {
+        // Room103: move chairs inward (inside of desks)
+        placeChair(leftX + 20, row1Y + 8, "chair_left");
+        placeChair(rightX - 20, row1Y + 8, "chair_right");
+        placeChair(rightX - 20, row2Y + 8, "chair_right");
+      } else if (this.scene.key === "Room104") {
+        // Room104: left chair also inward.
+        placeChair(leftX + 20, row1Y + 8, "chair_left");
+      } else {
+        // Default placement
+        placeChair(leftX - 22, row1Y + 8, "chair_left");
+        // Right wall desks: skip in Room104 (right desks excluded)
+        if (this.scene.key !== "Room104") {
+          placeChair(rightX + 22, row1Y + 8, "chair_right");
+          placeChair(rightX + 22, row2Y + 8, "chair_right");
+        }
       }
 
       const outlineTopH =
@@ -715,9 +724,9 @@ function App() {
 
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "swy-wiggle", texture: "swy" },
-          { id: "npc-103-2", x: leftX + 40, y: row3Y + 22, anim: "kms-wiggle", texture: "kms" },
-          { id: "npc-103-3", x: rightX - 30, y: row2Y + 18, anim: "pcw-wiggle", texture: "pcw" },
+          { id: "npc-103-1", x: leftX + 60, y: row2Y + 24, anim: "swy-wiggle", texture: "swy" },
+          { id: "npc-103-2", x: leftX + 60, y: row3Y + 20, anim: "kms-wiggle", texture: "kms" },
+          { id: "npc-103-3", x: rightX - 72, y: row2Y + 20, anim: "pcw-wiggle", texture: "pcw" },
         ],
         Room104: [
           { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },
@@ -741,6 +750,10 @@ function App() {
           npc.setScale(pixelScale);
           npc.setDepth(npc.y);
           npc.refreshBody();
+          if (this.scene.key === "Room103" && npcData.anim) {
+            // Match player-like footprint to avoid oversized interaction/collision area.
+            npc.body.setSize(10, 8).setOffset(5, 12);
+          }
           if (npcData.anim) npc.anims.play(npcData.anim);
           npc.npcId = npcData.id;
           if (npcData.texture === "ig") igPos = { x: npc.x, y: npc.y };
@@ -1005,7 +1018,7 @@ function App() {
 
       // Interaction
       let closestNpc = null;
-      let minDistance = 60;
+      let minDistance = 80;
       if (this.npcs) {
         this.npcs.children.iterate((npc) => {
           const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
@@ -1029,8 +1042,12 @@ function App() {
       if (this.npcIcons) {
         this.npcIcons.forEach(iconSet => {
           const npcState = gameStateRef.current.getNpcState(iconSet.npcId);
-          const hasLetter = npcState?.hasLetter ?? false;
-          iconSet.questIcon.setVisible(!hasLetter && !iconSet.happyIcon.visible);
+          if (!npcState) {
+            iconSet.questIcon.setVisible(false);
+            return;
+          }
+          const shouldShowQuestIcon = npcState.hasLetter === false && !iconSet.happyIcon.visible;
+          iconSet.questIcon.setVisible(shouldShowQuestIcon);
         });
       }
 
@@ -1039,8 +1056,7 @@ function App() {
         this.npcs.children.iterate((npc) => {
           if (npc.nameText) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
-            // Show name if close enough (e.g., < 60px)
-            if (dist < 60) {
+            if (dist < 80) {
               npc.nameText.setVisible(true);
             } else {
               npc.nameText.setVisible(false);
@@ -1073,7 +1089,7 @@ function App() {
 
       // NPC Interaction
       if (isNearNPC && !this.interactionCooldown) {
-        if (rightJustDown) {
+        if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
           if ((this.npcId === "npc-104-1" || this.npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
             gameStateRef.current.setShowMathGame(true);
             this.interactionCooldown = true;
