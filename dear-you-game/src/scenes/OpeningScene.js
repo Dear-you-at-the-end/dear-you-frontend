@@ -221,7 +221,7 @@ export default class OpeningScene extends Phaser.Scene {
     // Position phone_off at bottom-right corner (icon size)
     const phoneOff = this.add.image(width - 70, height - 120, "phoneOff");
     phoneOff.setScrollFactor(0);
-    phoneOff.setScale(0.22); // Smaller icon size
+    phoneOff.setScale(0.15); // Smaller icon size
     phoneOff.setInteractive();
     phoneOff.setDepth(1000);
 
@@ -245,7 +245,7 @@ export default class OpeningScene extends Phaser.Scene {
       // Step 1: Click feedback - quick bounce
       this.tweens.add({
         targets: phoneOff,
-        scale: 0.28,
+        scale: 0.18,
         duration: 100,
         ease: "Back.easeOut",
         onComplete: () => {
@@ -254,21 +254,21 @@ export default class OpeningScene extends Phaser.Scene {
             targets: phoneOff,
             x: width / 2,
             y: height / 2,
-            scale: 0.95, // Reduced size to match resized asset
+            scale: 0.75, // Reduced size to match resized asset
             duration: 700,
             ease: "Cubic.easeOut",
             onComplete: () => {
               // After zoom animation, show phone_on
               const phoneOn = this.add.image(width / 2, height / 2, "phoneOn");
               phoneOn.setAlpha(0);
-              phoneOn.setScale(0.95);
+              phoneOn.setScale(0.75);
               phoneOn.setScrollFactor(0);
               phoneOn.setDepth(1000);
 
               this.tweens.add({
                 targets: phoneOn,
                 alpha: 1,
-                scale: 0.9, // Settle slightly smaller
+                scale: 0.7, // Settle slightly smaller
                 duration: 500,
                 ease: "Quad.easeOut",
                 onComplete: () => {
@@ -284,15 +284,15 @@ export default class OpeningScene extends Phaser.Scene {
   }
 
   runTodoStep(phoneOn) {
-    const todo = this.add.image(phoneOn.x + 105, phoneOn.y - 40, "todoIcon");
+    const todo = this.add.image(phoneOn.x + 75, phoneOn.y - 40, "todoIcon");
     todo.setInteractive();
     todo.setScrollFactor(0);
-    todo.setScale(2.1);
+    todo.setScale(1.5);
     todo.setDepth(1101);
 
     const pulse = this.tweens.add({
       targets: todo,
-      scale: 2.05,
+      scale: 1.45,
       duration: 400,
       yoyo: true,
       repeat: -1,
