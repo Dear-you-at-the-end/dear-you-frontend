@@ -2060,7 +2060,7 @@ function App() {
                     fontFamily: "Galmuri11-Bold",
                   }}
                 >
-                  <div style={{ fontSize: "13px" }}>??? ?????????</div>
+                  <div style={{ fontSize: "13px" }}>서버를 종료하시겠습니까?</div>
                   <img
                     src="/assets/ending/end.png"
                     alt="End Confirm"
@@ -2100,7 +2100,7 @@ function App() {
                     fontFamily: "Galmuri11-Bold",
                   }}
                 >
-                  <div style={{ fontSize: "13px" }}>??? ?????</div>
+                  <div style={{ fontSize: "13px" }}>서버가 종료됩니다.</div>
                 </div>
               )}
             </>
