@@ -290,6 +290,17 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openRoom104AllDeliveredOutro = useCallback(() => {
+    setRoomDialogLines([
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "음.. 이제 개발실로 가야하나?" },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "근데 너무 배가 고파... 밥은 먹고 살아야지..." },
+      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "카이마루라는 곳에서 밥을 먹을 수 있는 것 같던데.. 가볼까?" },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "room104ToKaimaruConfirm" });
+    setShowRoomDialog(true);
+  }, []);
+
   const openPre103GateDialog = useCallback(() => {
     setRoomDialogLines([
       { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "우선 103호에 가보자...." },
@@ -1747,6 +1758,13 @@ function App() {
               this.player.body.setVelocity(0);
               return;
             }
+            openRoom104AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
           }
 
           setExitRoomKey(this.scene.key);
@@ -1783,6 +1801,13 @@ function App() {
               this.player.body.setVelocity(0);
               return;
             }
+            openRoom104AllDeliveredOutro();
+            this.interactionCooldown = true;
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1200);
+            this.player.body.setVelocity(0);
+            return;
           }
 
           setExitRoomKey(this.scene.key);
@@ -2065,6 +2090,10 @@ function App() {
                         gameRef.current.registry.set("room104QuestionActive", false);
                       }
                       transitionToScene("Room104");
+                    } else if (action?.type === "room104ToKaimaruConfirm") {
+                      setExitRoomKey("EnterKaimaru");
+                      setExitRoomData(null);
+                      setShowExitConfirm(true);
                     }
                   }}
                   style={{
