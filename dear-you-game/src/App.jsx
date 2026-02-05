@@ -50,7 +50,7 @@ function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
-  const [debugTab, setDebugTab] = useState("장소"); // Place | Quest | MiniGame
+  const [debugTab, setDebugTab] = useState("장소"); // 장소 | 미니게임 | 디버그(전달완료)
   const [showLyjQuestConfirm, setShowLyjQuestConfirm] = useState(false);
   const [lyjQuestAccepted, setLyjQuestAccepted] = useState(false);
   const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
@@ -64,24 +64,17 @@ function App() {
   useEffect(() => {
     const audio = new Audio("/assets/common/bgm.mp3");
     audio.loop = true;
-    audio.volume = 0.4;
+    audio.volume = 0.5; // Slightly louder
     audio.preload = "auto";
-
-    // Attempt early play (might fail in some browsers)
-    const playAttempt = audio.play();
-    if (playAttempt !== undefined) {
-      playAttempt.catch(() => {
-        console.log("Autoplay blocked. Waiting for user interaction...");
-      });
-    }
 
     setBgm(audio);
 
     // Global interaction listener to ensure BGM starts as soon as user clicks anywhere
+    // This is the most reliable way to handle browser autoplay policies
     const handleFirstClick = () => {
-      if (audio.paused) {
-        audio.play().catch(() => { });
-      }
+      audio.play().catch(() => {
+        console.log("Still blocked or error");
+      });
       window.removeEventListener("click", handleFirstClick);
     };
     window.addEventListener("click", handleFirstClick);
@@ -509,17 +502,6 @@ function App() {
 
   };
 
-  useEffect(() => {
-    const audio = new Audio("/assets/common/bgm.mp3");
-    audio.loop = true;
-    audio.volume = 0.35;
-    audio.preload = "auto";
-    setBgm(audio);
-    return () => {
-      audio.pause();
-      audio.currentTime = 0;
-    };
-  }, []);
 
   useEffect(() => {
     const handleBanToast = () => {
@@ -848,12 +830,8 @@ function App() {
 
   const handleIntroStart = useCallback(() => {
     setShowIntro(false);
-    if (!bgm) return;
-    const playPromise = bgm.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => { });
-    }
-  }, [bgm]);
+    // BGM should already be playing from first click or IntroScreen interactions
+  }, []);
 
   useEffect(() => {
     if (showIntro) {
@@ -3264,13 +3242,13 @@ function App() {
                 }}
               >
                 <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
-                  {["장소", "미니게임"].map((tab) => (
+                  {["장소", "미니게임", "디버그(전달완료)"].map((tab) => (
                     <button
                       key={tab}
                       type="button"
                       onClick={() => setDebugTab(tab)}
                       style={{
-                        width: "80px",
+                        width: "110px",
                         height: "24px",
                         fontFamily: "Galmuri11-Bold",
                         fontSize: "10px",
@@ -3289,166 +3267,215 @@ function App() {
 
                 {debugTab === "장소" && (
                   <>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("GameScene")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        길
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Hospital")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        병원
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        복도
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Kaimaru")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        카마
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("DevelopmentRoom")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        개발실
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Room103")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        103
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("Room104")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        104
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleWarp("MyRoom")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        마이룸
-                      </button>
-                    </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("GameScene")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            길
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("Hospital")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            병원
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            복도
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("Kaimaru")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            카마
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("DevelopmentRoom")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            개발실
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("Room103")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            103
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("Room104")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            104
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWarp("MyRoom")}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            마이룸
+                          </button>
+                        </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
                         type="button"
                         onClick={() => handleWarp("Ground")}
-                        style={{
-                          width: "64px",
-                          height: "28px",
-                          fontFamily: "Galmuri11-Bold",
-                          fontSize: "10px",
-                          color: "#4E342E",
-                          backgroundColor: "#f1d1a8",
-                          border: "2px solid #caa47d",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
+                            style={{
+                              width: "64px",
+                              height: "28px",
+                              fontFamily: "Galmuri11-Bold",
+                              fontSize: "10px",
+                              color: "#4E342E",
+                              backgroundColor: "#f1d1a8",
+                              border: "2px solid #caa47d",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                            }}
                       >
                         운동장
                       </button>
                     </div>
+                  </>
+                )}
 
+                {debugTab === "미니게임" && (
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMiniGame(true);
+                        setDebugWarpOpen(false);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "10px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      103호
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHeartQuest(true);
+                        setDebugWarpOpen(false);
+                      }}
+                      style={{
+                        width: "80px",
+                        height: "32px",
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "10px",
+                        color: "#4E342E",
+                        backgroundColor: "#f1d1a8",
+                        border: "2px solid #caa47d",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      104호
+                    </button>
+                  </div>
+                )}
+
+                {debugTab === "디버그(전달완료)" && (
+                  <>
                     <div
                       style={{
                         marginTop: "10px",
@@ -3580,51 +3607,6 @@ function App() {
                       </button>
                     </div>
                   </>
-                )}
-
-                {debugTab === "미니게임" && (
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMiniGame(true);
-                        setDebugWarpOpen(false);
-                      }}
-                      style={{
-                        width: "80px",
-                        height: "32px",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "10px",
-                        color: "#4E342E",
-                        backgroundColor: "#f1d1a8",
-                        border: "2px solid #caa47d",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      103호
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowHeartQuest(true);
-                        setDebugWarpOpen(false);
-                      }}
-                      style={{
-                        width: "80px",
-                        height: "32px",
-                        fontFamily: "Galmuri11-Bold",
-                        fontSize: "10px",
-                        color: "#4E342E",
-                        backgroundColor: "#f1d1a8",
-                        border: "2px solid #caa47d",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      104호
-                    </button>
-                  </div>
                 )}
                 <button
                   type="button"

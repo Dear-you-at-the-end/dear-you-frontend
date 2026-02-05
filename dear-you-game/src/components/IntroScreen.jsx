@@ -31,24 +31,15 @@ const IntroScreen = ({ onStart, bgm }) => {
     setTimeout(() => setButtonVisible(true), 2500);
   }, []);
 
-  useEffect(() => {
-    if (bgm && bgm.paused) {
-      bgm.play().catch(() => {
-        console.log("Autoplay waiting for interaction...");
-      });
-    }
-  }, [bgm]);
-
   const handlePlayClick = () => {
-    // Start BGM on user interaction
+    // Attempt play on click to satisfy browser policy
     if (bgm) {
-      bgm.play().catch(err => console.log("BGM play error:", err));
+      bgm.play().catch(() => { });
     }
     onStart();
   };
 
   const handleLogoClick = (e) => {
-    // Prevent double play from container onClick
     e.stopPropagation();
     if (bgm) {
       bgm.play().catch(() => { });
@@ -59,11 +50,6 @@ const IntroScreen = ({ onStart, bgm }) => {
 
   return (
     <div
-      onClick={() => {
-        if (bgm && bgm.paused) {
-          bgm.play().catch(() => { });
-        }
-      }}
       style={{
         position: "fixed",
         top: 0,
