@@ -382,6 +382,43 @@ export default class KaimaruScene extends Phaser.Scene {
         });
       }
     });
+
+    const handleNpcHappy = (e) => {
+      const { npcId } = e.detail;
+      const key = npcId.replace("npc-", "");
+      const npc = this.kaimaruNpcs[key];
+      if (npc) {
+        this.tweens.add({
+          targets: npc,
+          y: npc.y - 15,
+          duration: 200,
+          yoyo: true,
+          repeat: 1,
+          ease: "Power1",
+        });
+      }
+    };
+    window.addEventListener("npc-happy", handleNpcHappy);
+    this.events.once("shutdown", () => {
+      window.removeEventListener("npc-happy", handleNpcHappy);
+    });
+
+    const handlePlayerHappy = () => {
+      if (this.player) {
+        this.tweens.add({
+          targets: this.player,
+          y: this.player.y - 40,
+          duration: 250,
+          yoyo: true,
+          repeat: 1,
+          ease: "Power1",
+        });
+      }
+    };
+    window.addEventListener("player-happy", handlePlayerHappy);
+    this.events.once("shutdown", () => {
+      window.removeEventListener("player-happy", handlePlayerHappy);
+    });
   }
 
   createPlayerAnimations() {
@@ -451,6 +488,33 @@ export default class KaimaruScene extends Phaser.Scene {
         if (distToMain < 90 && canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
           this.lastTriggerTime = this.time.now;
           window.dispatchEvent(new CustomEvent("start-eating-game"));
+          this.player.body.setVelocity(0);
+          return;
+        }
+      }
+    }
+
+    // NPC Interaction check
+    let closestNpc = null;
+    let minDistance = 80;
+    if (this.kaimaruNpcs) {
+      Object.keys(this.kaimaruNpcs).forEach((key) => {
+        const npc = this.kaimaruNpcs[key];
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+        if (dist < minDistance) {
+          closestNpc = npc;
+          minDistance = dist;
+        }
+      });
+    }
+
+    if (closestNpc) {
+      const key = Object.keys(this.kaimaruNpcs).find(k => this.kaimaruNpcs[k] === closestNpc);
+      const npcId = `npc-${key}`;
+      if (canTrigger && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+        if (this.registry.get("eatingGameSolved")) {
+          this.lastTriggerTime = this.time.now;
+          window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId } }));
           this.player.body.setVelocity(0);
           return;
         }

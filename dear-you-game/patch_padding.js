@@ -29,9 +29,9 @@ try {
         if (idx !== -1) {
             console.log("Found line at " + idx + ": " + lines[idx]);
         }
-        process.exit(1);
+        throw new Error("Target padding block not found");
     }
 } catch (e) {
     console.error(e);
-    process.exit(1);
+    throw e;
 }

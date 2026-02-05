@@ -4,8 +4,6 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
     const [gameState, setGameState] = useState("intro"); // 'intro', 'playing', 'success', 'failed'
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
-    const [items, setItems] = useState([]); // { x, y, type, id, w, h }
-    const [playerX, setPlayerX] = useState(50); // percentage 0-100
     const [fadeIn, setFadeIn] = useState(false);
 
     const canvasRef = useRef(null);
@@ -62,12 +60,10 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
                 setGameState("intro");
                 setScore(0);
                 setLives(3);
-                setItems([]);
                 scoreRef.current = 0;
                 livesRef.current = 3;
                 itemsRef.current = [];
                 playerRef.current = { x: 50 };
-                setPlayerX(50);
                 setFadeIn(false);
                 fadeTimer = setTimeout(() => setFadeIn(true), 50);
             }, 0);
@@ -99,7 +95,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         });
     }, []);
 
-    const updateGame = useCallback((time) => {
+    const updateGame = useCallback(function tick(time) {
         if (gameState !== 'playing') return;
 
         const deltaTime = time - lastTimeRef.current;
@@ -205,7 +201,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         }
 
         if (scoreRef.current < TARGET_SCORE && livesRef.current > 0) {
-            requestRef.current = requestAnimationFrame(updateGame);
+            requestRef.current = requestAnimationFrame(tick);
         }
     }, [gameState, onWin, onClose, spawnItem]);
 
@@ -213,21 +209,11 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
     useEffect(() => {
         if (gameState !== 'playing') return;
 
-        const handleKeyDown = (e) => {
-            if (e.key === 'ArrowLeft') {
-                playerRef.current.x = Math.max(0, playerRef.current.x - 5);
-                setPlayerX(playerRef.current.x);
-            } else if (e.key === 'ArrowRight') {
-                playerRef.current.x = Math.min(100, playerRef.current.x + 5);
-                setPlayerX(playerRef.current.x);
-            }
-        };
-
         // Continuous movement handling could be smoother but keydown is simple start
         // Better: track keys held
         const keys = { ArrowLeft: false, ArrowRight: false, a: false, A: false, d: false, D: false };
-        const down = (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; };
-        const up = (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; };
+        const down = (e) => { if (Object.prototype.hasOwnProperty.call(keys, e.key)) keys[e.key] = true; };
+        const up = (e) => { if (Object.prototype.hasOwnProperty.call(keys, e.key)) keys[e.key] = false; };
 
         window.addEventListener('keydown', down);
         window.addEventListener('keyup', up);
@@ -235,11 +221,9 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         const moveInterval = setInterval(() => {
             if (keys.ArrowLeft || keys.a || keys.A) {
                 playerRef.current.x = Math.max(5, playerRef.current.x - 1.5);
-                setPlayerX(playerRef.current.x);
             }
             if (keys.ArrowRight || keys.d || keys.D) {
                 playerRef.current.x = Math.min(95, playerRef.current.x + 1.5);
-                setPlayerX(playerRef.current.x);
             }
         }, 16);
 
@@ -265,7 +249,6 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
 
     const handleStart = () => {
         setGameState('playing');
-        setItems([]);
         itemsRef.current = [];
         setScore(0);
         scoreRef.current = 0;

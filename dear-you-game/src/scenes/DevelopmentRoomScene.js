@@ -89,6 +89,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         this.load.image("plz_icon", `${commonPath}plz.png`);
         this.load.image("quest_icon", `${commonPath}quest_icon.png`);
         this.load.image("dev_mic", `${assetPath}mic.png`);
+        this.load.image("hint_icon", `${assetPath}hint.png`);
         this.load.image("x", `${commonPath}x.png`);
         this.load.image("dialog_bubble", `${commonPath}dialog.png`);
 
@@ -406,6 +407,19 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                 window.dispatchEvent(new CustomEvent("open-devroom-intro"));
             });
         }
+
+        this.devNpcMap = {};
+        if (this.developmentNpcs) {
+            this.developmentNpcs.forEach(({ sprite, nameText }) => {
+                if (nameText?.text) {
+                    this.devNpcMap[nameText.text] = sprite;
+                }
+            });
+        }
+        this.questHint = this.add.image(0, 0, "hint_icon");
+        this.questHint.setScale(pixelScale * 0.45);
+        this.questHint.setDepth(10003);
+        this.questHint.setVisible(false);
         // Player Speech Bubble Handler
         this.handlePlayerSay = (e) => {
             const text = e.detail;
@@ -659,11 +673,13 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         if (this.lyj && this.lyjPlz) {
             const currentQuestRoom = this.registry.get("currentQuestRoom");
             const questUnlocked = currentQuestRoom === "development_room" || currentQuestRoom == null;
+            const accepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const completed = this.registry.get("lyjQuestCompleted") ?? false;
             const bob = Math.sin(this.time.now / 200) * 3;
             this.lyjPlz.x = this.lyj.x + 14;
             this.lyjPlz.y = this.lyj.y - 24 + bob;
             this.lyjPlz.setDepth(this.lyj.depth + 1);
-            this.lyjPlz.setVisible(questUnlocked && !devLyjMinigameDone);
+            this.lyjPlz.setVisible(questUnlocked && (!devLyjMinigameDone || (!accepted && !completed)));
         }
         if (this.lyjQuestIcon && this.lyj) {
             this.lyjQuestIcon.setPosition(this.lyj.x, this.lyj.y - 38);
@@ -672,6 +688,34 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         // Legacy LYJ quest bubble disabled (we use React dialog flow now).
         if (this.lyjBubble) {
             this.lyjBubble.setVisible(false);
+        }
+        if (this.questHint) {
+            const questStep = this.registry.get("lyjQuestStep") ?? 0;
+            const accepted = this.registry.get("lyjQuestAccepted") ?? false;
+            const completed = this.registry.get("lyjQuestCompleted") ?? false;
+
+            let target = null;
+            if (accepted && !completed) {
+                if (questStep === 1) target = this.devNpcMap?.zhe;
+                else if (questStep === 2) target = this.ljy;
+                else if (questStep === 3) target = this.devNpcMap?.ajy;
+                else if (questStep === 4) target = this.devNpcMap?.cyw;
+                else if (questStep === 5) target = this.devNpcMap?.jjaewoo;
+                else if (questStep === 6) target = this.devMic;
+                else if (questStep === 7) target = this.lyj;
+            }
+
+            if (target) {
+                const bob = Math.sin(this.time.now / 200) * 3;
+                const isMic = target === this.devMic;
+                const offsetY = isMic ? 48 : 36;
+                this.questHint.x = target.x;
+                this.questHint.y = target.y - offsetY + bob;
+                this.questHint.setDepth((target.depth ?? target.y ?? 0) + 2);
+                this.questHint.setVisible(true);
+            } else {
+                this.questHint.setVisible(false);
+            }
         }
         const pointer = this.input.activePointer;
         const pointerRightDown = pointer.rightButtonDown();
@@ -684,7 +728,21 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         if (interactJustDown && this.lyj) {
             const distToLyj = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lyj.x, this.lyj.y);
             if (distToLyj < 70) {
-                window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
+                const headsetCount = this.registry.get("headsetCount") ?? 0;
+                const selectedSlot = this.registry.get("selectedSlot") ?? -1;
+                const lyjQuestAccepted = this.registry.get("lyjQuestAccepted") ?? false;
+                const lyjQuestCompleted = this.registry.get("lyjQuestCompleted") ?? false;
+
+                if (headsetCount > 0 && selectedSlot === 6 && lyjQuestAccepted && !lyjQuestCompleted) {
+                    window.dispatchEvent(new CustomEvent("complete-lyj-quest"));
+                    this.lyj.anims.stop();
+                    this.tweens.killTweensOf(this.lyj);
+                    this.lyj.setFrame(0);
+                } else if (!lyjQuestAccepted && !lyjQuestCompleted) {
+                    window.dispatchEvent(new CustomEvent("open-lyj-quest"));
+                } else {
+                    window.dispatchEvent(new CustomEvent("interact-npc", { detail: { npcId: "npc-lyj" } }));
+                }
                 return;
             }
         }

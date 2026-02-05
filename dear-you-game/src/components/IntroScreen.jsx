@@ -1,12 +1,24 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect } from "react";
 
-const IntroScreen = ({ onStart }) => {
+const IntroScreen = ({ onStart, bgm }) => {
   const [fadeIn, setFadeIn] = useState(false);
   const [logoVisible, setLogoVisible] = useState(false);
   const [buttonVisible, setButtonVisible] = useState(false);
-  const [cherryBlossoms, setCherryBlossoms] = useState([]);
   const [showCreator, setShowCreator] = useState(false);
-  const bgmRef = useRef(null);
+  const [cherryBlossoms] = useState(() => {
+    const petals = [];
+    for (let i = 0; i < 50; i++) {
+      petals.push({
+        id: i,
+        startX: 80 + Math.random() * 40,
+        startY: -20 + Math.random() * 80,
+        delay: Math.random() * 8,
+        duration: 8 + Math.random() * 8,
+        size: 6 + Math.floor(Math.random() * 4) * 2,
+      });
+    }
+    return petals;
+  });
 
   useEffect(() => {
     // Fade in main content
@@ -17,33 +29,21 @@ const IntroScreen = ({ onStart }) => {
 
     // Show play button after logo
     setTimeout(() => setButtonVisible(true), 2500);
-
-    // Generate pixel-style cherry blossom petals with wider range
-    const petals = [];
-    for (let i = 0; i < 50; i++) {
-      petals.push({
-        id: i,
-        startX: 80 + Math.random() * 40, // Wider range: 80% ~ 120%
-        startY: -20 + Math.random() * 80, // Wider vertical range
-        delay: Math.random() * 8,
-        duration: 8 + Math.random() * 8,
-        size: 6 + Math.floor(Math.random() * 4) * 2,
-      });
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCherryBlossoms(petals);
   }, []);
 
   const handlePlayClick = () => {
-    // Start BGM on user interaction
-    if (bgmRef.current) {
-      bgmRef.current.volume = 0.5;
-      bgmRef.current.play().catch(err => console.log("BGM play error:", err));
+    // Attempt play on click to satisfy browser policy
+    if (bgm) {
+      bgm.play().catch(() => { });
     }
     onStart();
   };
 
-  const handleLogoClick = () => {
+  const handleLogoClick = (e) => {
+    e.stopPropagation();
+    if (bgm) {
+      bgm.play().catch(() => { });
+    }
     setShowCreator(false);
     setTimeout(() => setShowCreator(true), 0);
   };
@@ -60,11 +60,6 @@ const IntroScreen = ({ onStart }) => {
         zIndex: 10000,
       }}
     >
-      {/* Background Music */}
-      <audio ref={bgmRef} loop>
-        <source src="/assets/common/bgm.mp3" type="audio/mpeg" />
-      </audio>
-
       {/* Main background */}
       <div
         style={{
@@ -131,7 +126,7 @@ const IntroScreen = ({ onStart }) => {
           zIndex: 10002,
         }}
       >
-        {/* Main Logo with left-to-right reveal animation */}
+        {/* Main Logo */}
         <div
           style={{
             marginTop: "110px",
@@ -200,7 +195,7 @@ const IntroScreen = ({ onStart }) => {
         </div>
       </div>
 
-      {/* Play Button - Bottom Right with fade in */}
+      {/* Play Button */}
       <div
         onClick={handlePlayClick}
         style={{
@@ -212,18 +207,6 @@ const IntroScreen = ({ onStart }) => {
           transition: "opacity 1s ease-in, transform 0.2s",
           animation: buttonVisible ? "pulse 2s ease-in-out infinite" : "none",
           zIndex: 10003,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.15)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "scale(1)";
-        }}
-        onMouseDown={(e) => {
-          e.currentTarget.style.transform = "scale(0.95)";
-        }}
-        onMouseUp={(e) => {
-          e.currentTarget.style.transform = "scale(1.15)";
         }}
       >
         <img
@@ -241,40 +224,18 @@ const IntroScreen = ({ onStart }) => {
       {/* CSS Animations */}
       <style>{`
         @keyframes cherryDiagonal {
-          0% {
-            transform: translate(0, 0) rotate(0deg);
-            opacity: 0;
-          }
-          5% {
-            opacity: 1;
-          }
-          95% {
-            opacity: 0.8;
-          }
-          100% {
-            transform: translate(-150vw, 120vh) rotate(-360deg);
-            opacity: 0;
-          }
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+          5% { opacity: 1; }
+          95% { opacity: 0.8; }
+          100% { transform: translate(-150vw, 120vh) rotate(-360deg); opacity: 0; }
         }
-
         @keyframes pulse {
-          0%, 100% {
-            transform: scale(1);
-            filter: brightness(1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-          }
-          50% {
-            transform: scale(1.08);
-            filter: brightness(1.15) drop-shadow(0 6px 12px rgba(255, 255, 255, 0.6));
-          }
+          0%, 100% { transform: scale(1); filter: brightness(1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4)); }
+          50% { transform: scale(1.08); filter: brightness(1.15) drop-shadow(0 6px 12px rgba(255, 255, 255, 0.6)); }
         }
-
         @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
         @keyframes pop {
           0% { transform: scale(0.6); opacity: 0; }

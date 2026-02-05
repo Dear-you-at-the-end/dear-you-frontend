@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 
 const filePath = 'src/App.jsx';
 
@@ -7,14 +6,6 @@ try {
     let content = fs.readFileSync(filePath, 'utf8');
 
     // 1. Replace Preload Logic
-    const oldPreloadStart = 'const characterPath = `${commonPath}character/`;';
-    const oldPreloadEnd = 'this.load.spritesheet("player_idle", `${characterPath}16x16 Idle-Sheet.png`, spriteConfig);';
-
-    const newPreload = `// const characterPath removed as it may be unused now or we just use full paths
-      // this.load.atlas("main_character", \`\${commonPath}character/main_character.png\`, \`\${commonPath}character/main_character.json\`);
-      // Simpler replacement block:
-  `;
-
     // Re-identifying the block more loosely to handle variations
     const idxStart = content.indexOf('const characterPath = `${commonPath}character/`;');
     // Finding the last spritesheet load

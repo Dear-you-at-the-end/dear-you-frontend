@@ -160,6 +160,8 @@ export default class MyRoomScene extends Phaser.Scene {
     this.lastDirection = "down";
     this.player.anims.play("idle-down");
     this.prevRight = false;
+
+    window.dispatchEvent(new CustomEvent("enter-my-room"));
   }
 
   createPlayerAnimations() {
@@ -197,6 +199,10 @@ export default class MyRoomScene extends Phaser.Scene {
 
   update() {
     if (!this.player) return;
+    if (this.registry.get("uiBlocked")) {
+      this.player.body.setVelocity(0);
+      return;
+    }
 
     const pointer = this.input.activePointer;
     const pointerRightDown = pointer.rightButtonDown();
