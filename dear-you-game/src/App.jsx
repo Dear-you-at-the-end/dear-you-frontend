@@ -249,6 +249,19 @@ function App() {
     setShowRoomDialog(true);
   }, []);
 
+  const openItbAfterDeliveryDialog = useCallback(() => {
+    setRoomDialogLines([
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "후.. 이제 진짜 크래프톤빌딩 개발실에 전달하면 퇴근할 수 있을 것 같아",
+      },
+    ]);
+    setRoomDialogIndex(0);
+    setRoomDialogAction({ type: "itbToKraftonConfirm" });
+    setShowRoomDialog(true);
+  }, []);
+
   const openRoom103AllDeliveredOutro = useCallback(() => {
     setRoomDialogLines([
       { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "휴.. 다행히 들키지 않은 것 같아" },
@@ -673,6 +686,63 @@ function App() {
       setDebugWarpOpen(false);
     },
     [transitionToScene],
+  );
+
+  const debugCompleteLettersForPlace = useCallback(
+    (placeKey) => {
+      const placeToNpcIds = {
+        Room103: ["npc-103-1", "npc-103-2", "npc-103-3"],
+        Room104: ["npc-104-1", "npc-104-2"],
+        Kaimaru: ["npc-bsy", "npc-kys", "npc-thj", "npc-jjw"],
+        Ground: ["npc-mdh", "npc-psj", "npc-itb"],
+        DevelopmentRoom: ["npc-lyj"],
+      };
+
+      const ids = placeToNpcIds[placeKey] ?? [];
+      if (ids.length === 0) return;
+
+      setNpcs((prev) =>
+        prev.map((n) =>
+          ids.includes(n.id) ? { ...n, hasLetter: true, hasWritten: true } : n,
+        ),
+      );
+
+      // Best-effort: keep related flags consistent for debugging.
+      if (placeKey === "Room103") {
+        setRoom103LettersDelivered(true);
+        setRoom104QuestionActive(true);
+        if (gameRef.current) {
+          gameRef.current.registry.set("room103LettersDelivered", true);
+          gameRef.current.registry.set("room104QuestionActive", true);
+        }
+        setQuests((prev) =>
+          prev.map((q) => (q.room === "103" ? { ...q, completed: true } : q)),
+        );
+        setCurrentQuestIndex((prev) => Math.max(prev, 1));
+      }
+      if (placeKey === "Room104") {
+        setQuests((prev) =>
+          prev.map((q) => (q.room === "104" ? { ...q, completed: true } : q)),
+        );
+        setCurrentQuestIndex((prev) => Math.max(prev, 2));
+      }
+      if (placeKey === "DevelopmentRoom") {
+        setQuests((prev) =>
+          prev.map((q) =>
+            q.room === "development_room" ? { ...q, completed: true } : q,
+          ),
+        );
+      }
+      if (placeKey === "Ground") {
+        setGroundCatchBallCompleted(true);
+        setGroundItbRunningCompleted(true);
+        if (gameRef.current) {
+          gameRef.current.registry.set("groundCatchBallCompleted", true);
+          gameRef.current.registry.set("groundItbRunningCompleted", true);
+        }
+      }
+    },
+    [],
   );
 
   const handleIntroStart = useCallback(() => {
@@ -2094,6 +2164,13 @@ function App() {
                       setExitRoomKey("EnterKaimaru");
                       setExitRoomData(null);
                       setShowExitConfirm(true);
+                    } else if (action?.type === "itbToKraftonConfirm") {
+                      setExitRoomKey("EnterDevelopmentRoom");
+                      setExitRoomData({
+                        message: "크래프톤 빌딩으로 이동하시겠습니까?",
+                        noScooter: true,
+                      });
+                      setShowExitConfirm(true);
                     }
                   }}
                   style={{
@@ -2305,6 +2382,9 @@ function App() {
                             detail: { npcId: targetId },
                           }),
                         );
+                        if (targetId === "npc-itb") {
+                          openItbAfterDeliveryDialog();
+                        }
                       }
                     }}
                     style={{
@@ -3126,12 +3206,13 @@ function App() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
+                  justifyContent: "flex-start",
                   gap: "12px",
                   padding: "20px 22px 24px",
                   boxSizing: "border-box",
                   color: "#4E342E",
                   fontFamily: "Galmuri11-Bold",
+                  overflowY: "auto",
                 }}
               >
                 <div
@@ -3324,6 +3405,106 @@ function App() {
                         운동장
                       </button>
                     </div>
+
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        width: "100%",
+                        borderTop: "1px solid rgba(141, 104, 78, 0.35)",
+                      }}
+                    />
+                    <div style={{ fontSize: "11px", color: "#6b4e38" }}>
+                      디버그: 장소 NPC 편지 전달 완료
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Room103")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        103 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Room104")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        104 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Ground")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        운동장 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => debugCompleteLettersForPlace("Kaimaru")}
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        카이마루 완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          debugCompleteLettersForPlace("DevelopmentRoom")
+                        }
+                        style={{
+                          width: "92px",
+                          height: "26px",
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "10px",
+                          color: "#4E342E",
+                          backgroundColor: "#f1d1a8",
+                          border: "2px solid #caa47d",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        개발실 완료
+                      </button>
+                    </div>
                   </>
                 )}
 
@@ -3438,6 +3619,18 @@ function App() {
 
           // Special handling for Hospital Entry with Scooter Animation
           if (sceneKey === "EnterDevelopmentRoom") {
+            const activeSceneKey =
+              gameRef.current?.scene
+                ?.getScenes(true)
+                ?.find((s) => s?.sys?.settings?.active)?.sys?.settings?.key ??
+              gameRef.current?.scene?.getScenes(true)?.[0]?.sys?.settings?.key;
+            const skipScooter =
+              exitRoomData?.noScooter === true || activeSceneKey === "Ground";
+
+            if (skipScooter) {
+              transitionToScene("DevelopmentRoom");
+              return;
+            }
             playWheelSfx();
             setShowScooterAnim(true);
 
@@ -3517,6 +3710,7 @@ function App() {
           }
         }}
         message={(() => {
+          if (exitRoomData?.message) return exitRoomData.message;
           if (!exitRoomKey) return "";
           if (exitRoomKey === "EnterHallway")
             return "사랑관으로 이동하시겠습니까?";
