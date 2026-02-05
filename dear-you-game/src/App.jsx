@@ -303,6 +303,24 @@ function App() {
     game.scene.start(sceneKey, data);
   }, []);
 
+  useEffect(() => {
+    const handleBusEnter = () => {
+      // Play engine sound effect
+      const engineSound = new Audio("/assets/common/scooter_wheel.mp3");
+      engineSound.volume = 0.5;
+      engineSound.play().catch(() => { });
+
+      // Transition to Development Room after a short delay
+      setTimeout(() => {
+        transitionToScene("DevelopmentRoom");
+      }, 500);
+    };
+    window.addEventListener("bus-enter", handleBusEnter);
+    return () => {
+      window.removeEventListener("bus-enter", handleBusEnter);
+    };
+  }, [transitionToScene]);
+
   const handleWarp = useCallback((sceneKey, data) => {
     transitionToScene(sceneKey, data);
     setDebugWarpOpen(false);

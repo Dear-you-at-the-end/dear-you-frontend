@@ -43,6 +43,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         );
         // Load LYJ NPC
         this.load.spritesheet("lyj", `${characterPath}lyj.png`, { frameWidth: 20, frameHeight: 20 });
+        this.load.spritesheet("ljy", `${characterPath}ljy.png`, { frameWidth: 20, frameHeight: 20 });
         this.load.image("cyw_chair", `${characterPath}cyw_chair.png`);
         this.load.image("zhe_chair", `${characterPath}zhe_chair.png`);
         this.load.image("jjaewoo_chair", `${characterPath}jjaewoo_chair.png`);
@@ -147,7 +148,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
         // Mic (Top Left area, free standing)
         const mic = decor.create(MAP_WIDTH / 2 + 40, floorTop + 40, "dev_mic");
-        mic.setScale(pixelScale * 1.5);
+        mic.setScale(pixelScale * 0.8);
         mic.setDepth(floorTop + 40);
         mic.setOrigin(0.5, 1);
         // 3. Desks Layout
@@ -197,7 +198,7 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
                     // NPC Replacement
                     const npcMap = {
-                        "2-left-0": "cyw_chair",
+                        "1-left-0": "cyw_chair",
                         "1-center-0": "zhe_chair",
                         "0-center-4": "jjaewoo_chair",
                         "1-right-1": "ajy_chair"
@@ -287,6 +288,8 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
 
         // Create LYJ NPC
         this.createLyj(pixelScale);
+        // Create LJY NPC (right corridor, side view)
+        this.createLjy(pixelScale);
     }
 
 
@@ -360,6 +363,29 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
         paceRight();
     }
 
+    createLjy(scale) {
+        const corridorX = MAP_WIDTH - 140;
+        const corridorY = (MAP_HEIGHT - FLOOR_HEIGHT) + 210;
+
+        this.ljy = this.physics.add.sprite(corridorX, corridorY, "ljy");
+        this.ljy.setScale(scale);
+        this.ljy.setDepth(corridorY);
+        this.ljy.body.setImmovable(true);
+        this.ljy.body.setAllowGravity(false);
+        this.ljy.body.setSize(12, 10).setOffset(4, 10);
+
+        if (!this.anims.exists("ljy-idle-right")) {
+            const frameCount = this.textures.get("ljy").getSourceImage().width / 20;
+            this.anims.create({
+                key: "ljy-idle-right",
+                frames: this.anims.generateFrameNumbers("ljy", { start: 4, end: Math.max(4, frameCount - 1) }),
+                frameRate: 5,
+                repeat: -1
+            });
+        }
+        this.ljy.play("ljy-idle-right");
+    }
+
     createPlayerAnimations() {
         if (this.anims.exists("idle-down")) return;
         const makeAnim = (key, start, end, frameRate, repeat) => {
@@ -416,8 +442,22 @@ export default class DevelopmentRoomScene extends Phaser.Scene {
                     dim.setScrollFactor(0).setDepth(10000);
                     const letter = this.add.image(centerX, centerY, "dev_board_letter");
                     letter.setScrollFactor(0).setDepth(10001);
-                    this.devBoardLetter = this.add.container(0, 0, [dim, letter]);
-                    this.devBoardLetter.setDepth(10002);
+                    const closeBtn = this.add.text(centerX + 170, centerY - 140, "X", {
+                        fontFamily: "Galmuri11-Bold",
+                        fontSize: "22px",
+                        color: "#ffffff",
+                        stroke: "#000000",
+                        strokeThickness: 3,
+                    });
+                    closeBtn.setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+                    closeBtn.on("pointerdown", () => {
+                        if (this.devBoardLetter) {
+                            this.devBoardLetter.destroy();
+                            this.devBoardLetter = null;
+                        }
+                    });
+                    this.devBoardLetter = this.add.container(0, 0, [dim, letter, closeBtn]);
+                    this.devBoardLetter.setDepth(10003);
                 }
                 return;
             }
