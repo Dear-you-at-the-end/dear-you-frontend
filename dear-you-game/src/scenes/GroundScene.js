@@ -76,12 +76,12 @@ export default class GroundScene extends Phaser.Scene {
 
     // NPCs (psj, mdh) on left grass, facing each other
     const npcScale = pixelScale * 1.1;
-    const grassTopY = tileHeight * 7 + 12;
-    const pairCenterX = MAP_WIDTH / 2 - 60;
-    const psj = this.add.sprite(pairCenterX - 30, grassTopY, "npc_psj", 0).setScale(npcScale);
-    const mdh = this.add.sprite(pairCenterX + 30, grassTopY, "npc_mdh", 0).setScale(npcScale);
+    const grassTopY = tileHeight * 7 + 28;
+    const pairCenterX = MAP_WIDTH / 2 - 260;
+    const psj = this.add.sprite(pairCenterX - 26, grassTopY, "npc_psj", 0).setScale(npcScale);
+    const mdh = this.add.sprite(pairCenterX + 26, grassTopY, "npc_mdh", 0).setScale(npcScale);
     psj.setFlipX(false);
-    mdh.setFlipX(false);
+    mdh.setFlipX(true);
     psj.setDepth(Math.round(psj.y));
     mdh.setDepth(Math.round(mdh.y));
 
@@ -218,7 +218,7 @@ export default class GroundScene extends Phaser.Scene {
 
     // Create ITB Character on the bottom track
     const itbRow = ROWS - 3; // On the bottom track
-    const itbY = itbRow * tileHeight - 12;
+    const itbY = itbRow * tileHeight - 26;
     const itbLeftX = 80;
     const itbRightX = MAP_WIDTH - 80;
     const itbStartX = itbLeftX;

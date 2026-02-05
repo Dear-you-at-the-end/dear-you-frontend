@@ -7,6 +7,7 @@ import RunningGameModal from "./components/RunningGameModal";
 import CatchBallModal from "./components/CatchBallModal";
 import ExitConfirmModal from "./components/ExitConfirmModal";
 import HeartQuestModal from "./components/HeartQuestModal";
+import HospitalGameModal from "./components/HospitalGameModal";
 import IntroScreen from "./components/IntroScreen";
 import HallwayScene from "./scenes/HallwayScene";
 import RoadScene from "./scenes/RoadScene";
@@ -26,8 +27,11 @@ function App() {
   const [mathGameSolved, setMathGameSolved] = useState(false);
   const [showRunningGame, setShowRunningGame] = useState(false);
   const [showCatchBall, setShowCatchBall] = useState(false);
-  const [groundCatchBallCompleted, setGroundCatchBallCompleted] = useState(false);
-  const [groundItbRunningCompleted, setGroundItbRunningCompleted] = useState(false);
+  const [showHospitalGame, setShowHospitalGame] = useState(false);
+  const [groundCatchBallCompleted, setGroundCatchBallCompleted] =
+    useState(false);
+  const [groundItbRunningCompleted, setGroundItbRunningCompleted] =
+    useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
   const [, setIsQuestCompleted] = useState(false);
@@ -38,19 +42,29 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [debugWarpOpen, setDebugWarpOpen] = useState(false);
   const [debugTab, setDebugTab] = useState("장소"); // Place | MiniGame
+  const [setShowLyjQuestConfirm] = useState(false);
+  const [lyjQuestAccepted] = useState(false);
+  const [lyjQuestCompleted, setLyjQuestCompleted] = useState(false);
+  const [headsetCount, setHeadsetCount] = useState(0);
 
   // Quest System
   const [quests, setQuests] = useState([
     { id: 1, text: "103호에 편지를 전달하자", room: "103", completed: false },
     { id: 2, text: "104호에 편지를 전달하자", room: "104", completed: false },
-    { id: 3, text: "개발실에 편지를 전달하자", room: "development_room", completed: false },
+    {
+      id: 3,
+      text: "개발실에 편지를 전달하자",
+      room: "development_room",
+      completed: false,
+    },
   ]);
   const [currentQuestIndex, setCurrentQuestIndex] = useState(0);
 
-  const [room103MiniGameCompleted, setRoom103MiniGameCompleted] = useState(false);
+  const [room103MiniGameCompleted, setRoom103MiniGameCompleted] =
+    useState(false);
   const [showScooterAnim, setShowScooterAnim] = useState(false);
   const [showScooterReverse, setShowScooterReverse] = useState(false);
-  const [showNextQuest, setShowNextQuest] = useState(false);
+  const [setShowNextQuest] = useState(false);
   const checklistTimerRef = useRef(null);
   const [gameMinutes, setGameMinutes] = useState(0);
   const [letterCount, setLetterCount] = useState(21);
@@ -93,7 +107,6 @@ function App() {
   const [readIndex, setReadIndex] = useState(0);
   const writtenLettersRef = useRef([]);
   const accumulatedTimeRef = useRef(0);
-  const isSceneTransitioningRef = useRef(false);
   const gameRef = useRef(null);
   const wheelSfxRef = useRef(null);
   const kaimaruQuestNotifiedRef = useRef(false);
@@ -120,9 +133,21 @@ function App() {
 
   const openRoom104BeforeMathDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "깜짝아! 이것도 인연인데 너 우리 calculator 테스트 해볼래?" },
-      { speaker: "남중", portrait: "/assets/common/dialog/inj.png", text: "하 형 그게 무슨 말이야" },
-      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "왜~ 재밌잖아 해볼래?" },
+      {
+        speaker: "이건",
+        portrait: "/assets/common/dialog/ig.png",
+        text: "깜짝아! 이것도 인연인데 너 우리 calculator 테스트 해볼래?",
+      },
+      {
+        speaker: "남중",
+        portrait: "/assets/common/dialog/inj.png",
+        text: "하 형 그게 무슨 말이야",
+      },
+      {
+        speaker: "이건",
+        portrait: "/assets/common/dialog/ig.png",
+        text: "왜~ 재밌잖아 해볼래?",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "startMath" });
@@ -131,8 +156,16 @@ function App() {
 
   const openRoom104AfterMathDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "남중", portrait: "/assets/common/dialog/inj.png", text: "너 꽤 똑똑하구나" },
-      { speaker: "이건", portrait: "/assets/common/dialog/ig.png", text: "아 맞다 너 여기 온 목적이 뭐였지?" },
+      {
+        speaker: "남중",
+        portrait: "/assets/common/dialog/inj.png",
+        text: "너 꽤 똑똑하구나",
+      },
+      {
+        speaker: "이건",
+        portrait: "/assets/common/dialog/ig.png",
+        text: "아 맞다 너 여기 온 목적이 뭐였지?",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
@@ -141,9 +174,21 @@ function App() {
 
   const openGroundCatchBallBeforeDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!" },
-      { speaker: "민동휘", portrait: "/assets/common/dialog/mdh.png", text: "어 그건 잘 모르겠고, 일단 캐치볼 한 판 고?" },
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "어... 네...!" },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "편지 배달 왔습니다!",
+      },
+      {
+        speaker: "민동휘",
+        portrait: "/assets/common/dialog/mdh.png",
+        text: "어 그건 잘 모르겠고, 일단 캐치볼 한 판 고?",
+      },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "어... 네...!",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "startCatchBall" });
@@ -152,8 +197,16 @@ function App() {
 
   const openGroundCatchBallAfterDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "박성재", portrait: "/assets/common/dialog/psj.png", text: "오 캐치볼 좀 치시네요~ 근데 아까 뭐라고 하셨죠?" },
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔어요!" },
+      {
+        speaker: "박성재",
+        portrait: "/assets/common/dialog/psj.png",
+        text: "오 캐치볼 좀 치시네요~ 근데 아까 뭐라고 하셨죠?",
+      },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "편지 배달 왔어요!",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
@@ -162,9 +215,21 @@ function App() {
 
   const openGroundItbBeforeDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!!" },
-      { speaker: "임태빈", portrait: "/assets/common/dialog/main.png", text: "..." },
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "러닝 중이라 들리지 않나봐.." },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "편지 배달 왔습니다!!",
+      },
+      {
+        speaker: "임태빈",
+        portrait: "/assets/common/dialog/main.png",
+        text: "...",
+      },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "러닝 중이라 들리지 않나봐..",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "openRunningGuide" });
@@ -173,7 +238,11 @@ function App() {
 
   const openGroundItbAfterDialog = useCallback(() => {
     setRoomDialogLines([
-      { speaker: "나", portrait: "/assets/common/dialog/main.png", text: "편지 배달 왔습니다!!" },
+      {
+        speaker: "나",
+        portrait: "/assets/common/dialog/main.png",
+        text: "편지 배달 왔습니다!!",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction(null);
@@ -221,17 +290,61 @@ function App() {
       return mainPortrait;
     };
     setRoomDialogLines([
-      { speaker: "배서연", portrait: portraitFor("배서연"), text: "한진아 썰 좀 더 풀어봐" },
-      { speaker: "나", portrait: portraitFor("나"), text: "한진...? 내가 편지 전달할 사람 중에도 한진이라는 이름이 있었던 것 같은데" },
-      { speaker: "한진", portrait: portraitFor("한진"), text: "아니 서연누나. mt 가서 다 풀어준다니까?" },
-      { speaker: "나", portrait: portraitFor("나"), text: "서연..? 서연도 있었던 것 같은데.." },
-      { speaker: "나", portrait: portraitFor("나"), text: "혹시 저 사람들이 편지를 전달해주어야 할 사람들인건가?" },
-      { speaker: "나", portrait: portraitFor("나"), text: "어..!! 잠시만요! 편지 배달 왔어요!!" },
-      { speaker: "배서연", portrait: portraitFor("배서연"), text: "감사합니다 ㅎㅎ" },
-      { speaker: "배서연", portrait: portraitFor("배서연"), text: "예서야 동휘랑 성재 운동장에서 캐치볼하고 있다는데 구경 가는 거 어때?" },
-      { speaker: "강예서", portrait: portraitFor("강예서"), text: "오 좋다!! 태빈이도 러닝하고 있는 것 같더라" },
-      { speaker: "나", portrait: portraitFor("나"), text: "(성재, 동휘, 태빈...? 모두 편지 전달해야 할 사람들이잖아!)" },
-      { speaker: "나", portrait: portraitFor("나"), text: "(운동장으로 가보자!!)" },
+      {
+        speaker: "배서연",
+        portrait: portraitFor("배서연"),
+        text: "한진아 썰 좀 더 풀어봐",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "한진...? 내가 편지 전달할 사람 중에도 한진이라는 이름이 있었던 것 같은데",
+      },
+      {
+        speaker: "한진",
+        portrait: portraitFor("한진"),
+        text: "아니 서연누나. mt 가서 다 풀어준다니까?",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "서연..? 서연도 있었던 것 같은데..",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "혹시 저 사람들이 편지를 전달해주어야 할 사람들인건가?",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "어..!! 잠시만요! 편지 배달 왔어요!!",
+      },
+      {
+        speaker: "배서연",
+        portrait: portraitFor("배서연"),
+        text: "감사합니다 ㅎㅎ",
+      },
+      {
+        speaker: "배서연",
+        portrait: portraitFor("배서연"),
+        text: "예서야 동휘랑 성재 운동장에서 캐치볼하고 있다는데 구경 가는 거 어때?",
+      },
+      {
+        speaker: "강예서",
+        portrait: portraitFor("강예서"),
+        text: "오 좋다!! 태빈이도 러닝하고 있는 것 같더라",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "(성재, 동휘, 태빈...? 모두 편지 전달해야 할 사람들이잖아!)",
+      },
+      {
+        speaker: "나",
+        portrait: portraitFor("나"),
+        text: "(운동장으로 가보자!!)",
+      },
     ]);
     setRoomDialogIndex(0);
     setRoomDialogAction({ type: "kaimaruToGround" });
@@ -245,7 +358,7 @@ function App() {
         wheelSfxRef.current = new Audio(url);
       }
       wheelSfxRef.current.currentTime = 0;
-      wheelSfxRef.current.play().catch(() => { });
+      wheelSfxRef.current.play().catch(() => {});
     } catch {
       // ignore audio errors
     }
@@ -260,6 +373,7 @@ function App() {
     padX: 14,
     padY: 12,
   };
+  const HEADSET_SLOT = inventoryConfig.slots - 1;
   const letterPaper = {
     width: 330,
     height: 390,
@@ -320,22 +434,56 @@ function App() {
       setShowExitConfirm(true);
     };
     window.addEventListener("open-exit-confirm", handleExitConfirm);
-    return () => window.removeEventListener("open-exit-confirm", handleExitConfirm);
+    return () =>
+      window.removeEventListener("open-exit-confirm", handleExitConfirm);
   }, []);
 
   useEffect(() => {
-    const handleRoom104HallEntry = () => {
-      openRoom104HallEntryDialog();
+    const handleOpenLyjQuest = () => {
+      if (!lyjQuestAccepted && !lyjQuestCompleted) {
+        setShowLyjQuestConfirm(true);
+      }
     };
-    window.addEventListener("open-room104-hall-entry", handleRoom104HallEntry);
-    return () => window.removeEventListener("open-room104-hall-entry", handleRoom104HallEntry);
-  }, [openRoom104HallEntryDialog]);
+    const handleFindHeadset = () => {
+      if (lyjQuestAccepted && !lyjQuestCompleted) {
+        setHeadsetCount((prev) => {
+          const next = prev > 0 ? prev : 1;
+          return next;
+        });
+        setSelectedSlot(HEADSET_SLOT);
+      }
+    };
+    const handleCompleteLyjQuest = () => {
+      if (!lyjQuestCompleted && headsetCount > 0) {
+        setHeadsetCount(0);
+        setLyjQuestCompleted(true);
+        setQuests((prevQuests) =>
+          prevQuests.map((q) =>
+            q.room === "development_room" ? { ...q, completed: true } : q,
+          ),
+        );
+      }
+    };
+
+    window.addEventListener("open-lyj-quest", handleOpenLyjQuest);
+    window.addEventListener("find-lyj-headset", handleFindHeadset);
+    window.addEventListener("complete-lyj-quest", handleCompleteLyjQuest);
+    return () => {
+      window.removeEventListener("open-lyj-quest", handleOpenLyjQuest);
+      window.removeEventListener("find-lyj-headset", handleFindHeadset);
+      window.removeEventListener("complete-lyj-quest", handleCompleteLyjQuest);
+    };
+  }, [lyjQuestAccepted, lyjQuestCompleted, headsetCount, HEADSET_SLOT]);
 
   useEffect(() => {
     const onOpeningStart = () => setIsOpeningScene(true);
     const onOpeningEnd = () => {
       setIsOpeningScene(false);
       setChecklistOpen(true);
+      if (checklistTimerRef.current) clearTimeout(checklistTimerRef.current);
+      checklistTimerRef.current = setTimeout(() => {
+        setChecklistOpen(false);
+      }, 5000);
     };
     window.addEventListener("opening-start", onOpeningStart);
     window.addEventListener("opening-end", onOpeningEnd);
@@ -384,9 +532,23 @@ function App() {
         setShowMiniGame(true);
       }
     };
-    window.addEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+    const handleHospitalGameStart = () => {
+      setShowHospitalGame(true);
+    };
+    window.addEventListener(
+      "room-103-minigame-start",
+      handleRoom103MiniGameStart,
+    );
+    window.addEventListener("start-hospital-game", handleHospitalGameStart);
     return () => {
-      window.removeEventListener("room-103-minigame-start", handleRoom103MiniGameStart);
+      window.removeEventListener(
+        "room-103-minigame-start",
+        handleRoom103MiniGameStart,
+      );
+      window.removeEventListener(
+        "start-hospital-game",
+        handleHospitalGameStart,
+      );
     };
   }, [room103MiniGameCompleted]);
 
@@ -408,7 +570,7 @@ function App() {
 
   // Auto-show quest modal when quests are updated
   useEffect(() => {
-    const completedCount = quests.filter(q => q.completed).length;
+    const completedCount = quests.filter((q) => q.completed).length;
 
     // Show modal when a quest is completed (but not on initial load)
     if (completedCount > 0) {
@@ -441,7 +603,7 @@ function App() {
       // Play engine sound effect
       const engineSound = new Audio("/assets/common/scooter_wheel.mp3");
       engineSound.volume = 0.5;
-      engineSound.play().catch(() => { });
+      engineSound.play().catch(() => {});
 
       // Transition to Development Room after a short delay
       setTimeout(() => {
@@ -454,17 +616,20 @@ function App() {
     };
   }, [transitionToScene]);
 
-  const handleWarp = useCallback((sceneKey, data) => {
-    transitionToScene(sceneKey, data);
-    setDebugWarpOpen(false);
-  }, [transitionToScene]);
+  const handleWarp = useCallback(
+    (sceneKey, data) => {
+      transitionToScene(sceneKey, data);
+      setDebugWarpOpen(false);
+    },
+    [transitionToScene],
+  );
 
   const handleIntroStart = useCallback(() => {
     setShowIntro(false);
     if (!bgm) return;
     const playPromise = bgm.play();
     if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => { });
+      playPromise.catch(() => {});
     }
   }, [bgm]);
 
@@ -481,7 +646,18 @@ function App() {
 
     const tick = () => {
       // Pause conditions
-      if (showMiniGame || showMathGame || showRoomDialog || showGameGuide || showRunningGame || showCatchBall || showWriteConfirm || showLetterWrite || showLetterRead) {
+      if (
+        showMiniGame ||
+        showMathGame ||
+        showRoomDialog ||
+        showGameGuide ||
+        showRunningGame ||
+        showCatchBall ||
+        showWriteConfirm ||
+        showLetterWrite ||
+        showLetterRead ||
+        showHospitalGame
+      ) {
         return;
       }
       accumulatedTimeRef.current += gameMinutesPerRealSecond;
@@ -492,7 +668,19 @@ function App() {
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [showIntro, showMiniGame, showMathGame, showRoomDialog, showGameGuide, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead]);
+  }, [
+    showIntro,
+    showMiniGame,
+    showMathGame,
+    showRoomDialog,
+    showGameGuide,
+    showRunningGame,
+    showCatchBall,
+    showWriteConfirm,
+    showLetterWrite,
+    showLetterRead,
+    showHospitalGame,
+  ]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -500,7 +688,8 @@ function App() {
       event.preventDefault();
       const direction = event.deltaY > 0 ? 1 : -1;
       setSelectedSlot((prev) => {
-        const next = (prev + direction + inventoryConfig.slots) % inventoryConfig.slots;
+        const next =
+          (prev + direction + inventoryConfig.slots) % inventoryConfig.slots;
         return next;
       });
     };
@@ -524,7 +713,10 @@ function App() {
   useEffect(() => {
     const handleInteract = (e) => {
       const { npcId } = e.detail;
-      if ((npcId === "npc-104-1" || npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
+      if (
+        (npcId === "npc-104-1" || npcId === "npc-104-2") &&
+        !gameStateRef.current.getMathGameSolved()
+      ) {
         openRoom104BeforeMathDialog();
         return;
       }
@@ -534,12 +726,25 @@ function App() {
           return;
         }
       }
-      if (npcId === "npc-mdh-psj" || npcId === "npc-mdh" || npcId === "npc-psj") {
+      if (npcId === "npc-mdh-psj") {
         if (!groundCatchBallCompleted) {
           openGroundCatchBallBeforeDialog();
           return;
         }
       }
+
+      const currentQuestRoom = gameStateRef.current.getCurrentQuestRoom?.();
+      const npcRoom = npcId?.includes("npc-103")
+        ? "103"
+        : npcId?.includes("npc-104")
+          ? "104"
+          : npcId === "npc-lyj"
+            ? "development_room"
+            : null;
+      if (npcRoom && currentQuestRoom && npcRoom !== currentQuestRoom) {
+        return;
+      }
+
       const npcState = gameStateRef.current.getNpcState(npcId);
       if (!npcState) return;
 
@@ -547,6 +752,9 @@ function App() {
       const letterCount = gameStateRef.current.getLetterCount();
       const selectedSlot = gameStateRef.current.getSelectedSlot();
       const writtenCount = gameStateRef.current.getWrittenCount();
+      if (selectedSlot === HEADSET_SLOT) {
+        return;
+      }
 
       // Write logic: Empty hands (slot 0) and no letter yet
       if (!hasLetter && !hasWritten && letterCount > 0 && selectedSlot === 0) {
@@ -576,14 +784,21 @@ function App() {
 
     window.addEventListener("interact-npc", handleInteract);
     return () => window.removeEventListener("interact-npc", handleInteract);
-  }, [openRoom104BeforeMathDialog, openGroundCatchBallBeforeDialog, groundCatchBallCompleted, openGroundItbBeforeDialog, groundItbRunningCompleted]);
+  }, [
+    openRoom104BeforeMathDialog,
+    openGroundCatchBallBeforeDialog,
+    groundCatchBallCompleted,
+    openGroundItbBeforeDialog,
+    groundItbRunningCompleted,
+  ]);
 
   useEffect(() => {
     const handleKaimaruStory = () => {
       openKaimaruStoryDialog();
     };
     window.addEventListener("open-kaimaru-story", handleKaimaruStory);
-    return () => window.removeEventListener("open-kaimaru-story", handleKaimaruStory);
+    return () =>
+      window.removeEventListener("open-kaimaru-story", handleKaimaruStory);
   }, [openKaimaruStoryDialog]);
 
   useEffect(() => {
@@ -598,7 +813,7 @@ function App() {
             prev.map((n) => ({
               ...n,
               hasWritten: parsed.some((l) => l.npcId === n.id),
-            }))
+            })),
           );
         }
       }
@@ -619,7 +834,6 @@ function App() {
     }
   }, [quests]);
 
-
   const gameStateRef = useRef({
     isMiniGameOpen: false,
     setShowMiniGame: setShowMiniGame,
@@ -629,30 +843,41 @@ function App() {
     getSelectedSlot: () => selectedSlot,
     getLetterCount: () => letterCount,
     getWrittenCount: () => writtenCount,
+    getCurrentQuestRoom: () => quests[currentQuestIndex]?.room,
     getNpcState: (id) => npcs.find((n) => n.id === id),
     setNpcHasLetter: (id) =>
-      setNpcs((prev) => prev.map((n) => (n.id === id ? { ...n, hasLetter: true } : n))),
+      setNpcs((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, hasLetter: true } : n)),
+      ),
     setNpcWritten: (id) => {
       setNpcs((prev) => {
-        const updated = prev.map((n) => (n.id === id ? { ...n, hasWritten: true } : n));
+        const updated = prev.map((n) =>
+          n.id === id ? { ...n, hasWritten: true } : n,
+        );
 
         // Check if quest should be completed
-        const npc = prev.find(n => n.id === id);
+        const npc = prev.find((n) => n.id === id);
         if (npc) {
-          const roomNumber = npc.id.includes("103") ? "103" : npc.id.includes("104") ? "104" : null;
+          const roomNumber = npc.id.includes("103")
+            ? "103"
+            : npc.id.includes("104")
+              ? "104"
+              : null;
           if (roomNumber) {
-            const roomNpcs = updated.filter(n => n.id.includes(roomNumber));
-            const allCompleted = roomNpcs.every(n => n.hasWritten);
+            const roomNpcs = updated.filter((n) => n.id.includes(roomNumber));
+            const allCompleted = roomNpcs.every((n) => n.hasWritten);
 
             if (allCompleted) {
               // Mark quest as completed
-              setQuests(prevQuests => prevQuests.map(q =>
-                q.room === roomNumber ? { ...q, completed: true } : q
-              ));
+              setQuests((prevQuests) =>
+                prevQuests.map((q) =>
+                  q.room === roomNumber ? { ...q, completed: true } : q,
+                ),
+              );
 
               // Move to next quest after delay
               setTimeout(() => {
-                setCurrentQuestIndex(prev => Math.min(prev + 1, 2)); // Max index 2 for 3 quests
+                setCurrentQuestIndex((prev) => Math.min(prev + 1, 2)); // Max index 2 for 3 quests
               }, 1000);
             }
           }
@@ -674,7 +899,8 @@ function App() {
       showCatchBall ||
       showWriteConfirm ||
       showLetterWrite ||
-      showLetterRead;
+      showLetterRead ||
+      showHospitalGame;
     gameStateRef.current.getSelectedSlot = () => selectedSlot;
     gameStateRef.current.getLetterCount = () => letterCount;
     gameStateRef.current.getWrittenCount = () => writtenCount;
@@ -687,17 +913,69 @@ function App() {
       gameRef.current.registry.set("letterCount", letterCount);
       gameRef.current.registry.set("writtenCount", writtenCount);
       gameRef.current.registry.set("writtenLetters", writtenLetters);
-      gameRef.current.registry.set("room103MiniGameCompleted", room103MiniGameCompleted);
-      gameRef.current.registry.set("uiBlocked", gameStateRef.current.isMiniGameOpen);
-      gameRef.current.registry.set("groundCatchBallCompleted", groundCatchBallCompleted);
-      gameRef.current.registry.set("groundItbRunningCompleted", groundItbRunningCompleted);
-      gameRef.current.registry.set("mdhHasLetter", npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false);
-      gameRef.current.registry.set("psjHasLetter", npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false);
-      gameRef.current.registry.set("itbHasLetter", npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false);
-      gameRef.current.registry.set("room104QuestionActive", room104QuestionActive);
-      gameRef.current.registry.set("room103LettersDelivered", room103LettersDelivered);
+      gameRef.current.registry.set(
+        "room103MiniGameCompleted",
+        room103MiniGameCompleted,
+      );
+      gameRef.current.registry.set("headsetCount", headsetCount);
+      gameRef.current.registry.set("lyjQuestAccepted", lyjQuestAccepted);
+      gameRef.current.registry.set("lyjQuestCompleted", lyjQuestCompleted);
+      gameRef.current.registry.set(
+        "currentQuestRoom",
+        quests[currentQuestIndex]?.room ?? null,
+      );
+      gameRef.current.registry.set(
+        "uiBlocked",
+        gameStateRef.current.isMiniGameOpen,
+      );
+      gameRef.current.registry.set(
+        "groundCatchBallCompleted",
+        groundCatchBallCompleted,
+      );
+      gameRef.current.registry.set(
+        "groundItbRunningCompleted",
+        groundItbRunningCompleted,
+      );
+      gameRef.current.registry.set(
+        "mdhHasLetter",
+        npcs.find((n) => n.id === "npc-mdh")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "psjHasLetter",
+        npcs.find((n) => n.id === "npc-psj")?.hasLetter ?? false,
+      );
+      gameRef.current.registry.set(
+        "itbHasLetter",
+        npcs.find((n) => n.id === "npc-itb")?.hasLetter ?? false,
+      );
     }
-  }, [showMiniGame, showMathGame, showRoomDialog, showRunningGame, showCatchBall, showWriteConfirm, showLetterWrite, showLetterRead, showIntro, selectedSlot, letterCount, writtenCount, npcs, writtenLetters, letterGroups, room103MiniGameCompleted, mathGameSolved, groundCatchBallCompleted, groundItbRunningCompleted, room104QuestionActive, room103LettersDelivered]);
+  }, [
+    showMiniGame,
+    showMathGame,
+    showRoomDialog,
+    showRunningGame,
+    showCatchBall,
+    showWriteConfirm,
+    showLetterWrite,
+    showLetterRead,
+    showIntro,
+    selectedSlot,
+    letterCount,
+    writtenCount,
+    npcs,
+    writtenLetters,
+    letterGroups,
+    room103MiniGameCompleted,
+    mathGameSolved,
+    headsetCount,
+    lyjQuestAccepted,
+    lyjQuestCompleted,
+    showHospitalGame,
+    quests,
+    currentQuestIndex,
+    groundCatchBallCompleted,
+    groundItbRunningCompleted,
+  ]);
 
   useEffect(() => {
     if (showIntro) return;
@@ -727,7 +1005,18 @@ function App() {
           debug: true,
         },
       },
-      scene: [OpeningScene, RoadScene, GroundScene, HallwayScene, DevelopmentRoomScene, KaimaruScene, MyRoomScene, HospitalScene, { key: "Room103", preload, create, update }, { key: "Room104", preload, create, update }],
+      scene: [
+        OpeningScene,
+        RoadScene,
+        GroundScene,
+        HallwayScene,
+        DevelopmentRoomScene,
+        KaimaruScene,
+        MyRoomScene,
+        HospitalScene,
+        { key: "Room103", preload, create, update },
+        { key: "Room104", preload, create, update },
+      ],
     };
 
     function preload() {
@@ -759,14 +1048,23 @@ function App() {
       this.load.image("inj", `${commonPath}character/inj.png`);
 
       // 160x20 sprite sheets -> 20x20 x 8 frames (indices 0..7)
-      this.load.spritesheet("kms", `${commonPath}character/kms.png`, { frameWidth: 20, frameHeight: 20 });
-      this.load.spritesheet("pcw", `${commonPath}character/pcw.png`, { frameWidth: 20, frameHeight: 20 });
-      this.load.spritesheet("swy", `${commonPath}character/swy.png`, { frameWidth: 20, frameHeight: 20 });
+      this.load.spritesheet("kms", `${commonPath}character/kms.png`, {
+        frameWidth: 20,
+        frameHeight: 20,
+      });
+      this.load.spritesheet("pcw", `${commonPath}character/pcw.png`, {
+        frameWidth: 20,
+        frameHeight: 20,
+      });
+      this.load.spritesheet("swy", `${commonPath}character/swy.png`, {
+        frameWidth: 20,
+        frameHeight: 20,
+      });
 
       this.load.atlas(
         "main_character",
         `${commonPath}character/main_character.png`,
-        `${commonPath}character/main_character.json`
+        `${commonPath}character/main_character.json`,
       );
     }
 
@@ -812,8 +1110,14 @@ function App() {
         const furniture = obstacles.create(x, y, texture);
         furniture.setScale(pixelScale * scaleX, pixelScale * scaleY);
         furniture.refreshBody();
-        furniture.body.setSize(furniture.displayWidth * 0.85, furniture.displayHeight * 0.4);
-        furniture.body.setOffset(furniture.displayWidth * 0.075, furniture.displayHeight * 0.6);
+        furniture.body.setSize(
+          furniture.displayWidth * 0.85,
+          furniture.displayHeight * 0.4,
+        );
+        furniture.body.setOffset(
+          furniture.displayWidth * 0.075,
+          furniture.displayHeight * 0.6,
+        );
         furniture.setDepth(Math.round(furniture.y));
         return furniture;
       };
@@ -827,15 +1131,30 @@ function App() {
       const row3Y = startY + 215;
       const row4Y = startY + 265;
 
-      createFurniture({ x: leftX, y: row1Y, texture: "deskl", scaleX: 1 });
-      createFurniture({ x: leftX + 10, y: row2Y, texture: "bed_2", scaleX: 0.85 });
+      createFurniture({ x: leftX + 10, y: row1Y, texture: "deskl", scaleX: 1 });
+      createFurniture({
+        x: leftX + 10,
+        y: row2Y,
+        texture: "bed_2",
+        scaleX: 0.85,
+      });
       createFurniture({ x: leftX - 5, y: row3Y, texture: "closet", scaleX: 1 });
       createFurniture({ x: leftX - 5, y: row4Y, texture: "closet", scaleX: 1 });
 
       createFurniture({ x: rightX, y: row1Y, texture: "deskr", scaleX: 1 });
       createFurniture({ x: rightX, y: row2Y, texture: "deskr", scaleX: 1 });
-      createFurniture({ x: rightX - 10, y: row3Y, texture: "bed", scaleX: 0.85 });
-      createFurniture({ x: rightX + 5, y: row4Y, texture: "closet", scaleX: 1 });
+      createFurniture({
+        x: rightX - 10,
+        y: row3Y,
+        texture: "bed",
+        scaleX: 0.85,
+      });
+      createFurniture({
+        x: rightX + 5,
+        y: row4Y,
+        texture: "closet",
+        scaleX: 1,
+      });
 
       const placeChair = (x, y, key) => {
         this.add
@@ -874,7 +1193,13 @@ function App() {
         .setTileScale(pixelScale)
         .setDepth(outlineDepth);
       this.add
-        .tileSprite(centerX, startY + roomH, outlineW, outlineTopH, "outline_top")
+        .tileSprite(
+          centerX,
+          startY + roomH,
+          outlineW,
+          outlineTopH,
+          "outline_top",
+        )
         .setOrigin(0.5, 0)
         .setTileScale(pixelScale)
         .setFlipY(true)
@@ -886,7 +1211,13 @@ function App() {
         .setDepth(outlineDepth)
         .setFlipX(true);
       this.add
-        .tileSprite(startX + roomW, centerY, outlineSideW, roomH, "outline_side")
+        .tileSprite(
+          startX + roomW,
+          centerY,
+          outlineSideW,
+          roomH,
+          "outline_side",
+        )
         .setOrigin(0, 0.5)
         .setTileScale(pixelScale)
         .setDepth(outlineDepth);
@@ -904,7 +1235,12 @@ function App() {
       const cameraBoundsH = Math.max(roomH + outlineTopH * 2, viewH);
       const cameraBoundsX = centerX - cameraBoundsW / 2;
       const cameraBoundsY = centerY - cameraBoundsH / 2;
-      this.cameras.main.setBounds(cameraBoundsX, cameraBoundsY, cameraBoundsW, cameraBoundsH);
+      this.cameras.main.setBounds(
+        cameraBoundsX,
+        cameraBoundsY,
+        cameraBoundsW,
+        cameraBoundsH,
+      );
       this.cameras.main.setZoom(zoom);
       this.cameras.main.roundPixels = true;
       this.cameras.main.centerOn(centerX, centerY);
@@ -921,37 +1257,70 @@ function App() {
             key,
             frames: this.anims.generateFrameNumbers(texture, { frames }),
             frameRate: 6,
-            repeat: -1
+            repeat: -1,
           });
         }
       };
 
       // User-requested wiggle: use frames 5~8 (1-based) => 4~7 (0-based)
-      ["kms", "pcw", "swy"].forEach(char => {
+      ["kms", "pcw", "swy"].forEach((char) => {
         createNpcAnimSheet(`${char}-wiggle`, char, [4, 5, 6, 7]);
       });
 
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 60, y: row2Y + 24, anim: "swy-wiggle", texture: "swy" },
-          { id: "npc-103-2", x: leftX + 60, y: row3Y + 20, anim: "kms-wiggle", texture: "kms" },
-          { id: "npc-103-3", x: rightX - 72, y: row2Y + 20, anim: "pcw-wiggle", texture: "pcw" },
+          {
+            id: "npc-103-1",
+            x: leftX + 60,
+            y: row2Y + 24,
+            anim: "swy-wiggle",
+            texture: "swy",
+          },
+          {
+            id: "npc-103-2",
+            x: leftX + 60,
+            y: row3Y + 20,
+            anim: "kms-wiggle",
+            texture: "kms",
+          },
+          {
+            id: "npc-103-3",
+            x: rightX - 72,
+            y: row2Y + 20,
+            anim: "pcw-wiggle",
+            texture: "pcw",
+          },
         ],
         Room104: [
-          { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },
-          { id: "npc-104-2", x: rightX - 35, y: row2Y + 15, texture: "inj", isStatic: true },
+          {
+            id: "npc-104-1",
+            x: rightX - 35,
+            y: row1Y + 15,
+            texture: "ig",
+            isStatic: true,
+          },
+          {
+            id: "npc-104-2",
+            x: rightX - 35,
+            y: row2Y + 15,
+            texture: "inj",
+            isStatic: true,
+          },
         ],
       };
 
       const configNpcs = roomNpcConfig[this.scene.key] ?? [];
 
-      this.npcs = this.physics.add.group({ immovable: true, allowGravity: false });
+      this.npcs = this.physics.add.group({
+        immovable: true,
+        allowGravity: false,
+      });
       this.npcIcons = [];
       let igPos = null;
       let injPos = null;
 
       if (configNpcs) {
-        configNpcs.forEach(npcData => {
+        configNpcs.forEach((npcData) => {
           let npc;
           npc = this.npcs.create(npcData.x, npcData.y, npcData.texture);
           npc.body.setImmovable(true);
@@ -970,7 +1339,11 @@ function App() {
 
           // Quest icon
           const iconOffsetY = 36;
-          const questIcon = this.add.image(npc.x, npc.y - iconOffsetY, "quest_icon");
+          const questIcon = this.add.image(
+            npc.x,
+            npc.y - iconOffsetY,
+            "quest_icon",
+          );
           questIcon.setScale(pixelScale * 0.65);
           questIcon.setDepth(99999);
           questIcon.setVisible(false);
@@ -984,12 +1357,21 @@ function App() {
             ease: "Sine.easeInOut",
           });
 
-          const happyIcon = this.add.image(npc.x, npc.y - iconOffsetY, "happy_icon");
+          const happyIcon = this.add.image(
+            npc.x,
+            npc.y - iconOffsetY,
+            "happy_icon",
+          );
           happyIcon.setScale(pixelScale * 0.65);
           happyIcon.setDepth(99999);
           happyIcon.setVisible(false);
 
-          this.npcIcons.push({ npcId: npcData.id, questIcon, happyIcon, happyTimer: null });
+          this.npcIcons.push({
+            npcId: npcData.id,
+            questIcon,
+            happyIcon,
+            happyTimer: null,
+          });
 
           if (this.scene.key === "Room103") {
             this.tweens.add({
@@ -1022,7 +1404,7 @@ function App() {
                 },
                 onComplete: () => {
                   graphics.destroy();
-                }
+                },
               });
 
               this.time.delayedCall(800 + Math.random() * 1500, emitSoundWave);
@@ -1033,14 +1415,19 @@ function App() {
 
           // NPC Name Text
           const npcState = gameStateRef.current.getNpcState(npcData.id);
-          const nameText = this.add.text(npc.x, npc.y - 45, npcState?.name ?? "", {
-            fontFamily: "Galmuri11-Bold",
-            fontSize: "12px",
-            color: "#ffffff",
-            stroke: "#000000",
-            strokeThickness: 3,
-            resolution: 2, // For crisp pixel text
-          });
+          const nameText = this.add.text(
+            npc.x,
+            npc.y - 45,
+            npcState?.name ?? "",
+            {
+              fontFamily: "Galmuri11-Bold",
+              fontSize: "12px",
+              color: "#ffffff",
+              stroke: "#000000",
+              strokeThickness: 3,
+              resolution: 2, // For crisp pixel text
+            },
+          );
           nameText.setOrigin(0.5);
           nameText.setDepth(99999);
           nameText.setVisible(false);
@@ -1052,7 +1439,7 @@ function App() {
         const plz = this.add.image(
           (igPos.x + injPos.x) / 2 + 14,
           (igPos.y + injPos.y) / 2 - 20,
-          "plz_icon"
+          "plz_icon",
         );
         plz.setScale(pixelScale * 0.45);
         plz.setDepth(99999);
@@ -1070,7 +1457,9 @@ function App() {
       // Happy Jump Event Listener
       const onNpcHappy = (e) => {
         const targetId = e.detail?.npcId;
-        const targetNpc = this.npcs.getChildren().find((n) => n.npcId === targetId);
+        const targetNpc = this.npcs
+          .getChildren()
+          .find((n) => n.npcId === targetId);
         if (targetNpc) {
           this.tweens.add({
             targets: targetNpc,
@@ -1083,9 +1472,15 @@ function App() {
         }
       };
       window.addEventListener("npc-happy", onNpcHappy);
-      this.events.on("shutdown", () => window.removeEventListener("npc-happy", onNpcHappy));
+      this.events.on("shutdown", () =>
+        window.removeEventListener("npc-happy", onNpcHappy),
+      );
 
-      this.handItem = this.add.image(0, 0, "letter_icon").setScale(pixelScale * 0.5).setDepth(200).setVisible(false);
+      this.handItem = this.add
+        .image(0, 0, "letter_icon")
+        .setScale(pixelScale * 0.5)
+        .setDepth(200)
+        .setVisible(false);
       this.prevRight = false;
 
       const spawnX = centerX;
@@ -1094,7 +1489,7 @@ function App() {
         spawnX,
         spawnY,
         "main_character",
-        "16x16 All Animations 0.aseprite"
+        "16x16 All Animations 0.aseprite",
       );
       this.player.setScale(pixelScale).setCollideWorldBounds(true);
       this.player.body.setSize(10, 8).setOffset(5, 12);
@@ -1118,8 +1513,12 @@ function App() {
         s: Phaser.Input.Keyboard.KeyCodes.S,
         d: Phaser.Input.Keyboard.KeyCodes.D,
       });
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.spaceKey = this.input.keyboard.addKey(
+        Phaser.Input.Keyboard.KeyCodes.SPACE,
+      );
+      this.shiftKey = this.input.keyboard.addKey(
+        Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      );
       this.prevRight = false;
       this.handItem = null;
       this.isJumping = false;
@@ -1160,33 +1559,33 @@ function App() {
 
       // Function to create standard character animations
       const createCharAnims = () => {
-        if (this.anims.exists('idle-down')) return;
+        if (this.anims.exists("idle-down")) return;
         const animConfig = {
-          'idle-down': { start: 0, end: 3 },
-          'idle-right': { start: 4, end: 7 },
-          'idle-up': { start: 8, end: 11 },
-          'idle-left': { start: 12, end: 15 },
-          'walk-down': { start: 16, end: 19 },
-          'walk-right': { start: 20, end: 23 },
-          'walk-up': { start: 24, end: 27 },
-          'walk-left': { start: 28, end: 31 },
-          'run-down': { start: 32, end: 35 },
-          'run-right': { start: 36, end: 39 },
-          'run-up': { start: 40, end: 43 },
-          'run-left': { start: 44, end: 47 },
+          "idle-down": { start: 0, end: 3 },
+          "idle-right": { start: 4, end: 7 },
+          "idle-up": { start: 8, end: 11 },
+          "idle-left": { start: 12, end: 15 },
+          "walk-down": { start: 16, end: 19 },
+          "walk-right": { start: 20, end: 23 },
+          "walk-up": { start: 24, end: 27 },
+          "walk-left": { start: 28, end: 31 },
+          "run-down": { start: 32, end: 35 },
+          "run-right": { start: 36, end: 39 },
+          "run-up": { start: 40, end: 43 },
+          "run-left": { start: 44, end: 47 },
         };
 
         for (const [key, range] of Object.entries(animConfig)) {
           this.anims.create({
             key,
-            frames: this.anims.generateFrameNames('main_character', {
+            frames: this.anims.generateFrameNames("main_character", {
               start: range.start,
               end: range.end,
               prefix: "16x16 All Animations ",
               suffix: ".aseprite",
             }),
             frameRate: 6,
-            repeat: -1
+            repeat: -1,
           });
         }
       };
@@ -1206,7 +1605,12 @@ function App() {
       let minDistance = 80;
       if (this.npcs) {
         this.npcs.children.iterate((npc) => {
-          const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+          const dist = Phaser.Math.Distance.Between(
+            this.player.x,
+            this.player.y,
+            npc.x,
+            npc.y,
+          );
           if (dist < minDistance) {
             closestNpc = npc;
             minDistance = dist;
@@ -1221,17 +1625,25 @@ function App() {
       }
 
       const isNearNPC = !!closestNpc;
-      const isNearDoor = this.door && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.door.x, this.door.y) < 50;
+      const isNearDoor =
+        this.door &&
+        Phaser.Math.Distance.Between(
+          this.player.x,
+          this.player.y,
+          this.door.x,
+          this.door.y,
+        ) < 50;
 
       // Update Icons
       if (this.npcIcons) {
-        this.npcIcons.forEach(iconSet => {
+        this.npcIcons.forEach((iconSet) => {
           const npcState = gameStateRef.current.getNpcState(iconSet.npcId);
           if (!npcState) {
             iconSet.questIcon.setVisible(false);
             return;
           }
-          const shouldShowQuestIcon = npcState.hasLetter === false && !iconSet.happyIcon.visible;
+          const shouldShowQuestIcon =
+            npcState.hasLetter === false && !iconSet.happyIcon.visible;
           iconSet.questIcon.setVisible(shouldShowQuestIcon);
         });
       }
@@ -1245,7 +1657,12 @@ function App() {
       if (this.npcs) {
         this.npcs.children.iterate((npc) => {
           if (npc.nameText) {
-            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+            const dist = Phaser.Math.Distance.Between(
+              this.player.x,
+              this.player.y,
+              npc.x,
+              npc.y,
+            );
             if (dist < 80) {
               npc.nameText.setVisible(true);
             } else {
@@ -1316,10 +1733,15 @@ function App() {
       // NPC Interaction
       if (isNearNPC && !this.interactionCooldown) {
         if (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-          if ((this.npcId === "npc-104-1" || this.npcId === "npc-104-2") && !gameStateRef.current.getMathGameSolved()) {
+          if (
+            (this.npcId === "npc-104-1" || this.npcId === "npc-104-2") &&
+            !gameStateRef.current.getMathGameSolved()
+          ) {
             openRoom104BeforeMathDialog();
             this.interactionCooldown = true;
-            setTimeout(() => { this.interactionCooldown = false; }, 1000);
+            setTimeout(() => {
+              this.interactionCooldown = false;
+            }, 1000);
             return;
           }
 
@@ -1327,11 +1749,20 @@ function App() {
           const npcState = gameStateRef.current.getNpcState(this.npcId);
           if (npcState) {
             const { hasLetter, hasWritten } = npcState;
-            if (!hasLetter && !hasWritten && gameStateRef.current.getLetterCount() > 0 && gameStateRef.current.getSelectedSlot() === 0) {
+            if (
+              !hasLetter &&
+              !hasWritten &&
+              gameStateRef.current.getLetterCount() > 0 &&
+              gameStateRef.current.getSelectedSlot() === 0
+            ) {
               setInteractionTargetId(this.npcId);
               setConfirmMode("write");
               gameStateRef.current.setShowWriteConfirm(true);
-            } else if (!hasLetter && gameStateRef.current.getWrittenCount() > 0 && gameStateRef.current.getSelectedSlot() !== 0) {
+            } else if (
+              !hasLetter &&
+              gameStateRef.current.getWrittenCount() > 0 &&
+              gameStateRef.current.getSelectedSlot() !== 0
+            ) {
               // Check if letter matches the target NPC
               const selectedSlot = gameStateRef.current.getSelectedSlot();
               const groups = gameStateRef.current.getLetterGroups();
@@ -1392,7 +1823,8 @@ function App() {
           this.handItem.setVisible(false);
         }
         if (this.handItem.visible) {
-          this.handItem.x = this.player.x + (this.lastDirection === 'left' ? -8 : 8);
+          this.handItem.x =
+            this.player.x + (this.lastDirection === "left" ? -8 : 8);
           this.handItem.y = this.player.y + 10;
           this.handItem.setDepth(this.player.depth + 1);
         }
@@ -1401,9 +1833,14 @@ function App() {
 
     const startGame = async () => {
       try {
-        await Promise.all([document.fonts.load('16px "Galmuri11-Bold"'), document.fonts.load('16px "Galmuri11"')]);
+        await Promise.all([
+          document.fonts.load('16px "Galmuri11-Bold"'),
+          document.fonts.load('16px "Galmuri11"'),
+        ]);
         await document.fonts.ready;
-      } catch { /* ignore font load errors */ }
+      } catch {
+        /* ignore font load errors */
+      }
       if (cancelled) return;
       const game = new Phaser.Game(config);
       gameRef.current = game;
@@ -1451,8 +1888,7 @@ function App() {
       {/* UI Elements */}
       {!showIntro && !isOpeningScene && (
         <>
-
-                  {showRoomDialog && roomDialogLines.length > 0 && (
+          {showRoomDialog && roomDialogLines.length > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -1504,7 +1940,13 @@ function App() {
                     textShadow: "0 1px 0 rgba(255,255,255,0.25)",
                   }}
                 >
-                  <div style={{ fontSize: "18px", lineHeight: 1.15, marginBottom: "4px" }}>
+                  <div
+                    style={{
+                      fontSize: "18px",
+                      lineHeight: 1.15,
+                      marginBottom: "4px",
+                    }}
+                  >
                     {roomDialogLines[roomDialogIndex]?.speaker ?? ""}
                   </div>
                   <div style={{ fontSize: "18px", lineHeight: 1.35 }}>
@@ -1514,39 +1956,40 @@ function App() {
 
                 <button
                   type="button"
-                    onClick={() => {
-                      if (roomDialogIndex < roomDialogLines.length - 1) {
-                        setRoomDialogIndex((prev) => prev + 1);
-                        return;
-                      }
-                      const action = roomDialogAction;
-                      setShowRoomDialog(false);
-                      setRoomDialogLines([]);
-                      setRoomDialogIndex(0);
-                      setRoomDialogAction(null);
-                      if (action?.type === "startMath") {
-                        setShowMathGame(true);
-                      } else if (action?.type === "startCatchBall") {
-                        setShowCatchBall(true);
-                      } else if (action?.type === "startRunning") {
-                        setShowRunningGame(true);
-                      } else if (action?.type === "openRunningGuide") {
-                        setGameGuideTitle("태빈이를 이겨라!");
-                        setGameGuideText("스페이스바를 연타해서 러닝하는 태빈이를 멈춰 세워보자.");
-                        setGameGuideAction({ type: "startRunning" });
-                        setShowGameGuide(true);
-                      } else if (action?.type === "kaimaruToGround") {
-                        window.dispatchEvent(new CustomEvent("kaimaru-quest-complete"));
-                        window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterGround", x: 260, y: 180 } }));
-                      } else if (action?.type === "room103ToHallwayActivate104") {
-                        setRoom103LettersDelivered(true);
-                        setRoom104QuestionActive(true);
-                        transitionToScene("Hallway", { x: 750, y: 330 });
-                      } else if (action?.type === "enterRoom104FromHallway") {
-                        setRoom104QuestionActive(false);
-                        transitionToScene("Room104");
-                      }
-                    }}
+                  onClick={() => {
+                    if (roomDialogIndex < roomDialogLines.length - 1) {
+                      setRoomDialogIndex((prev) => prev + 1);
+                      return;
+                    }
+                    const action = roomDialogAction;
+                    setShowRoomDialog(false);
+                    setRoomDialogLines([]);
+                    setRoomDialogIndex(0);
+                    setRoomDialogAction(null);
+                    if (action?.type === "startMath") {
+                      setShowMathGame(true);
+                    } else if (action?.type === "startCatchBall") {
+                      setShowCatchBall(true);
+                    } else if (action?.type === "startRunning") {
+                      setShowRunningGame(true);
+                    } else if (action?.type === "openRunningGuide") {
+                      setGameGuideTitle("태빈이를 이겨라!");
+                      setGameGuideText(
+                        "스페이스바를 연타해서 러닝하는 태빈이를 멈춰 세워보자.",
+                      );
+                      setGameGuideAction({ type: "startRunning" });
+                      setShowGameGuide(true);
+                    } else if (action?.type === "kaimaruToGround") {
+                      window.dispatchEvent(
+                        new CustomEvent("kaimaru-quest-complete"),
+                      );
+                      window.dispatchEvent(
+                        new CustomEvent("open-exit-confirm", {
+                          detail: { roomKey: "EnterGround", x: 260, y: 180 },
+                        }),
+                      );
+                    }
+                  }}
                   style={{
                     position: "absolute",
                     right: `${19 * 4}px`,
@@ -1602,12 +2045,28 @@ function App() {
                   gap: "14px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "18px" }}>게임 안내</div>
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", lineHeight: 1.45 }}>
-                  <div style={{ fontSize: "18px", marginBottom: "10px" }}>{gameGuideTitle}</div>
+                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "18px" }}>
+                  게임 안내
+                </div>
+                <div
+                  style={{
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "16px",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <div style={{ fontSize: "18px", marginBottom: "10px" }}>
+                    {gameGuideTitle}
+                  </div>
                   <div style={{ fontSize: "15px" }}>{gameGuideText}</div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "10px",
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -1615,7 +2074,8 @@ function App() {
                       setShowGameGuide(false);
                       setGameGuideAction(null);
                       setGameGuideTitle("");
-                      if (action?.type === "startRunning") setShowRunningGame(true);
+                      if (action?.type === "startRunning")
+                        setShowRunningGame(true);
                     }}
                     style={{
                       width: "96px",
@@ -1668,16 +2128,25 @@ function App() {
                   imageRendering: "pixelated",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "14px", textAlign: "center" }}>
+                <div
+                  style={{
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "14px",
+                    textAlign: "center",
+                  }}
+                >
                   {`${npcs.find((n) => n.id === interactionTargetId)?.name ?? ""}에게 ${confirmMode === "give" ? "편지를 건네시겠습니까?" : "편지를 쓰시겠습니까?"}`}
                 </div>
-                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                <div
+                  style={{ display: "flex", gap: "12px", marginTop: "12px" }}
+                >
                   <div
                     onClick={() => {
                       setShowWriteConfirm(false);
                       const targetId = interactionTargetId;
                       if (
-                        (targetId === "npc-104-1" || targetId === "npc-104-2") &&
+                        (targetId === "npc-104-1" ||
+                          targetId === "npc-104-2") &&
                         !mathGameSolved
                       ) {
                         openRoom104BeforeMathDialog();
@@ -1685,7 +2154,9 @@ function App() {
                       }
                       if (confirmMode === "write") {
                         const activeNpc = npcs.find((n) => n.id === targetId);
-                        const alreadyWritten = writtenLetters.some((l) => l.npcId === targetId);
+                        const alreadyWritten = writtenLetters.some(
+                          (l) => l.npcId === targetId,
+                        );
                         if (
                           letterCount > 0 &&
                           activeNpc &&
@@ -1699,21 +2170,35 @@ function App() {
                         }
                       } else if (confirmMode === "give") {
                         setWrittenLetters((prev) => {
-                          const index = prev.findIndex((l) => l.npcId === targetId);
+                          const index = prev.findIndex(
+                            (l) => l.npcId === targetId,
+                          );
                           if (index === -1) return prev;
-                          const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
+                          const next = [
+                            ...prev.slice(0, index),
+                            ...prev.slice(index + 1),
+                          ];
                           setWrittenCount(next.length);
                           try {
-                            localStorage.setItem("writtenLetters", JSON.stringify(next));
-                          } catch { /* Ignore */ }
+                            localStorage.setItem(
+                              "writtenLetters",
+                              JSON.stringify(next),
+                            );
+                          } catch {
+                            /* Ignore */
+                          }
                           return next;
                         });
                         setNpcs((prev) =>
                           prev.map((n) =>
-                            n.id === targetId ? { ...n, hasLetter: true } : n
-                          )
+                            n.id === targetId ? { ...n, hasLetter: true } : n,
+                          ),
                         );
-                        window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: targetId } }));
+                        window.dispatchEvent(
+                          new CustomEvent("npc-happy", {
+                            detail: { npcId: targetId },
+                          }),
+                        );
                       }
                     }}
                     style={{
@@ -1788,7 +2273,16 @@ function App() {
                   gap: "12px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지 작성하기</div>
+                <div
+                  style={{
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "16px",
+                    color: "white",
+                    textShadow: "1px 1px 2px black",
+                  }}
+                >
+                  편지 작성하기
+                </div>
                 <div
                   style={{
                     position: "relative",
@@ -1855,12 +2349,17 @@ function App() {
                       createdAt: Date.now(),
                     };
                     setWrittenLetters((prev) => {
-                      const existingIndex = prev.findIndex((l) => l.npcId === targetId);
+                      const existingIndex = prev.findIndex(
+                        (l) => l.npcId === targetId,
+                      );
                       if (existingIndex !== -1) {
                         const next = [...prev];
                         next[existingIndex] = payload;
                         try {
-                          localStorage.setItem("writtenLetters", JSON.stringify(next));
+                          localStorage.setItem(
+                            "writtenLetters",
+                            JSON.stringify(next),
+                          );
                         } catch {
                           // Ignore localStorage errors
                         }
@@ -1869,7 +2368,10 @@ function App() {
                       }
                       const next = [...prev, payload];
                       try {
-                        localStorage.setItem("writtenLetters", JSON.stringify(next));
+                        localStorage.setItem(
+                          "writtenLetters",
+                          JSON.stringify(next),
+                        );
                       } catch {
                         // Ignore localStorage errors
                       }
@@ -1878,8 +2380,8 @@ function App() {
                     });
                     setNpcs((prev) =>
                       prev.map((n) =>
-                        n.id === targetId ? { ...n, hasWritten: true } : n
-                      )
+                        n.id === targetId ? { ...n, hasWritten: true } : n,
+                      ),
                     );
                     setLetterText("");
                   }}
@@ -1924,7 +2426,16 @@ function App() {
                   gap: "10px",
                 }}
               >
-                <div style={{ fontFamily: "Galmuri11-Bold", fontSize: "16px", color: "white", textShadow: "1px 1px 2px black" }}>편지 읽기</div>
+                <div
+                  style={{
+                    fontFamily: "Galmuri11-Bold",
+                    fontSize: "16px",
+                    color: "white",
+                    textShadow: "1px 1px 2px black",
+                  }}
+                >
+                  편지 읽기
+                </div>
                 {readingLetters.length > 0 && (
                   <div
                     style={{
@@ -1949,7 +2460,11 @@ function App() {
                       }}
                     >
                       {npcs.find(
-                        (n) => n.id === readingLetters[Math.min(readIndex, readingLetters.length - 1)]?.npcId
+                        (n) =>
+                          n.id ===
+                          readingLetters[
+                            Math.min(readIndex, readingLetters.length - 1)
+                          ]?.npcId,
                       )?.name ?? ""}
                     </div>
                     <img
@@ -1975,14 +2490,23 @@ function App() {
                         overflow: "hidden",
                       }}
                     >
-                      {readingLetters[Math.min(readIndex, readingLetters.length - 1)]?.text}
+                      {
+                        readingLetters[
+                          Math.min(readIndex, readingLetters.length - 1)
+                        ]?.text
+                      }
                     </div>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                <div
+                  style={{ display: "flex", gap: "12px", marginTop: "12px" }}
+                >
                   <button
                     onClick={() => {
-                      const currentLetter = readingLetters[Math.min(readIndex, readingLetters.length - 1)];
+                      const currentLetter =
+                        readingLetters[
+                          Math.min(readIndex, readingLetters.length - 1)
+                        ];
                       if (currentLetter) {
                         setLetterText(currentLetter.text);
                         setInteractionTargetId(currentLetter.npcId);
@@ -2020,7 +2544,6 @@ function App() {
                   >
                     닫기
                   </button>
-
                 </div>
               </div>
             </div>
@@ -2043,9 +2566,13 @@ function App() {
           >
             {Array.from({ length: inventoryConfig.slots }).map((_, index) => {
               const isSlot0 = index === 0;
+              const isHeadsetSlot = index === HEADSET_SLOT;
               const groupIndex = index - 1;
-              const group = index > 0 ? letterGroups[groupIndex] : null;
-              const leftPos = inventoryConfig.padX + index * (inventoryConfig.slotSize + inventoryConfig.gap);
+              const group =
+                index > 0 && !isHeadsetSlot ? letterGroups[groupIndex] : null;
+              const leftPos =
+                inventoryConfig.padX +
+                index * (inventoryConfig.slotSize + inventoryConfig.gap);
               const topPos = inventoryConfig.padY;
 
               return (
@@ -2151,6 +2678,44 @@ function App() {
                     </>
                   )}
 
+                  {isHeadsetSlot && headsetCount > 0 && (
+                    <>
+                      <img
+                        src="/assets/development_room/headset.png"
+                        alt="Headset"
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + 4}px`,
+                          top: `${topPos + 4}px`,
+                          width: `${inventoryConfig.slotSize - 8}px`,
+                          height: `${inventoryConfig.slotSize - 8}px`,
+                          imageRendering: "pixelated",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: `${leftPos + inventoryConfig.slotSize - 16}px`,
+                          top: `${topPos + inventoryConfig.slotSize - 16}px`,
+                          fontFamily: "Galmuri11-Bold",
+                          fontSize: "11px",
+                          color: "#5B3A24",
+                          backgroundColor: "rgba(230, 210, 181, 0.85)",
+                          borderRadius: "999px",
+                          minWidth: "16px",
+                          height: "16px",
+                          lineHeight: "16px",
+                          textAlign: "center",
+                          zIndex: 5,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {headsetCount}
+                      </span>
+                    </>
+                  )}
+
                   {selectedSlot === index && (
                     <img
                       src="/assets/common/focus.png"
@@ -2201,12 +2766,13 @@ function App() {
               left: "28px",
               width: "410px",
               height: "185px",
-              backgroundImage: `url('/assets/common/${9 + Math.floor(gameMinutes / 60) < 12
-                ? "morning"
-                : 9 + Math.floor(gameMinutes / 60) < 15
-                  ? "afternoon"
-                  : "evening"
-                }.png')`,
+              backgroundImage: `url('/assets/common/${
+                9 + Math.floor(gameMinutes / 60) < 12
+                  ? "morning"
+                  : 9 + Math.floor(gameMinutes / 60) < 15
+                    ? "afternoon"
+                    : "evening"
+              }.png')`,
               backgroundSize: "contain",
               backgroundRepeat: "no-repeat",
               backgroundPosition: "left top",
@@ -2345,7 +2911,8 @@ function App() {
                   marginBottom: "6px",
                 }}
               >
-                진행도: {quests.filter((q) => q.completed).length} / {quests.length}
+                진행도: {quests.filter((q) => q.completed).length} /{" "}
+                {quests.length}
               </div>
               <div
                 style={{
@@ -2369,31 +2936,34 @@ function App() {
             </div>
           </div>
 
-
           {showBanToast && (
-            <div style={{
-              position: "absolute",
-              top: "78px",
-              right: "16px",
-              width: "290px",
-              height: "48px",
-              backgroundImage: "url('/assets/common/ui1.png')",
-              backgroundSize: "contain",
-              backgroundRepeat: "no-repeat",
-              imageRendering: "pixelated",
-              zIndex: 126,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#8d684e",
-              fontFamily: "Galmuri11-Bold",
-              fontSize: "13px",
-              pointerEvents: "none",
-              opacity: banToastVisible ? 1 : 0,
-              transform: banToastVisible ? "translateY(0)" : "translateY(6px)",
-              transition: "opacity 0.3s ease, transform 0.3s ease",
-            }}>
-              {banToastText}
+            <div
+              style={{
+                position: "absolute",
+                top: "78px",
+                right: "16px",
+                width: "290px",
+                height: "48px",
+                backgroundImage: "url('/assets/common/ui1.png')",
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+                imageRendering: "pixelated",
+                zIndex: 126,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#8d684e",
+                fontFamily: "Galmuri11-Bold",
+                fontSize: "13px",
+                pointerEvents: "none",
+                opacity: banToastVisible ? 1 : 0,
+                transform: banToastVisible
+                  ? "translateY(0)"
+                  : "translateY(6px)",
+                transition: "opacity 0.3s ease, transform 0.3s ease",
+              }}
+            >
+               ..
             </div>
           )}
 
@@ -2458,7 +3028,9 @@ function App() {
                   fontFamily: "Galmuri11-Bold",
                 }}
               >
-                <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                <div
+                  style={{ display: "flex", gap: "10px", marginBottom: "8px" }}
+                >
                   {["장소", "미니게임"].map((tab) => (
                     <button
                       key={tab}
@@ -2470,7 +3042,8 @@ function App() {
                         fontFamily: "Galmuri11-Bold",
                         fontSize: "11px",
                         color: debugTab === tab ? "#4E342E" : "#8d684e",
-                        backgroundColor: debugTab === tab ? "#f1d1a8" : "transparent",
+                        backgroundColor:
+                          debugTab === tab ? "#f1d1a8" : "transparent",
                         border: debugTab === tab ? "2px solid #caa47d" : "none",
                         borderRadius: "6px",
                         cursor: "pointer",
@@ -2521,7 +3094,9 @@ function App() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleWarp("Hallway", { x: 750, y: 340 })}
+                        onClick={() =>
+                          handleWarp("Hallway", { x: 750, y: 340 })
+                        }
                         style={{
                           width: "64px",
                           height: "28px",
@@ -2710,10 +3285,8 @@ function App() {
               </div>
             </div>
           )}
-
         </>
-      )
-      }
+      )}
 
       <MiniGameModal
         isOpen={showMiniGame}
@@ -2723,7 +3296,53 @@ function App() {
         }}
         onWin={() => {
           setRoom103MiniGameCompleted(true);
-          window.dispatchEvent(new CustomEvent("open-exit-confirm", { detail: { roomKey: "EnterRoom103" } }));
+          window.dispatchEvent(
+            new CustomEvent("open-exit-confirm", {
+              detail: { roomKey: "EnterRoom103" },
+            }),
+          );
+        }}
+      />
+
+      <MathMiniGameModal
+        isOpen={showMathGame}
+        onClose={() => setShowMathGame(false)}
+        onWin={() => {
+          setMathGameSolved(true);
+          setShowMathGame(false);
+        }}
+      />
+
+      <RunningGameModal
+        isOpen={showRunningGame}
+        onClose={() => setShowRunningGame(false)}
+        onWin={() => {
+          window.dispatchEvent(
+            new CustomEvent("interact-npc", { detail: { npcId: "npc-itb" } }),
+          );
+          setShowRunningGame(false);
+        }}
+      />
+
+      <CatchBallModal
+        isOpen={showCatchBall}
+        onClose={() => setShowCatchBall(false)}
+        onWin={() => {
+          window.dispatchEvent(
+            new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }),
+          );
+          window.dispatchEvent(
+            new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }),
+          );
+          setShowCatchBall(false);
+        }}
+      />
+
+      <HospitalGameModal
+        isOpen={showHospitalGame}
+        onClose={() => setShowHospitalGame(false)}
+        onWin={() => {
+          setShowHospitalGame(false);
         }}
       />
       <ExitConfirmModal
@@ -2800,7 +3419,8 @@ function App() {
             targetData = { x: 750, y: 330 };
           } else if (sceneKey.startsWith("Room")) {
             const roomNum = sceneKey.replace("Room", "");
-            const exitCoords = roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
+            const exitCoords =
+              roomNum === "103" ? { x: 750, y: 330 } : { x: 1050, y: 330 };
             targetScene = "Hallway";
             targetData = exitCoords;
           }
@@ -2811,101 +3431,113 @@ function App() {
         }}
         message={(() => {
           if (!exitRoomKey) return "";
-          if (exitRoomKey === "EnterHallway") return "사랑관으로 이동하시겠습니까?";
-          if (exitRoomKey === "EnterHospital") return "병원으로 이동하시겠습니까?";
-          if (exitRoomKey === "EnterDevelopmentRoom") return "자동차 개발실로 이동할까요?";
-          if (exitRoomKey === "LeaveHallway" || exitRoomKey === "LeaveKaimaru" || exitRoomKey === "LeaveGround") return "도로로 이동하시겠습니까?";
-          if (exitRoomKey === "LeaveHospital" || exitRoomKey === "DevelopmentRoom") return "개발실로 이동하시겠습니까?";
-          if (exitRoomKey === "EnterKaimaru") return "카이마루로 이동하시겠습니까?";
-          if (exitRoomKey === "EnterGround") return "운동장으로 이동하시겠습니까?";
-          if (exitRoomKey.startsWith("EnterRoom")) return `${exitRoomKey.replace("EnterRoom", "")}호로 이동하시겠습니까?`;
-          if (exitRoomKey.startsWith("Room") || exitRoomKey === "LeaveMyRoom") return "복도로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterHallway")
+            return "사랑관으로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterHospital")
+            return "병원으로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterDevelopmentRoom")
+            return "자동차 개발실로 이동할까요?";
+          if (
+            exitRoomKey === "LeaveHallway" ||
+            exitRoomKey === "LeaveKaimaru" ||
+            exitRoomKey === "LeaveGround"
+          )
+            return "도로로 이동하시겠습니까?";
+          if (
+            exitRoomKey === "LeaveHospital" ||
+            exitRoomKey === "DevelopmentRoom"
+          )
+            return "개발실로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterKaimaru")
+            return "카이마루로 이동하시겠습니까?";
+          if (exitRoomKey === "EnterGround")
+            return "운동장으로 이동하시겠습니까?";
+          if (exitRoomKey.startsWith("EnterRoom"))
+            return `${exitRoomKey.replace("EnterRoom", "")}호로 이동하시겠습니까?`;
+          if (exitRoomKey.startsWith("Room") || exitRoomKey === "LeaveMyRoom")
+            return "복도로 이동하시겠습니까?";
           return "이동하시겠습니까?";
         })()}
       />
 
       {/* Scooter Animation Overlay */}
-      {
-        showScooterAnim && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 99999,
-              backgroundImage: "url('/assets/hospital/road1.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "flex-start",
-              overflow: "hidden",
-            }}
-          >
-            <style>{`
+      {showScooterAnim && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 99999,
+            backgroundImage: "url('/assets/hospital/road1.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "flex-start",
+            overflow: "hidden",
+          }}
+        >
+          <style>{`
             @keyframes scooterMove {
               0% { transform: translateX(-300px); }
               100% { transform: translateX(120vw); }
             }
           `}</style>
-            <img
-              src="/assets/hospital/scooter_ride.png"
-              alt="Scooter"
-              style={{
-                width: "300px",
-                marginBottom: "8%",
-                marginLeft: "0px",
-                animation: "scooterMove 2.5s linear forwards",
-                imageRendering: "pixelated",
-              }}
-            />
-          </div>
-        )
-      }
-
-      {
-        showScooterReverse && (
-          <div
+          <img
+            src="/assets/hospital/scooter_ride.png"
+            alt="Scooter"
             style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 99999,
-              backgroundImage: "url('/assets/hospital/road1.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "flex-start",
-              overflow: "hidden",
+              width: "300px",
+              marginBottom: "8%",
+              marginLeft: "0px",
+              animation: "scooterMove 2.5s linear forwards",
+              imageRendering: "pixelated",
             }}
-          >
-            <style>{`
+          />
+        </div>
+      )}
+
+      {showScooterReverse && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 99999,
+            backgroundImage: "url('/assets/hospital/road1.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "flex-start",
+            overflow: "hidden",
+          }}
+        >
+          <style>{`
             @keyframes scooterMoveReverse {
               0% { transform: translateX(100vw) scaleX(-1); }
               100% { transform: translateX(-300px) scaleX(-1); }
             }
           `}</style>
-            <img
-              src="/assets/hospital/scooter_ride.png"
-              alt="Scooter"
-              style={{
-                width: "300px",
-                marginBottom: "8%",
-                marginLeft: "0px",
-                animation: "scooterMoveReverse 2.5s linear forwards",
-                imageRendering: "pixelated",
-              }}
-            />
-          </div>
-        )
-      }
+          <img
+            src="/assets/hospital/scooter_ride.png"
+            alt="Scooter"
+            style={{
+              width: "300px",
+              marginBottom: "8%",
+              marginLeft: "0px",
+              animation: "scooterMoveReverse 2.5s linear forwards",
+              imageRendering: "pixelated",
+            }}
+          />
+        </div>
+      )}
 
       <HeartQuestModal
         isOpen={showHeartQuest}
@@ -2930,7 +3562,9 @@ function App() {
         isOpen={showRunningGame}
         onClose={() => setShowRunningGame(false)}
         onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }));
+          window.dispatchEvent(
+            new CustomEvent("npc-happy", { detail: { npcId: "npc-itb" } }),
+          );
           setShowRunningGame(false);
           setGroundItbRunningCompleted(true);
           openGroundItbAfterDialog();
@@ -2941,8 +3575,12 @@ function App() {
         isOpen={showCatchBall}
         onClose={() => setShowCatchBall(false)}
         onWin={() => {
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }));
-          window.dispatchEvent(new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }));
+          window.dispatchEvent(
+            new CustomEvent("npc-happy", { detail: { npcId: "npc-mdh" } }),
+          );
+          window.dispatchEvent(
+            new CustomEvent("npc-happy", { detail: { npcId: "npc-psj" } }),
+          );
           setShowCatchBall(false);
           setGroundCatchBallCompleted(true);
           openGroundCatchBallAfterDialog();
@@ -2969,20 +3607,9 @@ function App() {
           transform: "translate(-2px, -2px)",
         }}
       />
-    </div >
+      {showIntro && <IntroScreen onStart={() => setShowIntro(false)} />}
+    </div>
   );
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-

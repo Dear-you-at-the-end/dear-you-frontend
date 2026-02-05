@@ -28,6 +28,7 @@ export default class OpeningScene extends Phaser.Scene {
     this.load.image("phoneOn", "/assets/opening/phone.png");
     this.load.image("phoneOff", "/assets/opening/phone_off.png");
     this.load.image("todoIcon", "/assets/opening/todo.png");
+    this.load.image("phoneTodo", "/assets/opening/phone_todo.png");
     this.load.image("dialogUI", "/assets/common/dialogbig.png");
     this.load.image("skipBtn", "/assets/common/skip.png");
   }
@@ -220,7 +221,7 @@ export default class OpeningScene extends Phaser.Scene {
     // Position phone_off at bottom-right corner (icon size)
     const phoneOff = this.add.image(width - 70, height - 120, "phoneOff");
     phoneOff.setScrollFactor(0);
-    phoneOff.setScale(0.4); // Much smaller - icon size
+    phoneOff.setScale(0.22); // Smaller icon size
     phoneOff.setInteractive();
     phoneOff.setDepth(1000);
 
@@ -244,7 +245,7 @@ export default class OpeningScene extends Phaser.Scene {
       // Step 1: Click feedback - quick bounce
       this.tweens.add({
         targets: phoneOff,
-        scale: 0.5,
+        scale: 0.28,
         duration: 100,
         ease: "Back.easeOut",
         onComplete: () => {
@@ -253,21 +254,21 @@ export default class OpeningScene extends Phaser.Scene {
             targets: phoneOff,
             x: width / 2,
             y: height / 2,
-            scale: 1.2, // Slightly larger for emphasis
+            scale: 0.95, // Reduced size to match resized asset
             duration: 700,
             ease: "Cubic.easeOut",
             onComplete: () => {
               // After zoom animation, show phone_on
               const phoneOn = this.add.image(width / 2, height / 2, "phoneOn");
               phoneOn.setAlpha(0);
-              phoneOn.setScale(1.2);
+              phoneOn.setScale(0.95);
               phoneOn.setScrollFactor(0);
               phoneOn.setDepth(1000);
 
               this.tweens.add({
                 targets: phoneOn,
                 alpha: 1,
-                scale: 1.0, // Settle to normal size
+                scale: 0.9, // Settle slightly smaller
                 duration: 500,
                 ease: "Quad.easeOut",
                 onComplete: () => {
@@ -283,7 +284,7 @@ export default class OpeningScene extends Phaser.Scene {
   }
 
   runTodoStep(phoneOn) {
-    const todo = this.add.image(phoneOn.x + 20, phoneOn.y - 160, "todoIcon");
+    const todo = this.add.image(phoneOn.x + 105, phoneOn.y - 40, "todoIcon");
     todo.setInteractive();
     todo.setScrollFactor(0);
     todo.setScale(2.1);
@@ -300,9 +301,25 @@ export default class OpeningScene extends Phaser.Scene {
     todo.on("pointerdown", () => {
       pulse.stop();
       todo.destroy();
-      phoneOn.destroy();
-      this.startDialogue(STORY_LINES, () => {
-        this.finishOpening();
+      const phoneTodo = this.add.image(phoneOn.x, phoneOn.y, "phoneTodo");
+      phoneTodo.setScrollFactor(0);
+      phoneTodo.setDepth(1100);
+      phoneTodo.setScale(phoneOn.scaleX);
+      phoneTodo.setAlpha(0);
+      this.tweens.add({
+        targets: phoneTodo,
+        alpha: 1,
+        duration: 450,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          phoneOn.destroy();
+          this.time.delayedCall(1800, () => {
+            phoneTodo.destroy();
+            this.startDialogue(STORY_LINES, () => {
+              this.finishOpening();
+            });
+          });
+        },
       });
     });
   }

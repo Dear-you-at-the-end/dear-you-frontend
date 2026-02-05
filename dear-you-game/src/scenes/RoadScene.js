@@ -35,7 +35,9 @@ export default class RoadScene extends Phaser.Scene {
     }
     this.load.image("letter_icon", `${commonPath}letter.png`);
     this.load.image("letter_written", `${commonPath}letter_wirte.png`);
+    this.load.image("letter_written", `${commonPath}letter_wirte.png`);
     this.load.spritesheet("cat", "/assets/road/cat.png", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("goose", "/assets/road/goose.png", { frameWidth: 32, frameHeight: 32 });
 
     const characterPath = `${commonPath}character/`;
     this.load.atlas(
@@ -337,6 +339,18 @@ export default class RoadScene extends Phaser.Scene {
       this.anims.create({ key: "cat-walk-up", frames: this.anims.generateFrameNumbers("cat", { frames: [9, 11] }), frameRate: 6, repeat: -1 });
     }
 
+    // Create Goose Animations
+    // Row 1: Front/Down (0-2)
+    // Row 2: Right (3-5)
+    // Row 3: Back/Up (6-8)
+    // Row 4: Left (9-11)
+    if (!this.anims.exists("goose-walk-down")) {
+      this.anims.create({ key: "goose-walk-down", frames: this.anims.generateFrameNumbers("goose", { frames: [0, 2] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "goose-walk-right", frames: this.anims.generateFrameNumbers("goose", { frames: [3, 5] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "goose-walk-up", frames: this.anims.generateFrameNumbers("goose", { frames: [6, 8] }), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: "goose-walk-left", frames: this.anims.generateFrameNumbers("goose", { frames: [9, 11] }), frameRate: 6, repeat: -1 });
+    }
+
     // Cat
     this.cat = this.physics.add.sprite(
       Phaser.Math.Between(100, MAP_WIDTH - 100),
@@ -352,6 +366,22 @@ export default class RoadScene extends Phaser.Scene {
     this.catNextDecisionTime = 0;
     this.catMoveDir = "idle";
     this.catMoveSpeed = 50;
+
+    // Goose
+    this.goose = this.physics.add.sprite(
+      Phaser.Math.Between(100, MAP_WIDTH - 100),
+      Phaser.Math.Between(200, MAP_HEIGHT - 50),
+      "goose"
+    );
+    this.goose.setScale(pixelScale * 0.8);
+    this.goose.setCollideWorldBounds(true);
+    this.goose.body.setSize(this.goose.width * 0.8, this.goose.height * 0.6);
+    this.goose.body.setOffset(this.goose.width * 0.1, this.goose.height * 0.4);
+    this.physics.add.collider(this.goose, obstacles);
+    this.goose.setDepth(10000);
+    this.gooseNextDecisionTime = 0;
+    this.gooseMoveDir = "idle";
+    this.gooseMoveSpeed = 40;
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, mapHeight);
     this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
@@ -597,6 +627,59 @@ export default class RoadScene extends Phaser.Scene {
         this.cat.anims.stop();
       }
       this.cat.setDepth(this.cat.y);
+    }
+
+    // Goose AI Update
+    if (this.goose && this.time.now > this.gooseNextDecisionTime) {
+      const action = Math.random();
+      if (action < 0.4) {
+        this.goose.setVelocity(0);
+        this.gooseMoveDir = "idle";
+      } else {
+        const speed = this.gooseMoveSpeed ?? 40;
+        const dir = Math.random();
+        if (dir < 0.25) {
+          this.goose.setVelocity(speed, 0);
+          this.gooseMoveDir = "right";
+        } else if (dir < 0.5) {
+          this.goose.setVelocity(-speed, 0);
+          this.gooseMoveDir = "left";
+        } else if (dir < 0.75) {
+          this.goose.setVelocity(0, speed);
+          this.gooseMoveDir = "down";
+        } else {
+          this.goose.setVelocity(0, -speed);
+          this.gooseMoveDir = "up";
+        }
+      }
+      this.gooseNextDecisionTime = this.time.now + Phaser.Math.Between(2000, 5000);
+    }
+
+    if (this.goose) {
+      const speed = this.gooseMoveSpeed ?? 40;
+      if (this.gooseMoveDir === "left") {
+        this.goose.setVelocity(-speed, 0);
+        this.goose.body.velocity.y = 0;
+        playIfExists(this.goose, "goose-walk-left");
+        this.goose.setFlipX(false);
+      } else if (this.gooseMoveDir === "right") {
+        this.goose.setVelocity(speed, 0);
+        this.goose.body.velocity.y = 0;
+        playIfExists(this.goose, "goose-walk-right");
+        this.goose.setFlipX(false);
+      } else if (this.gooseMoveDir === "up") {
+        this.goose.setVelocity(0, -speed);
+        this.goose.body.velocity.x = 0;
+        playIfExists(this.goose, "goose-walk-up");
+      } else if (this.gooseMoveDir === "down") {
+        this.goose.setVelocity(0, speed);
+        this.goose.body.velocity.x = 0;
+        playIfExists(this.goose, "goose-walk-down");
+      } else {
+        this.goose.setVelocity(0);
+        this.goose.anims.stop();
+      }
+      this.goose.setDepth(this.goose.y);
     }
   }
 }

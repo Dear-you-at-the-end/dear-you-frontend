@@ -11,6 +11,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
     const canvasRef = useRef(null);
     const requestRef = useRef(null);
     const lastTimeRef = useRef(0);
+    const lastSpawnTimeRef = useRef(0);
     const playerRef = useRef({ x: 50 });
     const itemsRef = useRef([]);
     const scoreRef = useRef(0);
@@ -94,7 +95,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
             y: -ITEM_SIZE,
             type: type,
             imgIndex: imgIndex,
-            speed: isGood ? 2 : 2.5 + Math.random() // Bad items slightly faster
+            speed: isGood ? 1.5 : 1.8 + Math.random() * 0.5 // Slower
         });
     }, []);
 
@@ -105,17 +106,22 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         lastTimeRef.current = time;
 
         // Spawn items
-        if (Math.random() < 0.03) { // Approx 2 items per second at 60fps
+        if (time - lastSpawnTimeRef.current > 1000) { // Spawn every 1s
             spawnItem();
+            lastSpawnTimeRef.current = time;
         }
 
         // Move items & Check collisions
         const newItems = [];
+        // Calculate dimensions based on score (Growth Animation)
+        const scale = 1 + (scoreRef.current * 0.1);
+        const currentSize = PLAYER_SIZE * scale;
+
         const playerRect = {
-            x: (playerRef.current.x / 100) * GAME_WIDTH - PLAYER_SIZE / 2 + 10, // Adjusted hitbox
-            y: GAME_HEIGHT - PLAYER_SIZE - 10,
-            w: PLAYER_SIZE - 20,
-            h: PLAYER_SIZE
+            x: (playerRef.current.x / 100) * GAME_WIDTH - currentSize / 2 + (5 * scale),
+            y: GAME_HEIGHT - currentSize - 5,
+            w: currentSize - (10 * scale),
+            h: currentSize
         };
 
         itemsRef.current.forEach(item => {
@@ -159,7 +165,6 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         });
 
         itemsRef.current = newItems;
-        setItems([...itemsRef.current]); // Force render for non-canvas elements if needed
 
         // Draw
         const ctx = canvasRef.current?.getContext('2d');
@@ -182,21 +187,26 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
                 }
             });
 
-            // Draw Player
-            const px = (playerRef.current.x / 100) * GAME_WIDTH - PLAYER_SIZE / 2;
-            const py = GAME_HEIGHT - PLAYER_SIZE - 5;
+            // Draw Player with Growth Scale
+            const scale = 1 + (scoreRef.current * 0.1);
+            const currentSize = PLAYER_SIZE * scale;
+            const px = (playerRef.current.x / 100) * GAME_WIDTH - currentSize / 2;
+            const py = GAME_HEIGHT - currentSize - 5;
+
             const pImg = assetsRef.current.player;
             if (pImg && pImg.complete) {
                 // If sprite sheet, usually take first frame, but assuming full image for now based on request
                 // If it is small, scale it up
-                ctx.drawImage(pImg, 0, 0, 20, 20, px, py, PLAYER_SIZE, PLAYER_SIZE);
+                ctx.drawImage(pImg, 0, 0, 20, 20, px, py, currentSize, currentSize);
             } else {
                 ctx.fillStyle = 'blue';
-                ctx.fillRect(px, py, PLAYER_SIZE, PLAYER_SIZE);
+                ctx.fillRect(px, py, currentSize, currentSize);
             }
         }
 
-        requestRef.current = requestAnimationFrame(updateGame);
+        if (scoreRef.current < TARGET_SCORE && livesRef.current > 0) {
+            requestRef.current = requestAnimationFrame(updateGame);
+        }
     }, [gameState, onWin, onClose, spawnItem]);
 
     // Input Handling
@@ -215,7 +225,7 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
 
         // Continuous movement handling could be smoother but keydown is simple start
         // Better: track keys held
-        const keys = { ArrowLeft: false, ArrowRight: false };
+        const keys = { ArrowLeft: false, ArrowRight: false, a: false, A: false, d: false, D: false };
         const down = (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; };
         const up = (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; };
 
@@ -223,11 +233,11 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         window.addEventListener('keyup', up);
 
         const moveInterval = setInterval(() => {
-            if (keys.ArrowLeft) {
-                playerRef.current.x = Math.max(5, playerRef.current.x - 1.5); // smoother
+            if (keys.ArrowLeft || keys.a || keys.A) {
+                playerRef.current.x = Math.max(5, playerRef.current.x - 1.5);
                 setPlayerX(playerRef.current.x);
             }
-            if (keys.ArrowRight) {
+            if (keys.ArrowRight || keys.d || keys.D) {
                 playerRef.current.x = Math.min(95, playerRef.current.x + 1.5);
                 setPlayerX(playerRef.current.x);
             }
@@ -268,11 +278,11 @@ const HospitalGameModal = ({ isOpen, onClose, onWin }) => {
         return (
             <div style={modalOverlayStyle(fadeIn)}>
                 <div style={modalContentStyle}>
-                    <h2 style={titleStyle}>🏥 응급 물자 확보 🏥</h2>
+                    <h2 style={titleStyle}>01년생 회복시키기</h2>
                     <p style={descStyle}>
-                        위에서 떨어지는 <strong style={{ color: 'green' }}>Health Kit</strong>를 받으세요!<br />
-                        <strong style={{ color: 'red' }}>가짜 약(f...)</strong>은 피해야 합니다.<br />
-                        방향키 <strong>← →</strong> 로 kjy를 움직이세요.<br />
+                        위에서 떨어지는 <strong style={{ color: 'green' }}>회복키트</strong>를 받아 김지연을 회복시키세요!<br />
+                        <strong style={{ color: 'red' }}>가짜 약</strong>은 피해야 합니다.<br />
+                        <strong>A, D</strong> 키로 김지연을 움직여
                         <strong>10개</strong>를 모으면 성공!
                     </p>
                     <img
@@ -385,7 +395,7 @@ const modalContentStyle = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "40px",
+    padding: "30px",
     imageRendering: "pixelated",
 };
 
@@ -399,9 +409,9 @@ const titleStyle = {
 
 const descStyle = {
     fontFamily: "Galmuri",
-    fontSize: "14px",
+    fontSize: "13px",
     textAlign: "center",
-    lineHeight: "1.8",
+    lineHeight: "1.6",
     marginBottom: "30px",
     color: "#4E342E",
 };

@@ -116,117 +116,7 @@ export default class HospitalScene extends Phaser.Scene {
         bed.body.setSize(bed.displayWidth * 0.85, bed.displayHeight * 0.4);
         bed.body.setOffset(bed.displayWidth * 0.075, bed.displayHeight * 0.6);
         bed.setDepth(bed.y);
-
-        // Cart (closer to left wall)
-        const cartX = startX + 70;
-        const cartY = bed.y - 20;
-        const cart = obstacles.create(cartX, cartY, "hosp_cart");
-        cart.setScale(pixelScale);
-        cart.refreshBody();
-        cart.body.setSize(cart.displayWidth * 0.85, cart.displayHeight * 0.4);
-        cart.body.setOffset(cart.displayWidth * 0.075, cart.displayHeight * 0.6);
-        cart.setDepth(cart.y);
-
-        // Flower (On Cart)
-        const flower = this.add.image(cart.x, cart.y - 20 * (pixelScale / 2), "hosp_flower");
-        flower.setScale(pixelScale);
-        flower.setDepth(cart.depth + 1);
-
-        // IV (closer to right wall)
-        const ivX = startX + roomW - 70;
-        const ivY = bed.y - 30;
-        const iv = obstacles.create(ivX, ivY, "hosp_iv");
-        iv.setScale(pixelScale);
-        iv.refreshBody();
-        iv.body.setSize(iv.displayWidth * 0.85, iv.displayHeight * 0.4);
-        iv.body.setOffset(iv.displayWidth * 0.075, iv.displayHeight * 0.6);
-        iv.setDepth(iv.y);
-
-        // Armchair (near right wall)
-        const chairX = startX + roomW - 55;
-        const chairY = bed.y + 30;
-        const chair = obstacles.create(chairX, chairY, "hosp_armchair");
-        chair.setScale(pixelScale);
-        chair.refreshBody();
-        chair.body.setSize(chair.displayWidth * 0.85, chair.displayHeight * 0.4);
-    }
-
-    create() {
-        const pixelScale = 3;
-        const canvasWidth = this.scale.width;
-        const canvasHeight = this.scale.height;
-        const roomW = 380;
-        const roomH = 450;
-        const centerX = canvasWidth / 2;
-        const centerY = canvasHeight / 2;
-        const startX = centerX - roomW / 2;
-        const startY = centerY - roomH / 2;
-
-        this.cameras.main.setBackgroundColor("#222222");
-        this.cameras.main.setZoom(1); // Reset zoom as we are using pixelScale 3
-        this.physics.world.setBounds(startX, startY, roomW, roomH);
-
-        // Floor
-        this.add.tileSprite(centerX, centerY, roomW, roomH, "hosp_tile")
-            .setTileScale(pixelScale)
-            .setDepth(0);
-
-        // Wall (Top)
-        // Adjusting wall to fit top of room
-        const wallTex = this.textures.get("hosp_wall").getSourceImage();
-        const wallHeight = wallTex.height * pixelScale;
-
-        // Position wall at the top edge of the room
-        this.add.tileSprite(centerX, startY + wallHeight / 2, roomW, wallHeight, "hosp_wall")
-            .setTileScale(pixelScale)
-            .setDepth(1);
-
-        // Create invisible wall barriers
-        const walls = this.physics.add.staticGroup();
-        // Top wall
-        const topWall = walls.create(centerX, startY + wallHeight / 2, null);
-        topWall.setSize(roomW, wallHeight).setVisible(false).refreshBody();
-
-        // Left wall barrier
-        const leftWall = walls.create(startX, centerY, null);
-        leftWall.setSize(10, roomH).setVisible(false).refreshBody();
-
-        // Right wall barrier
-        const rightWall = walls.create(startX + roomW, centerY, null);
-        rightWall.setSize(10, roomH).setVisible(false).refreshBody();
-
-        // Bottom invisible barrier (leave gap for exit)
-        const bottomWall = walls.create(centerX, startY + roomH, null);
-        bottomWall.setSize(roomW, 20).setVisible(false).refreshBody();
-
-
-        // --- Floor Outline (Exit Zone Logic) ---
-        const outlineTex = this.textures.get("hosp_outline").getSourceImage();
-        const outlineH = outlineTex.height * pixelScale;
-
-        // 1. Outline at the very bottom of the floor area
-        this.add.tileSprite(centerX, startY + roomH - outlineH / 2, roomW, outlineH, "hosp_outline")
-            .setTileScale(pixelScale)
-            .setDepth(1);
-
-        // 2. Physics zone for exit
-        this.exitZone = this.add.zone(centerX, startY + roomH - 20, roomW, 40);
-        this.physics.world.enable(this.exitZone);
-        this.exitZone.body.setAllowGravity(false);
-        this.exitZone.body.moves = false;
-
-        const obstacles = this.physics.add.staticGroup();
-
-        // Furniture Placement
-        // Bed (closer to top wall)
-        const bedX = centerX;
-        const bedY = startY + wallHeight + 70;
-        const bed = obstacles.create(bedX, bedY, "hosp_bed");
-        bed.setScale(pixelScale * 1.2);
-        bed.refreshBody();
-        bed.body.setSize(bed.displayWidth * 0.85, bed.displayHeight * 0.4);
-        bed.body.setOffset(bed.displayWidth * 0.075, bed.displayHeight * 0.6);
-        bed.setDepth(bed.y);
+        this.bed = bed;
 
         // Cart (closer to left wall)
         const cartX = startX + 70;
@@ -267,7 +157,7 @@ export default class HospitalScene extends Phaser.Scene {
         const psyX = bedX + 50;
         const psyY = bedY + 10;
         this.psy = this.add.sprite(psyX, psyY, "psy");
-        this.psy.setScale(pixelScale);
+        this.psy.setScale(pixelScale * 1.3);
         this.psy.setDepth(psyY);
 
         if (!this.anims.exists("psy-idle-side")) {
@@ -285,7 +175,7 @@ export default class HospitalScene extends Phaser.Scene {
         const plzX = bedX;
         const plzY = bedY - 60;
         const plzIcon = this.add.image(plzX, plzY, "plz_icon");
-        plzIcon.setScale(pixelScale * 0.8);
+        plzIcon.setScale(pixelScale * 0.5);
         plzIcon.setDepth(1000);
 
         // Add bobbing animation to plz icon
@@ -304,7 +194,7 @@ export default class HospitalScene extends Phaser.Scene {
         // Default spawn at "door" area if no data
         // Force spawn to new door location if it looks like default
         this.player = this.physics.add.sprite(centerX, startY + roomH - 80, "main_character", firstFrame);
-        this.player.setScale(pixelScale).setCollideWorldBounds(true);
+        this.player.setScale(pixelScale * 1.3).setCollideWorldBounds(true);
         this.player.body.setSize(10, 8).setOffset(5, 12);
         this.player.setDepth(100);
 
@@ -377,6 +267,7 @@ export default class HospitalScene extends Phaser.Scene {
         // Mouse/Key handling (Standard movement)
         const pointer = this.input.activePointer;
         const pointerRightDown = pointer.rightButtonDown();
+        const rightJustDown = pointerRightDown && !this.prevRight;
         this.prevRight = pointerRightDown;
 
         const isRunning = this.shiftKey.isDown;
@@ -443,12 +334,22 @@ export default class HospitalScene extends Phaser.Scene {
             }
         }
 
-        // Check Interaction with PSY
+        // Check Interaction with PSY or Bed
         if (this.psy) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.psy.x, this.psy.y);
-            if (dist < 60 && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            if (dist < 60 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
                 window.dispatchEvent(new CustomEvent("start-hospital-game"));
                 this.player.body.setVelocity(0);
+                return;
+            }
+        }
+
+        if (this.bed) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.bed.x, this.bed.y);
+            if (dist < 100 && (rightJustDown || Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
+                window.dispatchEvent(new CustomEvent("start-hospital-game"));
+                this.player.body.setVelocity(0);
+                return;
             }
         }
 

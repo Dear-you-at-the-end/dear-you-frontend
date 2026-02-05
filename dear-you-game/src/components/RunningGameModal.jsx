@@ -54,8 +54,12 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
 
     useEffect(() => {
         if (!isOpen) return;
-        resetAndStartCountdown();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        const startTimer = setTimeout(() => {
+            resetAndStartCountdown();
+        }, 0);
         return () => {
+            clearTimeout(startTimer);
             if (countdownRef.current) {
                 clearInterval(countdownRef.current);
                 countdownRef.current = null;
@@ -308,7 +312,7 @@ const RunningGameModal = ({ isOpen, onClose, onWin }) => {
                         textShadow: "1px 1px 0 #000",
                         transition: gameState === "playing" ? "left 0.01s linear" : "left 0.05s linear",
                         transform: "translateX(-40px)"
-                    }}>임태빈</div>
+                    }}>ITB</div>
 
                 </div>
 
