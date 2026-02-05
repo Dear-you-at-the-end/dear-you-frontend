@@ -28,6 +28,7 @@ function App() {
   const [showCatchBall, setShowCatchBall] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHeartQuest, setShowHeartQuest] = useState(false);
+  const [, setIsQuestCompleted] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [isOpeningScene, setIsOpeningScene] = useState(false);
   const [bgm, setBgm] = useState(null);
@@ -548,13 +549,10 @@ function App() {
       this.load.image("ig", `${commonPath}character/ig.png`);
       this.load.image("inj", `${commonPath}character/inj.png`);
 
-      // Load 103 NPCs as Spritesheets (assuming 32x32 or adjust if needed)
-      // Trying 16x16 based on main_character style, or 32x32. Let's try 32x32 first? No, 16x16 seems typical for this game.
-      // Let's use 32x32 since user mentioned problems.
-      // Actually, without json, we guess. Let's try 32x32.
-      this.load.spritesheet("kms", `${commonPath}character/kms.png`, { frameWidth: 32, frameHeight: 32 });
-      this.load.spritesheet("pcw", `${commonPath}character/pcw.png`, { frameWidth: 32, frameHeight: 32 });
-      this.load.spritesheet("swy", `${commonPath}character/swy.png`, { frameWidth: 32, frameHeight: 32 });
+      // 160x20 sprite sheets -> 20x20 x 8 frames (indices 0..7)
+      this.load.spritesheet("kms", `${commonPath}character/kms.png`, { frameWidth: 20, frameHeight: 20 });
+      this.load.spritesheet("pcw", `${commonPath}character/pcw.png`, { frameWidth: 20, frameHeight: 20 });
+      this.load.spritesheet("swy", `${commonPath}character/swy.png`, { frameWidth: 20, frameHeight: 20 });
 
       this.load.atlas(
         "main_character",
@@ -699,45 +697,27 @@ function App() {
         .setScale(pixelScale)
         .setDepth(startY + roomH);
 
-      // Create animations for specific NPCs
-      const createNpcAnim = (key, prefix, start, end) => {
+      const createNpcAnimSheet = (key, texture, frames) => {
         if (!this.anims.exists(key)) {
           this.anims.create({
             key,
-            frames: this.anims.generateFrameNames(prefix, {
-              start, end, suffix: ".aseprite", prefix: `${prefix} `
-            }),
-            frameRate: 4,
+            frames: this.anims.generateFrameNumbers(texture, { frames }),
+            frameRate: 6,
             repeat: -1
           });
         }
       };
 
-      const createNpcAnimSheet = (key, texture, start, end) => {
-        if (!this.anims.exists(key)) {
-          this.anims.create({
-            key,
-            frames: this.anims.generateFrameNumbers(texture, { start, end }),
-            frameRate: 4,
-            repeat: -1
-          });
-        }
-      };
-
-      // Create animations for 103 NPCs
+      // User-requested wiggle: use frames 5~8 (1-based) => 4~7 (0-based)
       ["kms", "pcw", "swy"].forEach(char => {
-        // Assuming frames: 0-3 down, 4-7 right (standard 4-dir 4-frame/3-frame layout?)
-        // If 3x4 sheet: 0-2, 3-5, 6-8, 9-11
-        // Using provided indices 0-3, 4-7
-        createNpcAnimSheet(`${char}-idle-down`, char, 0, 3);
-        createNpcAnimSheet(`${char}-idle-right`, char, 4, 7);
+        createNpcAnimSheet(`${char}-wiggle`, char, [4, 5, 6, 7]);
       });
 
       const roomNpcConfig = {
         Room103: [
-          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "swy-idle-right", texture: "swy" },
-          { id: "npc-103-2", x: rightX - 40, y: row3Y + 20, anim: "kms-idle-down", texture: "kms" },
-          { id: "npc-103-3", x: rightX - 40, y: row2Y + 20, anim: "pcw-idle-down", texture: "pcw" },
+          { id: "npc-103-1", x: leftX + 40, y: row2Y + 20, anim: "swy-wiggle", texture: "swy" },
+          { id: "npc-103-2", x: leftX + 40, y: row3Y + 22, anim: "kms-wiggle", texture: "kms" },
+          { id: "npc-103-3", x: rightX - 30, y: row2Y + 18, anim: "pcw-wiggle", texture: "pcw" },
         ],
         Room104: [
           { id: "npc-104-1", x: rightX - 35, y: row1Y + 15, texture: "ig", isStatic: true },
