@@ -30,7 +30,7 @@
 게임의 시작 지점. 사라진 편지의 단서를 찾기 위한 여정이 시작됩니다.
 
 <img width="600" alt="우체국" src="https://github.com/user-attachments/assets/10357ef5-d943-4c8c-af0f-f45632821600" />
-<img width="400" height="210" alt="맵" src="https://github.com/user-attachments/assets/ba6c7f00-a844-4ee2-94a8-2e82f3685f5b" />
+<img width="600" height="315" alt="맵" src="https://github.com/user-attachments/assets/4f51c294-d201-4edd-bbf9-269f75e67c96" />
 
 ---
 
@@ -40,13 +40,13 @@
 
 <img width="600" alt="기숙사 103호" src="https://github.com/user-attachments/assets/16f6d98a-1c09-470b-84d5-beb5fd7b3162" />
 <img width="300" alt="기숙사 103호 미니게임1" src="https://github.com/user-attachments/assets/cbd8a6e2-4cdc-4462-b44a-89f2122dee07" />
-<img width="400" alt="기숙사 103호 미니게임2" src="https://github.com/user-attachments/assets/430f50b5-6cef-47ec-b877-1e2badb50ac9" />
+<img width="300" alt="기숙사 103호 미니게임2" src="https://github.com/user-attachments/assets/430f50b5-6cef-47ec-b877-1e2badb50ac9" />
 
 ### 🏠 기숙사 104호
 
 산수 미니게임을 통해 편지를 전달할 수 있습니다.
 
-<img width="600" alt="기숙사 104호" src="https://github.com/user-attachments/assets/ef22deac-b1b4-4af4-9bd4-fc4bbe4ea2ee" />
+<img width="700" alt="기숙사 104호" src="https://github.com/user-attachments/assets/ef22deac-b1b4-4af4-9bd4-fc4bbe4ea2ee" />
 <img width="280" alt="기숙사 104호 미니게임" src="https://github.com/user-attachments/assets/57efa3ce-105b-4d09-9851-d94477192321" />
 
 ---
@@ -93,7 +93,7 @@
 
 편지를 모두 전달한 뒤 엔딩을 확인할 수 있습니다.
 
-<img width="320" alt="마이룸" src="https://github.com/user-attachments/assets/c55c8118-e83d-4522-920f-0ea686ba7178" />
+<img width="300" alt="마이룸" src="https://github.com/user-attachments/assets/c55c8118-e83d-4522-920f-0ea686ba7178" />
 <img width="600" height="328" alt="엔딩" src="https://github.com/user-attachments/assets/a2052f82-fbd8-416a-95b2-7e52fff05071" />
 
 ---
